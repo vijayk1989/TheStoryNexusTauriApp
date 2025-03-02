@@ -2,6 +2,7 @@
 interface BaseEntity {
     id: string;
     createdAt: Date;
+    isDemo?: boolean; // Flag to identify demo content
 }
 
 // Core story type
@@ -28,30 +29,6 @@ export interface Chapter extends BaseEntity {
 export interface ChapterOutline {
     content: string;
     lastUpdated: Date;
-}
-
-// World building types
-export interface WorldData extends BaseEntity {
-    storyId: string;
-    name: string;
-}
-
-export type WorldDataEntryType =
-    | 'character'
-    | 'location'
-    | 'item'
-    | 'timeline'
-    | 'synopsis'
-    | 'relationship'
-    | 'style';
-
-export interface WorldDataEntry extends BaseEntity {
-    worldDataId: string;
-    name: string;
-    type: WorldDataEntryType;
-    description: string;
-    tags: string[];
-    metadata?: Record<string, unknown>;
 }
 
 // AI Chat types
@@ -87,6 +64,7 @@ export interface Prompt extends BaseEntity {
     messages: PromptMessage[];
     allowedModels: AllowedModel[];
     storyId?: string;
+    isSystem?: boolean; // Flag to identify system prompts
 }
 
 // AI Provider and Model types

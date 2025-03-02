@@ -106,7 +106,7 @@ export const useStoryStore = create<StoryState>((set, _get) => ({
     deleteStory: async (id: string) => {
         set({ loading: true, error: null });
         try {
-            await db.stories.delete(id);
+            await db.deleteStoryWithRelated(id);
             set(state => ({
                 stories: state.stories.filter(story => story.id !== id),
                 currentStory: state.currentStory?.id === id ? null : state.currentStory,

@@ -2,8 +2,6 @@ import Dexie, { Table } from 'dexie';
 import {
     Story,
     Chapter,
-    WorldData,
-    WorldDataEntry,
     AIChat,
     Prompt,
     AISettings,
@@ -13,8 +11,6 @@ import {
 export class StoryDatabase extends Dexie {
     stories!: Table<Story>;
     chapters!: Table<Chapter>;
-    worldData!: Table<WorldData>;
-    worldDataEntries!: Table<WorldDataEntry>;
     aiChats!: Table<AIChat>;
     prompts!: Table<Prompt>;
     aiSettings!: Table<AISettings>;
@@ -23,38 +19,28 @@ export class StoryDatabase extends Dexie {
     constructor() {
         super('StoryDatabase');
 
-        this.version(3).stores({
-            stories: 'id, title, createdAt, language',
-            chapters: 'id, storyId, order, createdAt',
-            worldData: 'id, storyId, createdAt',
-            worldDataEntries: 'id, worldDataId, type, *tags',
-            aiChats: 'id, storyId, createdAt',
-            prompts: 'id, name, promptType, storyId, createdAt',
+        this.version(6).stores({
+            stories: 'id, title, createdAt, language, isDemo',
+            chapters: 'id, storyId, order, createdAt, isDemo',
+            aiChats: 'id, storyId, createdAt, isDemo',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
             aiSettings: 'id, lastModelsFetch',
-            lorebookEntries: 'id, storyId, name, category, *tags',
+            lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
         });
     }
 
     // Helper method to create a new story with initial structure
-    async createNewStory(storyData: Omit<Story, 'id' | 'createdAt'>): Promise<string> {
+    async createNewStory(storyData: Omit<Story, 'createdAt'>): Promise<string> {
         return await this.transaction('rw',
-            [this.stories, this.worldData],
+            [this.stories],
             async () => {
-                const storyId = crypto.randomUUID();
+                const storyId = storyData.id || crypto.randomUUID();
 
                 // Create the story
                 await this.stories.add({
                     id: storyId,
                     createdAt: new Date(),
                     ...storyData
-                });
-
-                // Create initial world data
-                await this.worldData.add({
-                    id: crypto.randomUUID(),
-                    storyId,
-                    name: 'Story World',
-                    createdAt: new Date()
                 });
 
                 return storyId;
@@ -71,25 +57,9 @@ export class StoryDatabase extends Dexie {
             .equals(storyId)
             .sortBy('order');
 
-        const worldData = await this.worldData
-            .where('storyId')
-            .equals(storyId)
-            .first();
-
-        const worldDataEntries = worldData
-            ? await this.worldDataEntries
-                .where('worldDataId')
-                .equals(worldData.id)
-                .toArray()
-            : [];
-
         return {
             ...story,
-            chapters,
-            worldBuilding: worldData ? {
-                ...worldData,
-                entries: worldDataEntries
-            } : null
+            chapters
         };
     }
 
@@ -113,6 +83,40 @@ export class StoryDatabase extends Dexie {
             .where(['storyId', 'category'])
             .equals([storyId, category])
             .toArray();
+    }
+
+    /**
+     * Deletes a story and all related data (chapters, lorebook entries, etc.)
+     * @param storyId The ID of the story to delete
+     * @returns Promise that resolves when the deletion is complete
+     */
+    async deleteStoryWithRelated(storyId: string): Promise<void> {
+        return await this.transaction('rw',
+            [this.stories, this.chapters, this.lorebookEntries, this.aiChats],
+            async () => {
+                // Delete all related chapters
+                await this.chapters
+                    .where('storyId')
+                    .equals(storyId)
+                    .delete();
+
+                // Delete all related lorebook entries
+                await this.lorebookEntries
+                    .where('storyId')
+                    .equals(storyId)
+                    .delete();
+
+                // Delete all related AI chats
+                await this.aiChats
+                    .where('storyId')
+                    .equals(storyId)
+                    .delete();
+
+                // Finally delete the story itself
+                await this.stories.delete(storyId);
+
+                console.log(`Deleted story ${storyId} and all related data`);
+            });
     }
 }
 

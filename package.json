@@ -1,5 +1,8 @@
 {
   "name": "thestorynexus",
+  "displayName": "The Story Nexus",
+  "description": "A story writing app",
+  "author": "Vijaykumar Bhattacharji",
   "private": true,
   "version": "0.1.0",
   "type": "module",

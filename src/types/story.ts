@@ -31,6 +31,17 @@ export interface ChapterOutline {
     lastUpdated: Date;
 }
 
+// SceneBeat structure
+export interface SceneBeat extends BaseEntity {
+    storyId: string;
+    chapterId: string;
+    command: string;
+    povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
+    povCharacter?: string;
+    generatedContent?: string; // To store the last generated content
+    accepted?: boolean; // Whether the generated content was accepted
+}
+
 // AI Chat types
 export interface AIChat extends BaseEntity {
     storyId: string;

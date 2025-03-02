@@ -869,6 +869,7 @@ export default function ToolbarPlugin({
                     <Bot className="h-4 w-4" />
                     <span className="text">Scene Beat</span>
                   </div>
+                  <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.SCENE_BEAT}</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

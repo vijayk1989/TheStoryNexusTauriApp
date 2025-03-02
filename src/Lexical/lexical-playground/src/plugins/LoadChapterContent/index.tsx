@@ -2,12 +2,24 @@ import { useEffect, useState } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
+import { SceneBeatNode } from '../../nodes/SceneBeatNode';
 
 export function LoadChapterContentPlugin(): null {
     const [editor] = useLexicalComposerContext();
     const { currentChapterId } = useStoryContext();
     const { getChapter, currentChapter } = useChapterStore();
     const [hasLoaded, setHasLoaded] = useState(false);
+
+    // Check if SceneBeatNode is registered
+    useEffect(() => {
+        // SceneBeatNode should already be registered in PlaygroundNodes.ts
+        // Just log if it's available
+        if (editor.hasNodes([SceneBeatNode])) {
+            console.log('LoadChapterContent - SceneBeatNode is registered');
+        } else {
+            console.warn('LoadChapterContent - SceneBeatNode is NOT registered - this may cause issues with loading scene beats');
+        }
+    }, [editor]);
 
     // Debug logging
     useEffect(() => {
@@ -21,6 +33,7 @@ export function LoadChapterContentPlugin(): null {
         });
     }, [currentChapterId, currentChapter, hasLoaded]);
 
+    // Load chapter data when chapter ID changes
     useEffect(() => {
         if (currentChapterId) {
             console.log('LoadChapterContent - Loading chapter:', currentChapterId);
@@ -29,6 +42,7 @@ export function LoadChapterContentPlugin(): null {
         }
     }, [currentChapterId, getChapter]);
 
+    // Set editor content when chapter data is available
     useEffect(() => {
         if (!hasLoaded && currentChapter?.content && currentChapter.id === currentChapterId) {
             console.log('LoadChapterContent - Attempting to load content:', {
@@ -37,70 +51,35 @@ export function LoadChapterContentPlugin(): null {
                 contentPreview: currentChapter.content.substring(0, 100) + '...'
             });
 
-            // Wrap the editor state update in a micro task
-            Promise.resolve().then(() => {
+            // Ensure we have a small delay to make sure all nodes are registered
+            setTimeout(() => {
                 try {
-                    // Ensure content is valid JSON
-                    let contentToLoad = currentChapter.content;
+                    // Check if content contains SceneBeatNode data
+                    const contentObj = JSON.parse(currentChapter.content);
+                    const hasSceneBeatNodes = JSON.stringify(contentObj).includes('"type":"scene-beat"');
 
-                    // Check if content is a valid JSON string
-                    try {
-                        // Try parsing to validate it's JSON
-                        JSON.parse(contentToLoad);
-                    } catch (jsonError) {
-                        console.warn('LoadChapterContent - Content is not valid JSON, attempting to format it:', jsonError);
-
-                        // If not valid JSON, create a simple editor state with the content as text
-                        const formattedContent = {
-                            root: {
-                                children: [
-                                    {
-                                        children: [
-                                            {
-                                                detail: 0,
-                                                format: 0,
-                                                mode: "normal",
-                                                style: "",
-                                                text: contentToLoad,
-                                                type: "text",
-                                                version: 1
-                                            }
-                                        ],
-                                        direction: "ltr",
-                                        format: "",
-                                        indent: 0,
-                                        type: "paragraph",
-                                        version: 1
-                                    }
-                                ],
-                                direction: "ltr",
-                                format: "",
-                                indent: 0,
-                                type: "root",
-                                version: 1
-                            }
-                        };
-
-                        contentToLoad = JSON.stringify(formattedContent);
-                        console.log('LoadChapterContent - Reformatted content as Lexical JSON');
+                    if (hasSceneBeatNodes) {
+                        console.log('LoadChapterContent - Content contains SceneBeatNodes');
                     }
 
-                    const parsedState = editor.parseEditorState(contentToLoad);
+                    // Parse and set the editor state
+                    const parsedState = editor.parseEditorState(currentChapter.content);
                     editor.setEditorState(parsedState);
                     setHasLoaded(true);
                     console.log('LoadChapterContent - Content loaded successfully');
                 } catch (error) {
                     console.error('LoadChapterContent - Failed to load content:', error);
-                    // Try to recover by creating an empty editor state
+
+                    // Only in case of error, try to create an empty editor state
                     try {
                         console.log('LoadChapterContent - Attempting recovery with empty state');
-                        editor.setEditorState(editor.parseEditorState('{"root":{"children":[{"children":[],"direction":null,"format":"","indent":0,"type":"paragraph","version":1}],"direction":null,"format":"","indent":0,"type":"root","version":1}}'));
+                        editor.setEditorState(editor.parseEditorState('{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}'));
                         setHasLoaded(true);
                     } catch (recoveryError) {
                         console.error('LoadChapterContent - Recovery failed:', recoveryError);
                     }
                 }
-            });
+            }, 100); // Small delay to ensure node registration
         }
     }, [editor, currentChapter, currentChapterId, hasLoaded]);
 

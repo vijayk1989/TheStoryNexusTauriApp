@@ -26,6 +26,7 @@ import { LorebookEntry } from '@/types/story';
 import { SceneBeatMatchedEntries } from './SceneBeatMatchedEntries';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
+import { sceneBeatService } from '@/features/scenebeats/services/sceneBeatService';
 import {
     Popover,
     PopoverContent,
@@ -44,9 +45,7 @@ export type SerializedSceneBeatNode = Spread<
     {
         type: 'scene-beat';
         version: 1;
-        command: string;
-        povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
-        povCharacter?: string;
+        sceneBeatId: string;
     },
     SerializedLexicalNode
 >;
@@ -81,6 +80,8 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         'Third Person Omniscient'
     );
     const [tempPovCharacter, setTempPovCharacter] = useState<string | undefined>();
+    const [sceneBeatId, setSceneBeatId] = useState<string>('');
+    const [isLoaded, setIsLoaded] = useState(false);
 
     // Get character entries from lorebook
     const characterEntries = useMemo(() => {
@@ -94,32 +95,87 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         });
     }, [fetchPrompts]);
 
+    // Get the sceneBeatId from the node
     useEffect(() => {
         editor.getEditorState().read(() => {
             const node = $getNodeByKey(nodeKey);
             if (node instanceof SceneBeatNode) {
-                setCommand(node.getCommand());
-                setPovType(node.getPovType() || currentChapter?.povType || 'Third Person Omniscient');
-                setPovCharacter(node.getPovCharacter() || currentChapter?.povCharacter);
-
-                // Initialize temp values for the popover
-                setTempPovType(node.getPovType() || currentChapter?.povType || 'Third Person Omniscient');
-                setTempPovCharacter(node.getPovCharacter() || currentChapter?.povCharacter);
+                setSceneBeatId(node.getSceneBeatId());
             }
         });
-    }, [editor, nodeKey, currentChapter]);
+    }, [editor, nodeKey]);
 
-    // Register transform to sync command changes
+    // Load or create SceneBeat data
     useEffect(() => {
-        return editor.registerNodeTransform(SceneBeatNode, (node) => {
-            if (node.getKey() === nodeKey) {
-                const currentCommand = node.getCommand();
-                if (currentCommand !== command) {
-                    node.setCommand(command);
+        const loadOrCreateSceneBeat = async () => {
+            if (isLoaded) return;
+
+            if (sceneBeatId) {
+                // Load existing SceneBeat
+                try {
+                    const data = await sceneBeatService.getSceneBeat(sceneBeatId);
+                    if (data) {
+                        setCommand(data.command || '');
+                        setPovType(data.povType || currentChapter?.povType || 'Third Person Omniscient');
+                        setPovCharacter(data.povCharacter || currentChapter?.povCharacter);
+                        setTempPovType(data.povType || currentChapter?.povType || 'Third Person Omniscient');
+                        setTempPovCharacter(data.povCharacter || currentChapter?.povCharacter);
+                        setIsLoaded(true);
+                    }
+                } catch (error) {
+                    console.error('Error loading SceneBeat:', error);
+                }
+            } else if (currentStoryId && currentChapterId) {
+                // Create new SceneBeat
+                try {
+                    const newId = await sceneBeatService.createSceneBeat({
+                        storyId: currentStoryId,
+                        chapterId: currentChapterId,
+                        command: '',
+                        povType: currentChapter?.povType || 'Third Person Omniscient',
+                        povCharacter: currentChapter?.povCharacter,
+                    });
+
+                    // Update the node with the new ID
+                    editor.update(() => {
+                        const node = $getNodeByKey(nodeKey);
+                        if (node instanceof SceneBeatNode) {
+                            node.setSceneBeatId(newId);
+                        }
+                    });
+
+                    setSceneBeatId(newId);
+                    setPovType(currentChapter?.povType || 'Third Person Omniscient');
+                    setPovCharacter(currentChapter?.povCharacter);
+                    setTempPovType(currentChapter?.povType || 'Third Person Omniscient');
+                    setTempPovCharacter(currentChapter?.povCharacter);
+                    setIsLoaded(true);
+                } catch (error) {
+                    console.error('Error creating SceneBeat:', error);
                 }
             }
-        });
-    }, [editor, nodeKey, command]);
+        };
+
+        loadOrCreateSceneBeat();
+    }, [editor, nodeKey, sceneBeatId, currentStoryId, currentChapterId, currentChapter, isLoaded]);
+
+    // Save command changes to the database
+    const saveCommand = useMemo(() => debounce(async (id: string, newCommand: string) => {
+        if (!id) return;
+
+        try {
+            await sceneBeatService.updateSceneBeat(id, { command: newCommand });
+        } catch (error) {
+            console.error('Error saving SceneBeat command:', error);
+        }
+    }, 500), []);
+
+    // Handle command changes
+    useEffect(() => {
+        if (sceneBeatId && isLoaded) {
+            saveCommand(sceneBeatId, command);
+        }
+    }, [command, sceneBeatId, saveCommand, isLoaded]);
 
     // Add debounced tag matching effect for the command textarea
     useEffect(() => {
@@ -143,7 +199,15 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         };
     }, [command, tagMap]);
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
+        if (sceneBeatId) {
+            try {
+                await sceneBeatService.deleteSceneBeat(sceneBeatId);
+            } catch (error) {
+                console.error('Error deleting SceneBeat:', error);
+            }
+        }
+
         editor.update(() => {
             const node = $getNodeByKey(nodeKey);
             if (node) {
@@ -172,18 +236,21 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         setTempPovCharacter(value);
     };
 
-    const handleSavePov = () => {
+    const handleSavePov = async () => {
         setPovType(tempPovType);
         setPovCharacter(tempPovCharacter);
 
-        // Update the node with new POV settings
-        editor.update(() => {
-            const node = $getNodeByKey(nodeKey);
-            if (node instanceof SceneBeatNode) {
-                node.setPovType(tempPovType);
-                node.setPovCharacter(tempPovCharacter);
+        // Save to database
+        if (sceneBeatId) {
+            try {
+                await sceneBeatService.updateSceneBeat(sceneBeatId, {
+                    povType: tempPovType,
+                    povCharacter: tempPovCharacter
+                });
+            } catch (error) {
+                console.error('Error saving POV settings:', error);
             }
-        });
+        }
 
         setShowPovPopover(false);
         toast.success('POV settings saved');
@@ -298,6 +365,18 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                     toast.error('Failed to generate text');
                 }
             );
+
+            // Save generated content to database
+            if (sceneBeatId) {
+                try {
+                    await sceneBeatService.updateSceneBeat(sceneBeatId, {
+                        generatedContent: streamedText,
+                        accepted: false
+                    });
+                } catch (error) {
+                    console.error('Error saving generated content:', error);
+                }
+            }
         } catch (error) {
             console.error('Error generating text:', error);
             toast.error('Failed to generate text');
@@ -306,7 +385,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         }
     };
 
-    const handleAccept = () => {
+    const handleAccept = async () => {
         editor.update(() => {
             const paragraphNode = $createParagraphNode();
             paragraphNode.append($createTextNode(streamedText));
@@ -315,6 +394,18 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                 currentNode.insertAfter(paragraphNode);
             }
         });
+
+        // Update accepted status in database
+        if (sceneBeatId) {
+            try {
+                await sceneBeatService.updateSceneBeat(sceneBeatId, {
+                    accepted: true
+                });
+            } catch (error) {
+                console.error('Error updating accepted status:', error);
+            }
+        }
+
         setStreamedText('');
         setStreamComplete(false);
     };
@@ -529,20 +620,11 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 }
 
 export class SceneBeatNode extends DecoratorNode<JSX.Element> {
-    __command: string;
-    __povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
-    __povCharacter?: string;
+    __sceneBeatId: string;
 
-    constructor(
-        command: string = '',
-        povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient',
-        povCharacter?: string,
-        key?: NodeKey
-    ) {
+    constructor(sceneBeatId: string = '', key?: NodeKey) {
         super(key);
-        this.__command = command;
-        this.__povType = povType;
-        this.__povCharacter = povCharacter;
+        this.__sceneBeatId = sceneBeatId;
     }
 
     static getType(): string {
@@ -550,58 +632,28 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
     }
 
     static clone(node: SceneBeatNode): SceneBeatNode {
-        return new SceneBeatNode(
-            node.__command,
-            node.__povType,
-            node.__povCharacter,
-            node.__key
-        );
+        return new SceneBeatNode(node.__sceneBeatId, node.__key);
     }
 
     static importJSON(serializedNode: SerializedSceneBeatNode): SceneBeatNode {
-        const node = $createSceneBeatNode(
-            serializedNode.command || '',
-            serializedNode.povType,
-            serializedNode.povCharacter
-        );
-        return node;
+        return $createSceneBeatNode(serializedNode.sceneBeatId || '');
     }
 
     exportJSON(): SerializedSceneBeatNode {
         return {
             type: 'scene-beat',
             version: 1,
-            command: this.__command,
-            povType: this.__povType,
-            povCharacter: this.__povCharacter,
+            sceneBeatId: this.__sceneBeatId,
         };
     }
 
-    setCommand(command: string): void {
+    getSceneBeatId(): string {
+        return this.__sceneBeatId;
+    }
+
+    setSceneBeatId(id: string): void {
         const writable = this.getWritable();
-        writable.__command = command;
-    }
-
-    getCommand(): string {
-        return this.__command;
-    }
-
-    setPovType(povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient'): void {
-        const writable = this.getWritable();
-        writable.__povType = povType;
-    }
-
-    getPovType(): 'First Person' | 'Third Person Limited' | 'Third Person Omniscient' | undefined {
-        return this.__povType;
-    }
-
-    setPovCharacter(povCharacter?: string): void {
-        const writable = this.getWritable();
-        writable.__povCharacter = povCharacter;
-    }
-
-    getPovCharacter(): string | undefined {
-        return this.__povCharacter;
+        writable.__sceneBeatId = id;
     }
 
     createDOM(): HTMLElement {
@@ -627,12 +679,8 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
     }
 }
 
-export function $createSceneBeatNode(
-    command: string = '',
-    povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient',
-    povCharacter?: string
-): SceneBeatNode {
-    return $applyNodeReplacement(new SceneBeatNode(command, povType, povCharacter));
+export function $createSceneBeatNode(sceneBeatId: string = ''): SceneBeatNode {
+    return $applyNodeReplacement(new SceneBeatNode(sceneBeatId));
 }
 
 export function $isSceneBeatNode(

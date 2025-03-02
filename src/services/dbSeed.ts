@@ -123,8 +123,8 @@ export class DatabaseSeeder {
             for (const chapterData of demoStory.chapters) {
                 console.log(`Adding chapter: ${chapterData.title}`);
 
-                // Format content for Lexical editor
-                const formattedContent = this.formatContentForLexical(chapterData.content || '');
+                // Content is already formatted for Lexical editor in demoStory.ts
+                const content = chapterData.content || '{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
 
                 // Add the chapter
                 await db.chapters.add({
@@ -133,8 +133,12 @@ export class DatabaseSeeder {
                     title: chapterData.title,
                     summary: chapterData.summary || '',
                     order: demoStory.chapters.indexOf(chapterData) + 1,
-                    content: formattedContent,
-                    wordCount: chapterData.content ? chapterData.content.split(/\s+/).length : 0,
+                    content: content,
+                    wordCount: chapterData.content ? JSON.parse(content).root.children.reduce((count, paragraph) => {
+                        return count + (paragraph.children.reduce((textCount, child) => {
+                            return textCount + (child.text ? child.text.split(/\s+/).length : 0);
+                        }, 0));
+                    }, 0) : 0,
                     createdAt: new Date(),
                     povCharacter: chapterData.povCharacter,
                     povType: chapterData.povType || 'Third Person Omniscient',
@@ -161,73 +165,6 @@ export class DatabaseSeeder {
                     isDemo: true
                 } as LorebookEntry);
             }
-        }
-    }
-
-    /**
-     * Format plain text content for Lexical editor
-     */
-    private formatContentForLexical(content: string): string {
-        try {
-            // Check if already valid JSON
-            try {
-                const parsed = JSON.parse(content);
-                if (parsed && parsed.root) {
-                    return content;
-                }
-            } catch (e) {
-                // Not valid JSON, continue with formatting
-            }
-
-            // Split into paragraphs
-            const paragraphs = content.split(/\n\n+/).filter(Boolean);
-
-            // Create editor state
-            const editorState = {
-                root: {
-                    children: paragraphs.map(paragraph => ({
-                        children: [
-                            {
-                                detail: 0,
-                                format: 0,
-                                mode: "normal",
-                                style: "",
-                                text: paragraph,
-                                type: "text",
-                                version: 1
-                            }
-                        ],
-                        direction: "ltr",
-                        format: "",
-                        indent: 0,
-                        type: "paragraph",
-                        version: 1
-                    })),
-                    direction: "ltr",
-                    format: "",
-                    indent: 0,
-                    type: "root",
-                    version: 1
-                }
-            };
-
-            // Add empty paragraph if needed
-            if (paragraphs.length === 0) {
-                editorState.root.children.push({
-                    children: [],
-                    direction: "ltr",
-                    format: "",
-                    indent: 0,
-                    type: "paragraph",
-                    version: 1
-                });
-            }
-
-            return JSON.stringify(editorState);
-        } catch (error) {
-            console.error('Error formatting content for Lexical:', error);
-            // Return minimal valid state as fallback
-            return '{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}';
         }
     }
 }

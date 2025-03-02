@@ -4,47 +4,51 @@ import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 import { toast } from 'react-toastify';
 import { TOAST_CLOSE_TIMER, TOAST_POSITION } from '@/constants';
-import debounce from 'lodash/debounce';
+import { debounce } from 'lodash';
+import { $isSceneBeatNode } from '../../nodes/SceneBeatNode';
+import { $getRoot, $getNodeByKey } from 'lexical';
 
 export function SaveChapterContentPlugin(): null {
     const [editor] = useLexicalComposerContext();
     const { currentChapterId } = useStoryContext();
-    const { updateChapter, currentChapter } = useChapterStore();
+    const { updateChapter } = useChapterStore();
 
+    // Debounced save function
     const saveContent = useCallback(
-        debounce(async (content: string) => {
-            if (!currentChapterId || !currentChapter || currentChapter.id !== currentChapterId) {
-                console.log('AutoSave - Skipped: No valid chapter');
-                return;
+        debounce((content: string) => {
+            if (currentChapterId) {
+                console.log('SaveChapterContent - Saving content for chapter:', currentChapterId);
+                updateChapter(currentChapterId, { content })
+                    .then(() => {
+                        console.log('SaveChapterContent - Content saved successfully');
+                    })
+                    .catch((error) => {
+                        console.error('SaveChapterContent - Failed to save content:', error);
+                    });
             }
-
-            try {
-                console.log('AutoSave - Saving chapter:', currentChapterId);
-                await updateChapter(currentChapterId, { content });
-                console.log('AutoSave - Chapter saved successfully');
-            } catch (error) {
-                console.error('AutoSave - Failed to save:', error);
-                toast.error('Failed to auto-save chapter', {
-                    position: TOAST_POSITION,
-                    autoClose: TOAST_CLOSE_TIMER,
-                });
-            }
-        }, 1000), // 1 second debounce
-        [currentChapterId, currentChapter, updateChapter]
+        }, 1000),
+        [currentChapterId, updateChapter]
     );
 
+    // Register update listener
     useEffect(() => {
         if (!currentChapterId) return;
 
-        const removeListener = editor.registerUpdateListener(
-            ({ editorState }) => {
-                const serializedState = JSON.stringify(editorState.toJSON());
-                saveContent(serializedState);
+        const removeUpdateListener = editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves }) => {
+            // Skip if no changes
+            if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
+                return;
             }
-        );
+
+            // Get the editor state as JSON
+            const content = JSON.stringify(editorState.toJSON());
+
+            // Save the content
+            saveContent(content);
+        });
 
         return () => {
-            removeListener();
+            removeUpdateListener();
             saveContent.cancel();
         };
     }, [editor, currentChapterId, saveContent]);

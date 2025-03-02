@@ -1,5 +1,42 @@
 import { Story, Chapter, LorebookEntry } from '../types/story';
 
+// Helper function to convert plain text to Lexical JSON format
+function formatContentForLexical(content: string): string {
+    // Split into paragraphs
+    const paragraphs = content.split(/\n\n+/).filter(Boolean);
+
+    // Create editor state
+    const editorState = {
+        root: {
+            children: paragraphs.map(paragraph => ({
+                children: [
+                    {
+                        detail: 0,
+                        format: 0,
+                        mode: "normal",
+                        style: "",
+                        text: paragraph,
+                        type: "text",
+                        version: 1
+                    }
+                ],
+                direction: "ltr",
+                format: "",
+                indent: 0,
+                type: "paragraph",
+                version: 1
+            })),
+            direction: "ltr",
+            format: "",
+            indent: 0,
+            type: "root",
+            version: 1
+        }
+    };
+
+    return JSON.stringify(editorState);
+}
+
 // Hardcoded demo story data
 const demoStory = {
     id: 'demo-story-1',
@@ -12,7 +49,7 @@ const demoStory = {
         {
             id: 'chapter-1',
             title: 'First Contact',
-            content: `Captain Elena Reyes stood on the observation deck of the Hyperion, watching as Saturn's magnificent rings filled the viewscreen. After six months of travel, they had finally reached their destination—a routine mission to study ice composition in the planet's outer rings.
+            content: formatContentForLexical(`Captain Elena Reyes stood on the observation deck of the Hyperion, watching as Saturn's magnificent rings filled the viewscreen. After six months of travel, they had finally reached their destination—a routine mission to study ice composition in the planet's outer rings.
 
 "Captain, I'm detecting something unusual in the B ring," Dr. Marcus Wei called from his station, his voice carrying an unusual edge of excitement. "There's a gravitational anomaly that doesn't match our models."
 
@@ -40,7 +77,7 @@ Before Reyes could respond, the lights flickered, and for a brief moment, each c
 
 As the crew scrambled to their tasks, Reyes couldn't shake the image she'd seen in the object's surface: Earth, but somehow different—more advanced, more harmonious. A future that might be, or might have been.
 
-The Hyperion had set out to study ice. Instead, they'd found something that might redefine humanity's place in the universe.`,
+The Hyperion had set out to study ice. Instead, they'd found something that might redefine humanity's place in the universe.`),
             summary: 'The research vessel Hyperion, led by Captain Elena Reyes, discovers a perfect dodecahedron embedded in Saturn\'s rings while on a routine mission. Science Officer Marcus Wei confirms it\'s artificial, and Engineer Aisha Patel notes its unusual properties. When they approach for closer study, the object scans the ship and briefly shows each crew member personalized visions. Reyes orders comprehensive analysis while sending word to Earth about their potentially history-changing discovery.',
             povType: 'Third Person Omniscient',
             povCharacter: 'Captain Elena Reyes',
@@ -49,7 +86,7 @@ The Hyperion had set out to study ice. Instead, they'd found something that migh
         {
             id: 'chapter-2',
             title: 'Theories and Tensions',
-            content: `Three days had passed since the discovery, and the Hyperion buzzed with activity. In the main lab, Dr. Wei had barely slept, his workstation cluttered with simulations and analysis results.
+            content: formatContentForLexical(`Three days had passed since the discovery, and the Hyperion buzzed with activity. In the main lab, Dr. Wei had barely slept, his workstation cluttered with simulations and analysis results.
 
 "It defies everything we know about physics," he explained to Captain Reyes, who had ordered him to provide an update. "The material absorbs all electromagnetic radiation—light, radio waves, everything. Yet it maintains a constant temperature and emits no radiation of its own."
 
@@ -81,7 +118,7 @@ Wei looked up, his expression uncharacteristically vulnerable. "I think it's sho
 
 As if in response, the ship's lights flickered briefly, and both of them felt a subtle shift—as though something was listening, considering, deciding.
 
-"Whatever it is," Reyes said, "I think it's aware of us now. And I think we need to be very careful about what we do next."`,
+"Whatever it is," Reyes said, "I think it's aware of us now. And I think we need to be very careful about what we do next."`),
             summary: 'Three days after the discovery, Dr. Wei determines the object is billions of years old and defies known physics. Engineer Patel\'s probe reveals it generates patterns resembling mathematical sequences. The crew debates whether to attempt direct contact, with Wei advocating for engagement while Patel urges caution. Earth informs them a military vessel will arrive in three weeks, creating a deadline for the scientific team to make progress their way. Captain Reyes and Wei discuss the personal visions they experienced, wondering if the object is trying to help or manipulate them.',
             povType: 'Third Person Omniscient',
             povCharacter: undefined,
@@ -90,7 +127,7 @@ As if in response, the ship's lights flickered briefly, and both of them felt a 
         {
             id: 'chapter-3',
             title: 'The Approach',
-            content: `"Approaching optimal intercept position," Patel announced from the pilot's station. The Hyperion glided silently through the glittering ice particles of Saturn's rings, drawing ever closer to the anomaly.
+            content: formatContentForLexical(`"Approaching optimal intercept position," Patel announced from the pilot's station. The Hyperion glided silently through the glittering ice particles of Saturn's rings, drawing ever closer to the anomaly.
 
 After a week of observation and debate, Captain Reyes had made the decision: they would attempt direct contact using a specially designed shuttle. The small craft, reinforced against the anomaly's gravitational fluctuations, would carry Wei and Patel to within meters of the object.
 
@@ -138,7 +175,7 @@ On the Hyperion, Reyes felt a chill run down her spine. "Or showing us what it w
 
 As the shuttle turned back toward the Hyperion, none of them noticed the subtle change in the anomaly's surface—a pattern of light that briefly formed an image resembling human DNA, then twisted into something new, something different.
 
-Something evolving.`,
+Something evolving.`),
             summary: 'Captain Reyes authorizes a direct approach using a shuttle piloted by Wei and Patel. As they near the anomaly, its surface changes, displaying shifting symbols that appear to be communication attempts. The object creates a holographic projection showing an alternate solar system where Saturn has no rings and Earth\'s geography is different. It then displays a sequence showing Earth being devastated by a cosmic impact, followed by the anomaly moving to Earth and somehow healing the planet. Wei believes it\'s offering help, but Reyes, concerned about manipulation, orders them to return for data analysis. Unknown to the crew, the anomaly briefly displays an image of human DNA transforming into something new.',
             povType: 'Third Person Omniscient',
             povCharacter: undefined,

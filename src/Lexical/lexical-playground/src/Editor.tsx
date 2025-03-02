@@ -54,6 +54,8 @@ import ContentEditable from './ui/ContentEditable';
 import { LoadChapterContentPlugin } from './plugins/LoadChapterContent';
 import { SaveChapterContentPlugin } from './plugins/SaveChapterContent';
 import LorebookTagPlugin from './plugins/LorebookTagPlugin';
+import SceneBeatShortcutPlugin from './plugins/SceneBeatShortcutPlugin';
+import SlashCommandPlugin from './plugins/SlashCommandPlugin';
 
 const skipCollaborationInit =
   // @ts-expect-error
@@ -177,6 +179,8 @@ export default function Editor(): JSX.Element {
             <PageBreakPlugin />
             <LorebookTagPlugin />
             <LayoutPlugin />
+            <SceneBeatShortcutPlugin editor={editor} />
+            <SlashCommandPlugin editor={editor} />
             {floatingAnchorElem && !isSmallWidthViewport && (
               <>
                 <DraggableBlockPlugin anchorElem={floatingAnchorElem} />

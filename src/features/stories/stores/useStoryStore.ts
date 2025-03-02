@@ -57,9 +57,13 @@ export const useStoryStore = create<StoryState>((set, _get) => ({
 
     // Create a new story
     createStory: async (storyData) => {
+        const storyDataWithId = {
+            ...storyData,
+            id: crypto.randomUUID()
+        };
         set({ loading: true, error: null });
         try {
-            const storyId = await db.createNewStory(storyData);
+            const storyId = await db.createNewStory(storyDataWithId);
             const newStory = await db.stories.get(storyId);
             if (!newStory) throw new Error('Failed to create story');
 

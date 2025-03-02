@@ -44,7 +44,7 @@ export function ChapterOutline() {
                     disabled={isSaving || !currentChapter}
                 >
                     <Save className="h-4 w-4 mr-1" />
-                    Save
+                    Save Outline
                 </Button>
             </div>
             <div className="chapter-outline-content">

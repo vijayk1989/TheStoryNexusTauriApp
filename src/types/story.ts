@@ -65,6 +65,8 @@ export interface Prompt extends BaseEntity {
     allowedModels: AllowedModel[];
     storyId?: string;
     isSystem?: boolean; // Flag to identify system prompts
+    temperature?: number;
+    maxTokens?: number;
 }
 
 // AI Provider and Model types

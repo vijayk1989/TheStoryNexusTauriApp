@@ -32,7 +32,9 @@ const systemPrompts: Partial<Prompt>[] = [
                 provider: "local" as AIProvider
             }
         ],
-        isSystem: true
+        isSystem: true,
+        temperature: 1.0,
+        maxTokens: 4096
     },
     {
         id: "gen-summary-system",
@@ -56,7 +58,9 @@ const systemPrompts: Partial<Prompt>[] = [
                 provider: "local" as AIProvider
             }
         ],
-        isSystem: true
+        isSystem: true,
+        temperature: 1.0,
+        maxTokens: 512
     },
     {
         id: "selection-specific-system",
@@ -80,7 +84,61 @@ const systemPrompts: Partial<Prompt>[] = [
                 provider: "local" as AIProvider
             }
         ],
-        isSystem: true
+        isSystem: true,
+        temperature: 1.0,
+        maxTokens: 512
+    },
+    {
+        id: "selection-specific-system",
+        name: "Rewrite",
+        promptType: "selection_specific",
+        description: "Rewrite selected text with more detail",
+        messages: [
+            {
+                role: "system",
+                content: "Contextual Awareness:\nPrior Scene: Refer to the preceding text to ensure no contradictions occur. Do not repeat these words from previous scenes: {{previous_words}}\nTask: Rephrase the provided text while maintaining its original meaning, style, and tone. Follow these guidelines:\nDo not introduce new ideas or alter the intended message.\nUse {{story_language}} spelling and grammar conventions.\nImprove flow, readability, and clarity where possible without changing the meaning or tone.\nFocus on natural language and avoid unnatural turns of phrase"
+            },
+            {
+                role: "user",
+                content: "Rewrite the following:\n{{selection}}\nTake into account the POV: {{pov}}"
+            }
+        ],
+        allowedModels: [
+            {
+                id: "local/llama-3.2-3b-instruct",
+                name: "llama-3.2-3b-instruct",
+                provider: "local" as AIProvider
+            }
+        ],
+        isSystem: true,
+        temperature: 1.0,
+        maxTokens: 512
+    },
+    {
+        id: "selection-specific-system",
+        name: "Shorten",
+        promptType: "selection_specific",
+        description: "Shorten selected text",
+        messages: [
+            {
+                role: "system",
+                content: "Contextual Awareness:\n*   **Prior Scene:** Refer to the preceding text to ensure no contradictions occur. Do not repeat words from the following section: {{previous_words}} \n\nTask: Shorten the provided text while preserving its core meaning, style, and tone. Follow these guidelines:\n*   Retain key details essential for clarity and impact.\n*   Use {{story_language}} spelling and grammar conventions.\n*   Eliminate redundant phrases, excessive descriptions, and non-essential details.\n*    Prioritize brevity without sacrificing critical information."
+            },
+            {
+                role: "user",
+                content: "Shorten the following:\n{{selection}}\nTake into account the POV: {{pov}}"
+            }
+        ],
+        allowedModels: [
+            {
+                id: "local/llama-3.2-3b-instruct",
+                name: "llama-3.2-3b-instruct",
+                provider: "local" as AIProvider
+            }
+        ],
+        isSystem: true,
+        temperature: 1.0,
+        maxTokens: 512
     }
 ];
 

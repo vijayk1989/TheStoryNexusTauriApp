@@ -9,6 +9,8 @@ import type { Prompt, PromptMessage, AIModel, AllowedModel } from '@/types/story
 import { Plus, ArrowUp, ArrowDown, Trash2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 
 type PromptType = 'scene_beat' | 'gen_summary' | 'selection_specific' | 'continue_writing' | 'other';
 
@@ -47,6 +49,8 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
     const [selectedModels, setSelectedModels] = useState<AllowedModel[]>(prompt?.allowedModels || []);
     const { createPrompt, updatePrompt } = usePromptStore();
+    const [temperature, setTemperature] = useState(prompt?.temperature || 1.0);
+    const [maxTokens, setMaxTokens] = useState(prompt?.maxTokens || 2048);
 
     const {
         initialize,
@@ -181,6 +185,8 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 messages,
                 promptType,
                 allowedModels: selectedModels,
+                temperature,
+                maxTokens
             };
 
             if (prompt?.id) {
@@ -363,6 +369,68 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                         ))}
                     </SelectContent>
                 </Select>
+            </div>
+
+            <div className="border-t border-input pt-6">
+                <h3 className="font-medium mb-4">Prompt Settings</h3>
+                <div className="space-y-4 mb-4">
+                    <div className="flex items-center gap-4">
+                        <Label htmlFor='temperature' className="w-28">Temperature</Label>
+                        <div className="flex-1 flex items-center gap-2">
+                            <Slider
+                                id='temperature'
+                                value={[temperature]}
+                                onValueChange={(value) => setTemperature(value[0])}
+                                min={0}
+                                max={2}
+                                step={0.1}
+                                className="flex-1"
+                            />
+                            <Input
+                                type="text"
+                                value={temperature.toFixed(1)}
+                                onChange={(e) => {
+                                    const value = parseFloat(e.target.value);
+                                    if (!isNaN(value) && value >= 0 && value <= 2) {
+                                        setTemperature(value);
+                                    }
+                                }}
+                                className="w-20 text-center"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                        <Label htmlFor="maxTokens" className="w-28">Max Tokens</Label>
+                        <div className="flex-1 flex items-center gap-2">
+                            <Slider
+                                id="maxTokens"
+                                value={[maxTokens]}
+                                onValueChange={(value) => setMaxTokens(value[0])}
+                                min={1}
+                                max={4096}
+                                className="flex-1"
+                            />
+                            <Input
+                                type="text"
+                                value={maxTokens.toString()}
+                                onChange={(e) => {
+                                    if (e.target.value === '') {
+                                        return;
+                                    }
+
+                                    const value = parseInt(e.target.value);
+                                    if (!isNaN(value) && value >= 1 && value <= 4096) {
+                                        setMaxTokens(value);
+                                    }
+                                }}
+                                className="w-20 text-center"
+                            />
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="flex gap-2">

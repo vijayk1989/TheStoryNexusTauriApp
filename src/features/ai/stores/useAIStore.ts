@@ -105,13 +105,18 @@ export const useAIStore = create<AIState>((set, get) => ({
             throw new Error(error || 'Failed to parse prompt');
         }
 
+        // Get the prompt to access temperature and maxTokens
+        const prompt = await db.prompts.get(config.promptId);
+        const temperature = prompt?.temperature ?? 0.7;
+        const maxTokens = prompt?.maxTokens ?? 2048;
+
         switch (selectedModel.provider) {
             case 'local':
-                return aiService.generateWithLocalModel(messages);
+                return aiService.generateWithLocalModel(messages, temperature, maxTokens);
             case 'openai':
-                return aiService.generateWithOpenAI(messages, selectedModel.id);
+                return aiService.generateWithOpenAI(messages, selectedModel.id, temperature, maxTokens);
             case 'openrouter':
-                return aiService.generateWithOpenRouter(messages, selectedModel.id);
+                return aiService.generateWithOpenRouter(messages, selectedModel.id, temperature, maxTokens);
             default:
                 throw new Error(`Unsupported provider: ${selectedModel.provider}`);
         }

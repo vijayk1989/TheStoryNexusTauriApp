@@ -200,7 +200,11 @@ export class AIService {
             : this.settings.availableModels;
     }
 
-    async generateWithLocalModel(messages: PromptMessage[]): Promise<Response> {
+    async generateWithLocalModel(
+        messages: PromptMessage[],
+        temperature: number = 1.0,
+        maxTokens: number = 2048
+    ): Promise<Response> {
         const response = await fetch(`${this.LOCAL_API_URL}/chat/completions`, {
             method: 'POST',
             headers: {
@@ -210,8 +214,8 @@ export class AIService {
                 messages,
                 stream: true,
                 model: 'local/llama-3.2-3b-instruct',
-                temperature: 0.7,
-                max_tokens: 2048,
+                temperature,
+                max_tokens: maxTokens,
             }),
         });
 
@@ -268,7 +272,12 @@ export class AIService {
         }
     }
 
-    async generateWithOpenAI(messages: PromptMessage[], modelId: string): Promise<Response> {
+    async generateWithOpenAI(
+        messages: PromptMessage[],
+        modelId: string,
+        temperature: number = 1.0,
+        maxTokens: number = 2048
+    ): Promise<Response> {
         if (!this.settings?.openaiKey) {
             throw new Error('OpenAI API key not configured');
         }
@@ -281,8 +290,8 @@ export class AIService {
             model: modelId,
             messages,
             stream: true,
-            temperature: 0.7,
-            max_tokens: 2048,
+            temperature,
+            max_tokens: maxTokens,
         });
 
         // Convert the stream to a Response object to maintain compatibility
@@ -314,7 +323,12 @@ export class AIService {
         });
     }
 
-    async generateWithOpenRouter(messages: PromptMessage[], modelId: string): Promise<Response> {
+    async generateWithOpenRouter(
+        messages: PromptMessage[],
+        modelId: string,
+        temperature: number = 1.0,
+        maxTokens: number = 2048
+    ): Promise<Response> {
         if (!this.settings?.openrouterKey) {
             throw new Error('OpenRouter API key not configured');
         }
@@ -327,8 +341,8 @@ export class AIService {
             model: modelId,
             messages,
             stream: true,
-            temperature: 0.7,
-            max_tokens: 2048,
+            temperature,
+            max_tokens: maxTokens,
         });
 
         // Convert the stream to a Response object to maintain compatibility

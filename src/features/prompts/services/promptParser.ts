@@ -19,6 +19,7 @@ export class PromptParser {
             'matched_entries_chapter': this.resolveMatchedEntriesChapter.bind(this),
             'lorebook_chapter_matched_entries': this.resolveMatchedEntriesChapter.bind(this),
             'lorebook_scenebeat_matched_entries': this.resolveLorebookSceneBeatEntries.bind(this),
+            'lorebook_data': this.resolveMatchedEntriesChapter.bind(this),
             'summaries': this.resolveChapterSummaries.bind(this),
             'previous_words': this.resolvePreviousWords.bind(this),
             'pov': this.resolvePoV.bind(this),

@@ -47,6 +47,7 @@ export interface AIChat extends BaseEntity {
     storyId: string;
     title: string;
     messages: ChatMessage[];
+    updatedAt?: Date;
 }
 
 export interface ChatMessage {
@@ -71,7 +72,7 @@ export interface AllowedModel {
 export interface Prompt extends BaseEntity {
     name: string;
     description?: string;
-    promptType: 'scene_beat' | 'gen_summary' | 'selection_specific' | 'continue_writing' | 'other';
+    promptType: 'scene_beat' | 'gen_summary' | 'selection_specific' | 'continue_writing' | 'other' | 'brainstorm';
     messages: PromptMessage[];
     allowedModels: AllowedModel[];
     storyId?: string;

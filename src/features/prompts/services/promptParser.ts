@@ -10,6 +10,7 @@ import {
     VariableResolver
 } from '@/types/story';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
+import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 
 export class PromptParser {
     private readonly variableResolvers: Record<string, VariableResolver>;
@@ -27,6 +28,15 @@ export class PromptParser {
             'selected_text': this.resolveSelectedText.bind(this),
             'selection': this.resolveSelectedText.bind(this),
             'story_language': this.resolveStoryLanguage.bind(this),
+            'all_entries': this.resolveAllEntries.bind(this),
+            'chat_history': this.resolveChatHistory.bind(this),
+            'user_input': this.resolveUserInput.bind(this),
+            'brainstorm_context': this.resolveBrainstormContext.bind(this),
+            'all_characters': this.resolveAllCharacters.bind(this),
+            'all_locations': this.resolveAllLocations.bind(this),
+            'all_items': this.resolveAllItems.bind(this),
+            'all_events': this.resolveAllEvents.bind(this),
+            'all_notes': this.resolveAllNotes.bind(this),
         };
     }
 
@@ -37,7 +47,14 @@ export class PromptParser {
                 storyId: config.storyId,
                 chapterId: config.chapterId,
                 scenebeat: config.scenebeat,
-                previousWordsLength: config.previousWords?.length
+                previousWordsLength: config.previousWords?.length,
+                additionalContext: config.additionalContext ? {
+                    includeFullContext: config.additionalContext.includeFullContext,
+                    selectedTagsLength: config.additionalContext.selectedTags?.length,
+                    selectedCategoriesLength: config.additionalContext.selectedCategories?.length,
+                    selectedCategories: config.additionalContext.selectedCategories,
+                    selectedTags: config.additionalContext.selectedTags
+                } : 'none'
             });
 
             const prompt = await this.database.prompts.get(config.promptId);
@@ -71,6 +88,14 @@ export class PromptParser {
     }
 
     private async buildContext(config: PromptParserConfig): Promise<PromptContext> {
+        console.log('Building context from config:', {
+            storyId: config.storyId,
+            chapterId: config.chapterId,
+            promptId: config.promptId,
+            scenebeat: config.scenebeat,
+            additionalContext: config.additionalContext
+        });
+
         const [chapters, currentChapter] = await Promise.all([
             this.database.chapters.where('storyId').equals(config.storyId).toArray(),
             config.chapterId ? this.database.chapters.get(config.chapterId) : undefined
@@ -82,7 +107,8 @@ export class PromptParser {
             currentChapter,
             matchedEntries: config.matchedEntries,
             povCharacter: config.povCharacter || currentChapter?.povCharacter,
-            povType: config.povType || currentChapter?.povType || 'Third Person Omniscient'
+            povType: config.povType || currentChapter?.povType || 'Third Person Omniscient',
+            additionalContext: config.additionalContext || {}
         };
     }
 
@@ -137,6 +163,21 @@ export class PromptParser {
 
             if (varName === 'scenebeat' && context.scenebeat) {
                 result = result.replace(fullMatch, context.scenebeat);
+                continue;
+            }
+
+            // Handle all_* queries
+            if (varName.startsWith('all_')) {
+                const category = varName.slice(4); // Remove 'all_' prefix
+                // Map the category to match the type from story.ts
+                const mappedCategory = category === 'characters' ? 'character' :
+                    category === 'locations' ? 'location' :
+                        category === 'items' ? 'item' :
+                            category === 'events' ? 'event' :
+                                category === 'notes' ? 'note' : category;
+
+                const entries = await this.resolveAllEntries(context, mappedCategory);
+                result = result.replace(fullMatch, entries);
                 continue;
             }
 
@@ -329,6 +370,183 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
     private async resolveStoryLanguage(context: PromptContext): Promise<string> {
         return context.storyLanguage || 'English';
+    }
+
+    private async resolveAllEntries(context: PromptContext, category?: string): Promise<string> {
+        const entries = await this.database.lorebookEntries
+            .where('storyId')
+            .equals(context.storyId)
+            .toArray();
+
+        let filteredEntries = entries;
+        if (category) {
+            filteredEntries = entries.filter(entry => entry.category === category);
+        }
+
+        return this.formatLorebookEntries(filteredEntries);
+    }
+
+    private async resolveChatHistory(context: PromptContext): Promise<string> {
+        if (!context.additionalContext?.chatHistory?.length) {
+            return 'No previous conversation history.';
+        }
+
+        return context.additionalContext.chatHistory
+            .map(msg => `${msg.role.toUpperCase()}: ${msg.content}`)
+            .join('\n\n');
+    }
+
+    private async resolveUserInput(context: PromptContext): Promise<string> {
+        if (!context.scenebeat?.trim()) {
+            return 'No specific question or topic provided.';
+        }
+        return context.scenebeat;
+    }
+
+    private async resolveBrainstormContext(context: PromptContext): Promise<string> {
+        // Import the stores
+        const lorebookStore = useLorebookStore.getState();
+        const chapterStore = useChapterStore.getState();
+
+        // Load entries if they're not already loaded
+        if (lorebookStore.entries.length === 0) {
+            await lorebookStore.loadEntries(context.storyId);
+        }
+
+        console.log('Resolving brainstorm context with additionalContext:', context.additionalContext);
+
+        // Check if we need to include chapter summaries
+        let chapterSummary = '';
+        if (context.additionalContext?.selectedSummary) {
+            const selectedSummary = context.additionalContext.selectedSummary;
+
+            if (selectedSummary === 'all') {
+                // Get all chapter summaries
+                chapterSummary = await chapterStore.getAllChapterSummaries(context.storyId);
+                console.log('Including all chapter summaries');
+            } else if (selectedSummary !== 'none') {
+                // Get a specific chapter summary
+                chapterSummary = await chapterStore.getChapterSummary(selectedSummary);
+                console.log(`Including summary for chapter with ID: ${selectedSummary}`);
+            }
+        }
+
+        // Get matched entries from the context
+        let entries: LorebookEntry[] = [];
+
+        // Check if we have matched entries directly in the context
+        if (context.matchedEntries && context.matchedEntries.size > 0) {
+            console.log('Using matched entries from context:', context.matchedEntries.size);
+            entries = Array.from(context.matchedEntries);
+        }
+        // If not, check if we have chapter matched entries
+        else if (context.chapterMatchedEntries && context.chapterMatchedEntries.size > 0) {
+            console.log('Using chapter matched entries:', context.chapterMatchedEntries.size);
+            entries = Array.from(context.chapterMatchedEntries);
+        }
+        // If not, check if we have scene beat matched entries
+        else if (context.sceneBeatMatchedEntries && context.sceneBeatMatchedEntries.size > 0) {
+            console.log('Using scene beat matched entries:', context.sceneBeatMatchedEntries.size);
+            entries = Array.from(context.sceneBeatMatchedEntries);
+        }
+        // If nothing direct, check the additional context
+        else if (context.additionalContext) {
+            // Check for full context flag
+            if (context.additionalContext.includeFullContext) {
+                console.log('Using full context (all entries)');
+                entries = lorebookStore.entries;
+            }
+            // Check for selected tags
+            else if (context.additionalContext.selectedTags?.length) {
+                console.log('Using selected tags:', context.additionalContext.selectedTags);
+                entries = context.additionalContext.selectedTags.flatMap(tag =>
+                    lorebookStore.getEntriesByTag(tag)
+                );
+            }
+            // Check for selected categories
+            else if (context.additionalContext.selectedCategories !== undefined) {
+                // If selectedCategories is an empty array, it means all categories are unselected
+                if (context.additionalContext.selectedCategories.length === 0) {
+                    console.log('All categories are unselected');
+                    // We'll still return chapter summaries if selected
+                    if (chapterSummary) {
+                        console.log('Returning only chapter summaries');
+                        return `Story Chapter Summaries:\n${chapterSummary}`;
+                    }
+                    return "No story context is available for this query. Feel free to ask about anything related to writing or storytelling in general.";
+                } else {
+                    console.log('Using selected categories:', context.additionalContext.selectedCategories);
+                    entries = context.additionalContext.selectedCategories.flatMap(category =>
+                        lorebookStore.getEntriesByCategory(category as any)
+                    );
+                    console.log('Found entries from categories:', entries.length);
+                }
+            } else {
+                console.log('No context criteria matched in additionalContext');
+            }
+        }
+
+        // If we still have no entries, use a fallback approach
+        if (entries.length === 0) {
+            // Only use fallback if we didn't explicitly unselect all categories
+            if (!context.additionalContext?.selectedCategories || context.additionalContext.selectedCategories.length > 0) {
+                console.log("No entries found, using fallback to get major characters");
+                // Get major characters as a fallback
+                entries = lorebookStore.getEntriesByImportance('major');
+            } else {
+                console.log("No entries found, but all categories were unselected, so not using fallback");
+            }
+        }
+
+        // Log what we found for debugging
+        console.log(`Resolved brainstorm context with ${entries.length} entries and ${chapterSummary ? 'with' : 'without'} chapter summaries`);
+
+        // Format the entries and combine with chapter summaries
+        if (entries.length === 0 && !chapterSummary) {
+            return "No story context is available for this query. Feel free to ask about anything related to writing or storytelling in general.";
+        }
+
+        let result = '';
+
+        // Add chapter summaries if available
+        if (chapterSummary) {
+            result += `Story Chapter Summaries:\n${chapterSummary}\n\n`;
+        }
+
+        // Add lorebook entries if available
+        if (entries.length > 0) {
+            if (chapterSummary) {
+                result += "Story World Information:\n";
+            }
+            result += this.formatLorebookEntries(entries);
+        }
+
+        return result;
+    }
+
+    private async resolveAllCharacters(context: PromptContext): Promise<string> {
+        const { getAllCharacters } = useLorebookStore.getState();
+        return this.formatLorebookEntries(getAllCharacters());
+    }
+
+    private async resolveAllLocations(context: PromptContext): Promise<string> {
+        const { getAllLocations } = useLorebookStore.getState();
+        return this.formatLorebookEntries(getAllLocations());
+    }
+
+    private async resolveAllItems(context: PromptContext): Promise<string> {
+        const { getAllItems } = useLorebookStore.getState();
+        return this.formatLorebookEntries(getAllItems());
+    }
+
+    private async resolveAllEvents(context: PromptContext): Promise<string> {
+        const { getAllEvents } = useLorebookStore.getState();
+        return this.formatLorebookEntries(getAllEvents());
+    }
+
+    private async resolveAllNotes(context: PromptContext): Promise<string> {
+        const { getAllNotes } = useLorebookStore.getState();
+        return this.formatLorebookEntries(getAllNotes());
     }
 }
 

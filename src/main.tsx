@@ -19,6 +19,7 @@ import PromptsPage from "./features/prompts/pages/PromptsPage";
 import AISettingsPage from "./features/ai/pages/AISettingsPage";
 import { MainLayout } from "./components/MainLayout";
 import LorebookPage from "./features/lorebook/pages/LorebookPage";
+import BrainstormPage from "./features/brainstorm/pages/BrainstormPage";
 import { dbSeeder } from "./services/dbSeed";
 // biome-ignore lint/style/noNonNullAssertion: <explanation>
 
@@ -82,6 +83,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 								<Route path="chapters/:chapterId" element={<ChapterEditorPage />} />
 								<Route path="prompts" element={<PromptsPage />} />
 								<Route path="lorebook" element={<LorebookPage />} />
+								<Route path="brainstorm" element={<BrainstormPage />} />
 							</Route>
 						</Routes>
 					</StoryProvider>

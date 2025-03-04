@@ -25,6 +25,18 @@ interface LorebookState {
     // Queries
     getEntriesByTag: (tag: string) => LorebookEntry[];
     getEntriesByCategory: (category: LorebookEntry['category']) => LorebookEntry[];
+
+    // New Helper Methods
+    getAllCharacters: () => LorebookEntry[];
+    getAllLocations: () => LorebookEntry[];
+    getAllItems: () => LorebookEntry[];
+    getAllEvents: () => LorebookEntry[];
+    getAllNotes: () => LorebookEntry[];
+    getEntriesByImportance: (importance: 'major' | 'minor' | 'background') => LorebookEntry[];
+    getEntriesByStatus: (status: 'active' | 'inactive' | 'historical') => LorebookEntry[];
+    getEntriesByType: (type: string) => LorebookEntry[];
+    getEntriesByRelationship: (targetId: string) => LorebookEntry[];
+    getEntriesByCustomField: (field: string, value: unknown) => LorebookEntry[];
 }
 
 export const useLorebookStore = create<LorebookState>((set, get) => ({
@@ -169,5 +181,60 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
             set({ error: (error as Error).message });
             throw error;
         }
+    },
+
+    // New Helper Methods
+    getAllCharacters: () => {
+        const { entries } = get();
+        return entries.filter(entry => entry.category === 'character');
+    },
+
+    getAllLocations: () => {
+        const { entries } = get();
+        return entries.filter(entry => entry.category === 'location');
+    },
+
+    getAllItems: () => {
+        const { entries } = get();
+        return entries.filter(entry => entry.category === 'item');
+    },
+
+    getAllEvents: () => {
+        const { entries } = get();
+        return entries.filter(entry => entry.category === 'event');
+    },
+
+    getAllNotes: () => {
+        const { entries } = get();
+        return entries.filter(entry => entry.category === 'note');
+    },
+
+    getEntriesByImportance: (importance) => {
+        const { entries } = get();
+        return entries.filter(entry => entry.metadata?.importance === importance);
+    },
+
+    getEntriesByStatus: (status) => {
+        const { entries } = get();
+        return entries.filter(entry => entry.metadata?.status === status);
+    },
+
+    getEntriesByType: (type) => {
+        const { entries } = get();
+        return entries.filter(entry => entry.metadata?.type === type);
+    },
+
+    getEntriesByRelationship: (targetId) => {
+        const { entries } = get();
+        return entries.filter(entry =>
+            entry.metadata?.relationships?.some(rel => rel.targetId === targetId)
+        );
+    },
+
+    getEntriesByCustomField: (field, value) => {
+        const { entries } = get();
+        return entries.filter(entry =>
+            entry.metadata?.customFields?.[field] === value
+        );
     },
 })); 

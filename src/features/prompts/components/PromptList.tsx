@@ -18,7 +18,8 @@ const getPromptTypeLabel = (type: Prompt['promptType']) => {
         'gen_summary': 'Generate Summary',
         'selection_specific': 'Selection-Specific',
         'continue_writing': 'Continue Writing',
-        'other': 'Other'
+        'brainstorm': 'Brainstorm',
+        'other': 'Other',
     };
     return labels[type];
 };

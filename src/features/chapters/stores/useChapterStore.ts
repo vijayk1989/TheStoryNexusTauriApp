@@ -22,8 +22,10 @@ interface ChapterState {
     updateChapterSummaryOptimistic: (id: string, summary: string) => Promise<void>;
     getChapterPlainText: (id: string) => Promise<string>;
     getChapterSummaries: (storyId: string, currentOrder: number, includeLatest?: boolean) => Promise<string>;
+    getAllChapterSummaries: (storyId: string) => Promise<string>;
     updateChapterOutline: (id: string, outline: ChapterOutline) => Promise<void>;
     getChapterOutline: (id: string) => Promise<ChapterOutline | null>;
+    getChapterSummary: (id: string) => Promise<string>;
 }
 
 export const useChapterStore = create<ChapterState>((set, _get) => ({
@@ -308,6 +310,51 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
             return summaries;
         } catch (error) {
             console.error('Error getting chapter summaries:', error);
+            return '';
+        }
+    },
+
+    // Get a specific chapter summary by ID
+    getChapterSummary: async (id: string) => {
+        try {
+            const chapter = await db.chapters.get(id);
+            if (!chapter || !chapter.summary) {
+                return '';
+            }
+            return `Chapter ${chapter.order} - ${chapter.title}:\n${chapter.summary.trim()}`;
+        } catch (error) {
+            console.error('Error getting chapter summary:', error);
+            return '';
+        }
+    },
+
+    // Fetch all summaries for a story
+    getAllChapterSummaries: async (storyId: string) => {
+        try {
+            const chapters = await db.chapters
+                .where('storyId')
+                .equals(storyId)
+                .sortBy('order');
+
+            const summaries = chapters
+                .map(chapter => {
+                    const summary = chapter.summary?.trim();
+                    return summary
+                        ? `Chapter ${chapter.order} - ${chapter.title}:\n${summary}`
+                        : '';
+                })
+                .filter(Boolean)
+                .join('\n\n');
+
+            console.log('Generated all chapter summaries:', {
+                storyId,
+                chapterCount: chapters.length,
+                summaryLength: summaries.length
+            });
+
+            return summaries;
+        } catch (error) {
+            console.error('Error getting all chapter summaries:', error);
             return '';
         }
     },

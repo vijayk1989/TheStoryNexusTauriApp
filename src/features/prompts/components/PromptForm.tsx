@@ -12,14 +12,15 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 
-type PromptType = 'scene_beat' | 'gen_summary' | 'selection_specific' | 'continue_writing' | 'other';
+type PromptType = Prompt['promptType'];
 
 const PROMPT_TYPES: Array<{ value: PromptType; label: string }> = [
     { value: 'scene_beat', label: 'Scene Beat' },
     { value: 'gen_summary', label: 'Generate Summary' },
     { value: 'selection_specific', label: 'Selection-Specific' },
     { value: 'continue_writing', label: 'Continue Writing' },
-    { value: 'other', label: 'Other' }
+    { value: 'brainstorm', label: 'Brainstorm' },
+    { value: 'other', label: 'Other' },
 ] as const;
 
 const MOST_USED_MODELS = [

@@ -121,7 +121,6 @@ function App(): JSX.Element {
             <div className="editor-shell">
               <Editor />
             </div>
-            <Settings />
           </ToolbarContext>
         </TableContext>
       </SharedHistoryContext>

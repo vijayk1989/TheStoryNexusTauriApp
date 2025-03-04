@@ -28,7 +28,6 @@ import { useEffect, useState } from 'react';
 import { CAN_USE_DOM } from 'shared/canUseDOM';
 import { useSettings } from './context/SettingsContext';
 import { useSharedHistoryContext } from './context/SharedHistoryContext';
-import AutocompletePlugin from './plugins/AutocompletePlugin';
 import AutoEmbedPlugin from './plugins/AutoEmbedPlugin';
 import AutoLinkPlugin from './plugins/AutoLinkPlugin';
 import CollapsiblePlugin from './plugins/CollapsiblePlugin';
@@ -66,7 +65,6 @@ export default function Editor(): JSX.Element {
   const {
     settings: {
       isCollab,
-      isAutocomplete,
       isMaxLength,
       isCharLimit,
       hasLinkAttributes,
@@ -211,7 +209,6 @@ export default function Editor(): JSX.Element {
             maxLength={5}
           />
         )}
-        {isAutocomplete && <AutocompletePlugin />}
         {shouldUseLexicalContextMenu && <ContextMenuPlugin />}
         {shouldAllowHighlightingWithBrackets && <SpecialTextPlugin />}
       </div>

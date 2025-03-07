@@ -32,6 +32,7 @@ interface LorebookState {
     getAllItems: () => LorebookEntry[];
     getAllEvents: () => LorebookEntry[];
     getAllNotes: () => LorebookEntry[];
+    getAllEntries: () => LorebookEntry[];
     getEntriesByImportance: (importance: 'major' | 'minor' | 'background') => LorebookEntry[];
     getEntriesByStatus: (status: 'active' | 'inactive' | 'historical') => LorebookEntry[];
     getEntriesByType: (type: string) => LorebookEntry[];
@@ -207,6 +208,11 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
     getAllNotes: () => {
         const { entries } = get();
         return entries.filter(entry => entry.category === 'note');
+    },
+
+    getAllEntries: () => {
+        const { entries } = get();
+        return entries;
     },
 
     getEntriesByImportance: (importance) => {

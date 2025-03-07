@@ -434,8 +434,14 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
         // Get matched entries from the context
         let entries: LorebookEntry[] = [];
 
+        // Check if we have specifically selected lorebook items
+        if (context.additionalContext?.selectedItems && context.additionalContext.selectedItems.length > 0) {
+            console.log('Using specifically selected lorebook items:', context.additionalContext.selectedItems.length);
+            const selectedItemIds = context.additionalContext.selectedItems as string[];
+            entries = lorebookStore.entries.filter(entry => selectedItemIds.includes(entry.id));
+        }
         // Check if we have matched entries directly in the context
-        if (context.matchedEntries && context.matchedEntries.size > 0) {
+        else if (context.matchedEntries && context.matchedEntries.size > 0) {
             console.log('Using matched entries from context:', context.matchedEntries.size);
             entries = Array.from(context.matchedEntries);
         }

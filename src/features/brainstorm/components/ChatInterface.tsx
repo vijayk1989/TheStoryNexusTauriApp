@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Send, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Send, ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -74,6 +74,9 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [currentChatId, setCurrentChatId] = useState<string>('');
 
+    // State for selected lorebook items
+    const [selectedItems, setSelectedItems] = useState<LorebookEntry[]>([]);
+
     // Initialize
     useEffect(() => {
         const loadData = async () => {
@@ -98,6 +101,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 })));
             }
         };
+
+        // Reset context selections when story changes
+        setSelectedItems([]);
+        setSelectedSummary('none');
+        setCategoryToggles(prev => prev.map(toggle => ({ ...toggle, enabled: false })));
 
         loadData();
     }, [storyId]);
@@ -141,8 +149,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         );
     };
 
-    // Check if any categories are enabled
-    const anyCategoriesEnabled = categoryToggles.some(toggle => toggle.enabled);
+    // Check if any context is selected
+    const anyContextSelected = categoryToggles.some(toggle => toggle.enabled) ||
+        selectedSummary !== 'none' ||
+        selectedItems.length > 0;
 
     // Toggle category
     const handleToggleCategory = (name: string) => {
@@ -162,14 +172,27 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         setIncludeFullContext(!includeFullContext);
     };
 
+    // Handle lorebook item selection
+    const handleItemSelect = (itemId: string) => {
+        const item = lorebookEntries.find(entry => entry.id === itemId);
+        if (item && !selectedItems.some(i => i.id === itemId)) {
+            setSelectedItems([...selectedItems, item]);
+        }
+    };
+
+    // Remove lorebook item
+    const removeItem = (itemId: string) => {
+        setSelectedItems(selectedItems.filter(item => item.id !== itemId));
+    };
+
     // Create prompt config for brainstorming
     const createPromptConfig = (prompt: Prompt): PromptParserConfig => {
         const selectedCategories = categoryToggles
             .filter(toggle => toggle.enabled)
             .map(toggle => toggle.name);
 
-        if (selectedCategories.length === 0) {
-            console.log('No categories selected for prompt config. The AI will not have access to story context.');
+        if (selectedCategories.length === 0 && selectedItems.length === 0 && selectedSummary === 'none') {
+            console.log('No context selected for prompt config. The AI will not have access to story context.');
         }
 
         return {
@@ -183,7 +206,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 })),
                 includeFullContext,
                 selectedCategories,
-                selectedSummary
+                selectedSummary,
+                selectedItems: selectedItems.map(item => item.id)
             }
         };
     };
@@ -210,7 +234,13 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 promptId: config.promptId,
                 storyId: config.storyId,
                 scenebeat: config.scenebeat,
-                additionalContext: config.additionalContext
+                additionalContext: {
+                    includeFullContext: config.additionalContext?.includeFullContext,
+                    selectedCategories: config.additionalContext?.selectedCategories,
+                    selectedSummary: config.additionalContext?.selectedSummary,
+                    selectedItems: config.additionalContext?.selectedItems,
+                    chatHistoryLength: config.additionalContext?.chatHistory?.length
+                }
             });
 
             const promptParser = createPromptParser();
@@ -247,9 +277,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             enabledCategories: categoryToggles
                 .filter(toggle => toggle.enabled)
                 .map(toggle => toggle.name),
-            selectedSummary
+            selectedSummary,
+            selectedItemsCount: selectedItems.length
         });
-    }, [includeFullContext, categoryToggles, selectedSummary]);
+    }, [includeFullContext, categoryToggles, selectedSummary, selectedItems]);
 
     // Handle submit
     const handleSubmit = async (e: React.FormEvent) => {
@@ -398,7 +429,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                         <CollapsibleTrigger asChild>
                             <Button variant="ghost" size="sm" className="flex items-center gap-1">
                                 Context
-                                {!anyCategoriesEnabled && selectedSummary === 'none' && (
+                                {!anyContextSelected && (
                                     <span className="text-muted-foreground ml-1 text-xs" title="No context selected">(none)</span>
                                 )}
                                 {contextOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -410,6 +441,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                     {selectedSummary === 'all'
                                         ? 'All Summaries'
                                         : `Ch. ${chapters.find(c => c.id === selectedSummary)?.order || ''}`}
+                                </Badge>
+                            )}
+                            {selectedItems.length > 0 && (
+                                <Badge variant="outline" className="mr-2">
+                                    {selectedItems.length} Lorebook {selectedItems.length === 1 ? 'Item' : 'Items'}
                                 </Badge>
                             )}
                             <span className="text-sm">Include Full Context</span>
@@ -465,7 +501,63 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                 </Select>
                             </div>
 
-                            {!anyCategoriesEnabled && selectedSummary === 'none' && (
+                            {/* Lorebook items multi-select */}
+                            <div className="mb-2">
+                                <div className="text-sm font-medium mb-1">Lorebook Items</div>
+
+                                {/* Selected items */}
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {selectedItems.map((item) => (
+                                        <Badge
+                                            key={item.id}
+                                            variant="secondary"
+                                            className="flex items-center gap-1 px-3 py-1"
+                                        >
+                                            {item.name}
+                                            <button
+                                                type="button"
+                                                onClick={() => removeItem(item.id)}
+                                                className="ml-1 hover:text-destructive"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                </div>
+
+                                {/* Item selector */}
+                                <Select onValueChange={handleItemSelect}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select lorebook item" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {/* Group by category */}
+                                        {['character', 'location', 'item', 'event', 'note'].map((category) => {
+                                            const categoryItems = lorebookEntries.filter(entry => entry.category === category);
+                                            if (categoryItems.length === 0) return null;
+
+                                            return (
+                                                <div key={category}>
+                                                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted capitalize">
+                                                        {category}s
+                                                    </div>
+                                                    {categoryItems.map((entry) => (
+                                                        <SelectItem
+                                                            key={entry.id}
+                                                            value={entry.id}
+                                                            disabled={selectedItems.some(item => item.id === entry.id)}
+                                                        >
+                                                            {entry.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {!anyContextSelected && (
                                 <div className="text-muted-foreground text-sm mb-2">
                                     No context selected. The AI will not have access to your story context.
                                 </div>

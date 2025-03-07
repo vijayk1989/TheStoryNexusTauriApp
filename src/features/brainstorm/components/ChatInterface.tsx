@@ -50,7 +50,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
     // State for chapter summaries
     const [chapters, setChapters] = useState<Chapter[]>([]);
-    const [selectedSummary, setSelectedSummary] = useState<string>('none');
+    const [selectedSummaries, setSelectedSummaries] = useState<string[]>([]);
 
     // State for prompt preview
     const [showPreview, setShowPreview] = useState(false);
@@ -62,8 +62,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     const { loadEntries, entries: lorebookEntries } = useLorebookStore();
     const { fetchPrompts, prompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
     const { initialize: initializeAI, getAvailableModels, generateWithPrompt, processStreamedResponse } = useAIStore();
-    const { fetchChats, addChat, updateChat, selectedChat } = useBrainstormStore();
-    const { fetchChapters, getChapterSummaries, getChapterSummary, getAllChapterSummaries } = useChapterStore();
+    const { addChat, updateChat, selectedChat } = useBrainstormStore();
+    const { fetchChapters } = useChapterStore();
 
     // State for AI
     const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
@@ -104,7 +104,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
         // Reset context selections when story changes
         setSelectedItems([]);
-        setSelectedSummary('none');
+        setSelectedSummaries([]);
         setCategoryToggles(prev => prev.map(toggle => ({ ...toggle, enabled: false })));
 
         loadData();
@@ -151,7 +151,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
     // Check if any context is selected
     const anyContextSelected = categoryToggles.some(toggle => toggle.enabled) ||
-        selectedSummary !== 'none' ||
+        selectedSummaries.length > 0 ||
         selectedItems.length > 0;
 
     // Toggle category
@@ -191,7 +191,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             .filter(toggle => toggle.enabled)
             .map(toggle => toggle.name);
 
-        if (selectedCategories.length === 0 && selectedItems.length === 0 && selectedSummary === 'none') {
+        if (selectedCategories.length === 0 && selectedItems.length === 0 && selectedSummaries.length === 0) {
             console.log('No context selected for prompt config. The AI will not have access to story context.');
         }
 
@@ -206,7 +206,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 })),
                 includeFullContext,
                 selectedCategories,
-                selectedSummary,
+                selectedSummaries,
                 selectedItems: selectedItems.map(item => item.id)
             }
         };
@@ -237,7 +237,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 additionalContext: {
                     includeFullContext: config.additionalContext?.includeFullContext,
                     selectedCategories: config.additionalContext?.selectedCategories,
-                    selectedSummary: config.additionalContext?.selectedSummary,
+                    selectedSummaries: config.additionalContext?.selectedSummaries,
                     selectedItems: config.additionalContext?.selectedItems,
                     chatHistoryLength: config.additionalContext?.chatHistory?.length
                 }
@@ -268,7 +268,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         if (showPreview && selectedPrompt) {
             handlePreviewPrompt();
         }
-    }, [categoryToggles, includeFullContext, selectedSummary, input]);
+    }, [categoryToggles, includeFullContext, selectedSummaries, input]);
 
     // Log when context settings change
     useEffect(() => {
@@ -277,10 +277,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             enabledCategories: categoryToggles
                 .filter(toggle => toggle.enabled)
                 .map(toggle => toggle.name),
-            selectedSummary,
+            selectedSummaries,
             selectedItemsCount: selectedItems.length
         });
-    }, [includeFullContext, categoryToggles, selectedSummary, selectedItems]);
+    }, [includeFullContext, categoryToggles, selectedSummaries, selectedItems]);
 
     // Handle submit
     const handleSubmit = async (e: React.FormEvent) => {
@@ -390,6 +390,23 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         }
     };
 
+    // Handle chapter summary selection
+    const handleSummarySelect = (summaryId: string) => {
+        if (summaryId === 'all') {
+            // If 'all' is selected, clear other selections and just use 'all'
+            setSelectedSummaries(['all']);
+        } else if (summaryId !== 'none' && !selectedSummaries.includes(summaryId)) {
+            // If 'all' is already selected, remove it
+            const newSummaries = selectedSummaries.filter(id => id !== 'all');
+            setSelectedSummaries([...newSummaries, summaryId]);
+        }
+    };
+
+    // Remove chapter summary
+    const removeSummary = (summaryId: string) => {
+        setSelectedSummaries(selectedSummaries.filter(id => id !== summaryId));
+    };
+
     return (
         <div className="flex flex-col h-full">
             {/* Chat messages */}
@@ -436,11 +453,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                             </Button>
                         </CollapsibleTrigger>
                         <div className="flex items-center gap-2">
-                            {selectedSummary !== 'none' && (
+                            {selectedSummaries.length > 0 && (
                                 <Badge variant="outline" className="mr-2">
-                                    {selectedSummary === 'all'
+                                    {selectedSummaries.includes('all')
                                         ? 'All Summaries'
-                                        : `Ch. ${chapters.find(c => c.id === selectedSummary)?.order || ''}`}
+                                        : `${selectedSummaries.length} ${selectedSummaries.length === 1 ? 'Summary' : 'Summaries'}`}
                                 </Badge>
                             )}
                             {selectedItems.length > 0 && (
@@ -473,27 +490,69 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                             {/* Chapter summaries dropdown */}
                             <div className="mb-2">
                                 <div className="text-sm font-medium mb-1">Chapter Summaries</div>
-                                <Select
-                                    value={selectedSummary}
-                                    onValueChange={(value) => {
-                                        setSelectedSummary(value);
-                                        // If a chapter is selected, log its title
-                                        if (value !== 'none' && value !== 'all') {
-                                            const chapter = chapters.find(c => c.id === value);
-                                            if (chapter) {
-                                                console.log(`Selected chapter: ${chapter.order} - ${chapter.title}`);
-                                            }
+
+                                {/* Selected summaries */}
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {selectedSummaries.map((summaryId) => {
+                                        if (summaryId === 'all') {
+                                            return (
+                                                <Badge
+                                                    key={summaryId}
+                                                    variant="secondary"
+                                                    className="flex items-center gap-1 px-3 py-1"
+                                                >
+                                                    All Summaries
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeSummary(summaryId)}
+                                                        className="ml-1 hover:text-destructive"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </Badge>
+                                            );
                                         }
-                                    }}
-                                >
+
+                                        const chapter = chapters.find(c => c.id === summaryId);
+                                        if (!chapter) return null;
+
+                                        return (
+                                            <Badge
+                                                key={summaryId}
+                                                variant="secondary"
+                                                className="flex items-center gap-1 px-3 py-1"
+                                            >
+                                                Ch. {chapter.order}: {chapter.title.substring(0, 15)}{chapter.title.length > 15 ? '...' : ''}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeSummary(summaryId)}
+                                                    className="ml-1 hover:text-destructive"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </Badge>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Summary selector */}
+                                <Select onValueChange={handleSummarySelect}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select chapter summary" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
-                                        <SelectItem value="all">All Summaries</SelectItem>
+                                        <SelectItem
+                                            value="all"
+                                            disabled={selectedSummaries.includes('all')}
+                                        >
+                                            All Summaries
+                                        </SelectItem>
                                         {chapters.map((chapter) => (
-                                            <SelectItem key={chapter.id} value={chapter.id}>
+                                            <SelectItem
+                                                key={chapter.id}
+                                                value={chapter.id}
+                                                disabled={selectedSummaries.includes(chapter.id) || selectedSummaries.includes('all')}
+                                            >
                                                 Chapter {chapter.order}: {chapter.title}
                                             </SelectItem>
                                         ))}

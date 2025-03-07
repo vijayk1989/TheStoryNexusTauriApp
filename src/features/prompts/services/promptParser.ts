@@ -417,17 +417,20 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
         // Check if we need to include chapter summaries
         let chapterSummary = '';
-        if (context.additionalContext?.selectedSummary) {
-            const selectedSummary = context.additionalContext.selectedSummary;
+        if (context.additionalContext?.selectedSummaries && context.additionalContext.selectedSummaries.length > 0) {
+            const selectedSummaries = context.additionalContext.selectedSummaries as string[];
 
-            if (selectedSummary === 'all') {
+            if (selectedSummaries.includes('all')) {
                 // Get all chapter summaries
                 chapterSummary = await chapterStore.getAllChapterSummaries(context.storyId);
                 console.log('Including all chapter summaries');
-            } else if (selectedSummary !== 'none') {
-                // Get a specific chapter summary
-                chapterSummary = await chapterStore.getChapterSummary(selectedSummary);
-                console.log(`Including summary for chapter with ID: ${selectedSummary}`);
+            } else {
+                // Get specific chapter summaries
+                const summaries = await Promise.all(
+                    selectedSummaries.map(id => chapterStore.getChapterSummary(id))
+                );
+                chapterSummary = summaries.filter(Boolean).join('\n\n');
+                console.log(`Including summaries for ${selectedSummaries.length} chapters`);
             }
         }
 

@@ -415,6 +415,35 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
         console.log('Resolving brainstorm context with additionalContext:', context.additionalContext);
 
+        // Check if full context is enabled
+        if (context.additionalContext?.includeFullContext === true) {
+            console.log('Full context is enabled, including all lorebook entries and chapter summaries');
+
+            // Get all chapter summaries
+            const chapterSummary = await chapterStore.getAllChapterSummaries(context.storyId);
+
+            // Get all lorebook entries
+            const entries = lorebookStore.getAllEntries();
+
+            // Format the result
+            let result = '';
+
+            // Add chapter summaries if available
+            if (chapterSummary) {
+                result += `Story Chapter Summaries:\n${chapterSummary}\n\n`;
+            }
+
+            // Add lorebook entries if available
+            if (entries.length > 0) {
+                if (chapterSummary) {
+                    result += "Story World Information:\n";
+                }
+                result += this.formatLorebookEntries(entries);
+            }
+
+            return result;
+        }
+
         // Check if we need to include chapter summaries
         let chapterSummary = '';
         if (context.additionalContext?.selectedSummaries && context.additionalContext.selectedSummaries.length > 0) {
@@ -443,75 +472,13 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
             const selectedItemIds = context.additionalContext.selectedItems as string[];
             entries = lorebookStore.entries.filter(entry => selectedItemIds.includes(entry.id));
         }
-        // Check if we have matched entries directly in the context
-        else if (context.matchedEntries && context.matchedEntries.size > 0) {
-            console.log('Using matched entries from context:', context.matchedEntries.size);
-            entries = Array.from(context.matchedEntries);
-        }
-        // If not, check if we have chapter matched entries
-        else if (context.chapterMatchedEntries && context.chapterMatchedEntries.size > 0) {
-            console.log('Using chapter matched entries:', context.chapterMatchedEntries.size);
-            entries = Array.from(context.chapterMatchedEntries);
-        }
-        // If not, check if we have scene beat matched entries
-        else if (context.sceneBeatMatchedEntries && context.sceneBeatMatchedEntries.size > 0) {
-            console.log('Using scene beat matched entries:', context.sceneBeatMatchedEntries.size);
-            entries = Array.from(context.sceneBeatMatchedEntries);
-        }
-        // If nothing direct, check the additional context
-        else if (context.additionalContext) {
-            // Check for full context flag
-            if (context.additionalContext.includeFullContext) {
-                console.log('Using full context (all entries)');
-                entries = lorebookStore.entries;
-            }
-            // Check for selected tags
-            else if (context.additionalContext.selectedTags?.length) {
-                console.log('Using selected tags:', context.additionalContext.selectedTags);
-                entries = context.additionalContext.selectedTags.flatMap(tag =>
-                    lorebookStore.getEntriesByTag(tag)
-                );
-            }
-            // Check for selected categories
-            else if (context.additionalContext.selectedCategories !== undefined) {
-                // If selectedCategories is an empty array, it means all categories are unselected
-                if (context.additionalContext.selectedCategories.length === 0) {
-                    console.log('All categories are unselected');
-                    // We'll still return chapter summaries if selected
-                    if (chapterSummary) {
-                        console.log('Returning only chapter summaries');
-                        return `Story Chapter Summaries:\n${chapterSummary}`;
-                    }
-                    return "No story context is available for this query. Feel free to ask about anything related to writing or storytelling in general.";
-                } else {
-                    console.log('Using selected categories:', context.additionalContext.selectedCategories);
-                    entries = context.additionalContext.selectedCategories.flatMap(category =>
-                        lorebookStore.getEntriesByCategory(category as any)
-                    );
-                    console.log('Found entries from categories:', entries.length);
-                }
-            } else {
-                console.log('No context criteria matched in additionalContext');
-            }
-        }
-
-        // If we still have no entries, use a fallback approach
-        if (entries.length === 0) {
-            // Only use fallback if we didn't explicitly unselect all categories
-            if (!context.additionalContext?.selectedCategories || context.additionalContext.selectedCategories.length > 0) {
-                console.log("No entries found, using fallback to get major characters");
-                // Get major characters as a fallback
-                entries = lorebookStore.getEntriesByImportance('major');
-            } else {
-                console.log("No entries found, but all categories were unselected, so not using fallback");
-            }
-        }
 
         // Log what we found for debugging
         console.log(`Resolved brainstorm context with ${entries.length} entries and ${chapterSummary ? 'with' : 'without'} chapter summaries`);
 
         // Format the entries and combine with chapter summaries
         if (entries.length === 0 && !chapterSummary) {
+            console.log('No context selected, returning empty context message');
             return "No story context is available for this query. Feel free to ask about anything related to writing or storytelling in general.";
         }
 

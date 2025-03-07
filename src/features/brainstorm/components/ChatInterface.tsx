@@ -94,8 +94,6 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         setSelectedSummaries([]);
         setIncludeFullContext(false);
 
-        console.log('Initializing ChatInterface with empty context selections');
-
         loadData();
     }, [storyId]);
 
@@ -162,14 +160,6 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
     // Create prompt config for brainstorming
     const createPromptConfig = (prompt: Prompt): PromptParserConfig => {
-        if (!anyContextSelected && !includeFullContext) {
-            console.log('No context selected for prompt config. The AI will not have access to story context.');
-        }
-
-        if (includeFullContext) {
-            console.log('Full context is enabled. All lorebook entries and chapter summaries will be included.');
-        }
-
         return {
             promptId: prompt.id,
             storyId,
@@ -203,22 +193,6 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
             const config = createPromptConfig(selectedPrompt);
 
-            // Log the config for debugging
-            console.log('Preview prompt config:', {
-                promptId: config.promptId,
-                storyId: config.storyId,
-                scenebeat: config.scenebeat,
-                additionalContext: {
-                    includeFullContext: config.additionalContext?.includeFullContext,
-                    fullContextEnabled: config.additionalContext?.includeFullContext === true,
-                    selectedSummaries: config.additionalContext?.selectedSummaries,
-                    selectedSummariesCount: config.additionalContext?.selectedSummaries?.length || 0,
-                    selectedItems: config.additionalContext?.selectedItems,
-                    selectedItemsCount: config.additionalContext?.selectedItems?.length || 0,
-                    chatHistoryLength: config.additionalContext?.chatHistory?.length
-                }
-            });
-
             const promptParser = createPromptParser();
             const parsedPrompt = await promptParser.parse(config);
 
@@ -245,16 +219,6 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             handlePreviewPrompt();
         }
     }, [includeFullContext, selectedSummaries, selectedItems, input]);
-
-    // Log when context settings change
-    useEffect(() => {
-        console.log('Context settings changed:', {
-            includeFullContext,
-            selectedSummariesCount: selectedSummaries.length,
-            selectedItemsCount: selectedItems.length,
-            anyContextSelected
-        });
-    }, [includeFullContext, selectedSummaries, selectedItems, anyContextSelected]);
 
     // Handle submit
     const handleSubmit = async (e: React.FormEvent) => {
@@ -384,11 +348,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     // Clear selections when full context is enabled
     useEffect(() => {
         if (includeFullContext) {
-            console.log('Full context enabled, clearing selections');
             setSelectedSummaries([]);
             setSelectedItems([]);
-        } else {
-            console.log('Full context disabled');
         }
     }, [includeFullContext]);
 
@@ -472,12 +433,96 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                     </div>
                     <CollapsibleContent>
                         <div className="pt-2">
-                            {/* Chapter summaries dropdown */}
-                            <div className="mb-4">
-                                <div className="text-sm font-medium mb-1">Chapter Summaries</div>
+                            <div className="flex flex-wrap gap-4 mb-4">
+                                {/* Chapter summaries dropdown */}
+                                <div className="flex-1 min-w-[200px]">
+                                    <div className="text-sm font-medium mb-1">Chapter Summaries</div>
+                                    <Select
+                                        onValueChange={(value) => {
+                                            handleSummarySelect(value);
+                                            // Reset the select value after selection
+                                            const selectElement = document.querySelector('[data-chapter-select="true"]');
+                                            if (selectElement) {
+                                                (selectElement as HTMLSelectElement).value = '';
+                                            }
+                                        }}
+                                        disabled={includeFullContext}
+                                        value=""
+                                    >
+                                        <SelectTrigger className="w-full" data-chapter-select="true">
+                                            <SelectValue placeholder="Select chapter summary" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem
+                                                value="all"
+                                                disabled={selectedSummaries.includes('all')}
+                                            >
+                                                All Summaries
+                                            </SelectItem>
+                                            {chapters.map((chapter) => (
+                                                <SelectItem
+                                                    key={chapter.id}
+                                                    value={chapter.id}
+                                                    disabled={selectedSummaries.includes(chapter.id) || selectedSummaries.includes('all')}
+                                                >
+                                                    Chapter {chapter.order}: {chapter.title}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                                {/* Selected summaries */}
-                                <div className="flex flex-wrap gap-2 mb-2">
+                                {/* Lorebook items multi-select */}
+                                <div className="flex-1 min-w-[200px]">
+                                    <div className="text-sm font-medium mb-1">Lorebook Items</div>
+                                    <Select
+                                        onValueChange={(value) => {
+                                            handleItemSelect(value);
+                                            // Reset the select value after selection
+                                            const selectElement = document.querySelector('[data-lorebook-select="true"]');
+                                            if (selectElement) {
+                                                (selectElement as HTMLSelectElement).value = '';
+                                            }
+                                        }}
+                                        disabled={includeFullContext}
+                                        value=""
+                                    >
+                                        <SelectTrigger className="w-full" data-lorebook-select="true">
+                                            <SelectValue placeholder="Select lorebook item" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {/* Group by category */}
+                                            {['character', 'location', 'item', 'event', 'note'].map((category) => {
+                                                const categoryItems = lorebookEntries.filter(entry => entry.category === category);
+                                                if (categoryItems.length === 0) return null;
+
+                                                return (
+                                                    <div key={category}>
+                                                        <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted capitalize">
+                                                            {category}s
+                                                        </div>
+                                                        {categoryItems.map((entry) => (
+                                                            <SelectItem
+                                                                key={entry.id}
+                                                                value={entry.id}
+                                                                disabled={selectedItems.some(item => item.id === entry.id)}
+                                                            >
+                                                                {entry.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Badges section */}
+                            <div className="mb-4 border rounded-md p-3 bg-muted/10">
+                                <div className="text-sm font-medium mb-2">Selected Context</div>
+                                <div className="flex flex-wrap gap-2">
+                                    {/* Chapter summary badges */}
                                     {selectedSummaries.map((summaryId) => {
                                         if (summaryId === 'all') {
                                             return (
@@ -518,42 +563,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                             </Badge>
                                         );
                                     })}
-                                </div>
 
-                                {/* Summary selector */}
-                                <Select
-                                    onValueChange={handleSummarySelect}
-                                    disabled={includeFullContext}
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select chapter summary" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            value="all"
-                                            disabled={selectedSummaries.includes('all')}
-                                        >
-                                            All Summaries
-                                        </SelectItem>
-                                        {chapters.map((chapter) => (
-                                            <SelectItem
-                                                key={chapter.id}
-                                                value={chapter.id}
-                                                disabled={selectedSummaries.includes(chapter.id) || selectedSummaries.includes('all')}
-                                            >
-                                                Chapter {chapter.order}: {chapter.title}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {/* Lorebook items multi-select */}
-                            <div className="mb-4">
-                                <div className="text-sm font-medium mb-1">Lorebook Items</div>
-
-                                {/* Selected items */}
-                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {/* Lorebook item badges */}
                                     {selectedItems.map((item) => (
                                         <Badge
                                             key={item.id}
@@ -570,46 +581,18 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                             </button>
                                         </Badge>
                                     ))}
+
+                                    {!selectedSummaries.length && !selectedItems.length && (
+                                        <div className="text-muted-foreground text-sm">
+                                            No items selected
+                                        </div>
+                                    )}
                                 </div>
-
-                                {/* Item selector */}
-                                <Select
-                                    onValueChange={handleItemSelect}
-                                    disabled={includeFullContext}
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select lorebook item" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {/* Group by category */}
-                                        {['character', 'location', 'item', 'event', 'note'].map((category) => {
-                                            const categoryItems = lorebookEntries.filter(entry => entry.category === category);
-                                            if (categoryItems.length === 0) return null;
-
-                                            return (
-                                                <div key={category}>
-                                                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted capitalize">
-                                                        {category}s
-                                                    </div>
-                                                    {categoryItems.map((entry) => (
-                                                        <SelectItem
-                                                            key={entry.id}
-                                                            value={entry.id}
-                                                            disabled={selectedItems.some(item => item.id === entry.id)}
-                                                        >
-                                                            {entry.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </div>
-                                            );
-                                        })}
-                                    </SelectContent>
-                                </Select>
                             </div>
 
                             {!anyContextSelected && !includeFullContext && (
-                                <div className="text-muted-foreground text-sm mb-2">
-                                    No context selected. The AI will not have access to your story context.
+                                <div className="text-muted-foreground text-sm mb-2 p-2">
+                                    No context selected.
                                 </div>
                             )}
                         </div>

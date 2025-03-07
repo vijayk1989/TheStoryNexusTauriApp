@@ -413,12 +413,8 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
             await lorebookStore.loadEntries(context.storyId);
         }
 
-        console.log('Resolving brainstorm context with additionalContext:', context.additionalContext);
-
         // Check if full context is enabled
         if (context.additionalContext?.includeFullContext === true) {
-            console.log('Full context is enabled, including all lorebook entries and chapter summaries');
-
             // Get all chapter summaries
             const chapterSummary = await chapterStore.getAllChapterSummaries(context.storyId);
 
@@ -452,14 +448,12 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
             if (selectedSummaries.includes('all')) {
                 // Get all chapter summaries
                 chapterSummary = await chapterStore.getAllChapterSummaries(context.storyId);
-                console.log('Including all chapter summaries');
             } else {
                 // Get specific chapter summaries
                 const summaries = await Promise.all(
                     selectedSummaries.map(id => chapterStore.getChapterSummary(id))
                 );
                 chapterSummary = summaries.filter(Boolean).join('\n\n');
-                console.log(`Including summaries for ${selectedSummaries.length} chapters`);
             }
         }
 
@@ -468,26 +462,16 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
         // Check if we have specifically selected lorebook items
         if (context.additionalContext?.selectedItems && context.additionalContext.selectedItems.length > 0) {
-            console.log('Using specifically selected lorebook items:', context.additionalContext.selectedItems.length);
             const selectedItemIds = context.additionalContext.selectedItems as string[];
             entries = lorebookStore.entries.filter(entry => selectedItemIds.includes(entry.id));
         }
 
-        // Log what we found for debugging
-        console.log(`Resolved brainstorm context with ${entries.length} entries and ${chapterSummary ? 'with' : 'without'} chapter summaries`);
-
         // Format the entries and combine with chapter summaries
         if (entries.length === 0 && !chapterSummary) {
-            console.log('No context selected, returning empty context message');
             return "No story context is available for this query. Feel free to ask about anything related to writing or storytelling in general.";
         }
 
         let result = '';
-
-        // Add chapter summaries if available
-        if (chapterSummary) {
-            result += `Story Chapter Summaries:\n${chapterSummary}\n\n`;
-        }
 
         // Add lorebook entries if available
         if (entries.length > 0) {
@@ -495,6 +479,11 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
                 result += "Story World Information:\n";
             }
             result += this.formatLorebookEntries(entries);
+        }
+
+        // Add chapter summaries if available
+        if (chapterSummary) {
+            result += `Story Chapter Summaries:\n${chapterSummary}\n\n`;
         }
 
         return result;

@@ -132,35 +132,7 @@
 }
 
 .floating-text-format-popup .divider {
-  width: 1px;
-  background-color: #eee;
-  margin: 0 4px;
-}
-
-/* Generated text area styles */
-.floating-text-format-popup .generated-text-area {
-  @apply border-b border-border p-2 max-h-[150px] overflow-auto;
-  min-height: 60px;
-  width: 100%;
-  font-size: 16px;
-}
-
-.floating-text-format-popup .generated-text-content {
-  @apply text-sm;
-}
-
-.floating-text-format-popup .generating-indicator {
-  @apply flex items-center justify-center text-muted-foreground;
-}
-
-.floating-text-format-popup .generated-text {
-  @apply whitespace-pre-wrap;
-}
-
-@media (max-width: 1024px) {
-  .floating-text-format-popup button.insert-comment {
-    display: none;
-  }
+  @apply w-[1px] h-6 bg-border mx-1;
 }
 
 /* Add specific styling for the menubar component */
@@ -184,4 +156,10 @@
 .floating-text-format-popup .menubar-item {
   @apply text-sm font-medium;
   letter-spacing: -0.01em;
+}
+
+@media (max-width: 1024px) {
+  .floating-text-format-popup button.insert-comment {
+    display: none;
+  }
 }

@@ -68,13 +68,6 @@ function TextFormatFloatingToolbar({
   const [selectedModel, setSelectedModel] = useState<AllowedModel>();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedText, setGeneratedText] = useState('');
-  const [streamComplete, setStreamComplete] = useState(false);
-  const [originalSelection, setOriginalSelection] = useState<{
-    text: string;
-    anchorOffset: number;
-    focusOffset: number;
-  } | null>(null);
-  const [showGeneratedText, setShowGeneratedText] = useState(false);
 
   // Add these states for prompt preview
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
@@ -256,15 +249,12 @@ function TextFormatFloatingToolbar({
     }
 
     let selectedText = '';
-    let anchorOffset = 0;
-    let focusOffset = 0;
+    let selection: any = null;
 
     editor.getEditorState().read(() => {
-      const selection = $getSelection();
+      selection = $getSelection();
       if ($isRangeSelection(selection)) {
         selectedText = selection.getTextContent();
-        anchorOffset = selection.anchor.offset;
-        focusOffset = selection.focus.offset;
       }
     });
 
@@ -273,30 +263,33 @@ function TextFormatFloatingToolbar({
       return;
     }
 
-    // Store the original selection for later use
-    setOriginalSelection({
-      text: selectedText,
-      anchorOffset,
-      focusOffset
-    });
-
     setIsGenerating(true);
     setGeneratedText('');
-    setStreamComplete(false);
-    setShowGeneratedText(true);
 
     try {
       const config = createPromptConfig(selectedPrompt);
       const response = await generateWithPrompt(config, selectedModel);
 
+      let fullText = '';
+
       await processStreamedResponse(
         response,
         (token) => {
-          setGeneratedText(prev => prev + token);
+          // Accumulate tokens but don't show them in UI
+          fullText += token;
         },
         () => {
-          setStreamComplete(true);
+          // When streaming is complete, replace the selected text
+          editor.update(() => {
+            const currentSelection = $getSelection();
+            if ($isRangeSelection(currentSelection)) {
+              currentSelection.insertText(fullText);
+            }
+          });
+
+          // Reset state
           setIsGenerating(false);
+          toast.success('Text generated and inserted');
         },
         (error) => {
           console.error('Error streaming response:', error);
@@ -311,31 +304,11 @@ function TextFormatFloatingToolbar({
     }
   };
 
-  const handleAccept = () => {
-    if (!generatedText) return;
-
-    editor.update(() => {
-      const selection = $getSelection();
-      if ($isRangeSelection(selection)) {
-        selection.insertText(generatedText);
-      }
-    });
-
-    resetGenerationState();
-  };
-
-  const handleReject = () => {
-    resetGenerationState();
-  };
-
   const resetGenerationState = () => {
     setGeneratedText('');
-    setStreamComplete(false);
-    setOriginalSelection(null);
-    setShowGeneratedText(false);
+    setIsGenerating(false);
   };
 
-  // Add this new function for previewing the prompt
   const handlePreviewPrompt = async () => {
     if (!selectedPrompt) {
       toast.error('Please select a prompt first');
@@ -366,12 +339,25 @@ function TextFormatFloatingToolbar({
   };
 
   return (
-    <div ref={popupCharStylesEditorRef} className="floating-text-format-popup">
+    <div
+      ref={popupCharStylesEditorRef}
+      className={`floating-text-format-popup ${showPreviewDialog ? 'active' : ''}`}
+    >
+      {showPreviewDialog && previewMessages && (
+        <PromptPreviewDialog
+          messages={previewMessages}
+          open={showPreviewDialog}
+          onOpenChange={setShowPreviewDialog}
+          isLoading={previewLoading}
+          error={previewError}
+        />
+      )}
+
       <div className="toolbar-container">
         {editor.isEditable() && (
           <div className="toolbar-buttons">
             <Button
-              variant={isBold ? "secondary" : "ghost"}
+              variant={isBold ? 'default' : 'outline'}
               size="sm"
               onClick={() => {
                 editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
@@ -382,7 +368,7 @@ function TextFormatFloatingToolbar({
               <Bold className="h-4 w-4" />
             </Button>
             <Button
-              variant={isItalic ? "secondary" : "ghost"}
+              variant={isItalic ? 'default' : 'outline'}
               size="sm"
               onClick={() => {
                 editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
@@ -393,7 +379,7 @@ function TextFormatFloatingToolbar({
               <Italic className="h-4 w-4" />
             </Button>
             <Button
-              variant={isUnderline ? "secondary" : "ghost"}
+              variant={isUnderline ? 'default' : 'outline'}
               size="sm"
               onClick={() => {
                 editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
@@ -406,7 +392,7 @@ function TextFormatFloatingToolbar({
 
             <Separator orientation="vertical" className="mx-1 h-6" />
 
-            {!isGenerating && !streamComplete ? (
+            {!isGenerating ? (
               <>
                 <PromptSelectMenu
                   isLoading={isLoading}
@@ -452,63 +438,13 @@ function TextFormatFloatingToolbar({
               </>
             ) : (
               <div className="flex items-center gap-2">
-                {isGenerating ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Generating...</span>
-                  </div>
-                ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAccept}
-                      className="flex items-center gap-1"
-                    >
-                      <Check className="h-3 w-3" />
-                      <span>Accept</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleReject}
-                      className="flex items-center gap-1"
-                    >
-                      <X className="h-3 w-3" />
-                      <span>Reject</span>
-                    </Button>
-                  </>
-                )}
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Generating...</span>
               </div>
             )}
           </div>
         )}
-
-        {/* Generated text area */}
-        {showGeneratedText && (
-          <div className="generated-text-area">
-            <div className="generated-text-content">
-              {isGenerating && !generatedText ? (
-                <div className="generating-indicator">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  <span>Generating...</span>
-                </div>
-              ) : (
-                <div className="generated-text">{generatedText}</div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
-
-      {/* Add the PromptPreviewDialog component */}
-      <PromptPreviewDialog
-        open={showPreviewDialog}
-        onOpenChange={setShowPreviewDialog}
-        messages={previewMessages}
-        isLoading={previewLoading}
-        error={previewError}
-      />
     </div>
   );
 }

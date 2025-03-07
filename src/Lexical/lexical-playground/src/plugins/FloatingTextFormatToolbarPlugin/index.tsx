@@ -10,8 +10,6 @@ import type { JSX } from 'react';
 
 import './index.css';
 
-import { $isCodeHighlightNode } from '@lexical/code';
-import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { mergeRegister } from '@lexical/utils';
 import {
@@ -25,7 +23,7 @@ import {
   LexicalEditor,
   SELECTION_CHANGE_COMMAND,
 } from 'lexical';
-import { Dispatch, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from "@/components/ui/button";
 import { Bold, Italic, Underline, Wand2, Loader2, Check, X } from "lucide-react";
@@ -33,7 +31,6 @@ import { Bold, Italic, Underline, Wand2, Loader2, Check, X } from "lucide-react"
 import { getDOMRangeRect } from '../../utils/getDOMRangeRect';
 import { getSelectedNode } from '../../utils/getSelectedNode';
 import { setFloatingElemPosition } from '../../utils/setFloatingElemPosition';
-import { INSERT_INLINE_COMMAND } from '../CommentPlugin';
 import { usePromptStore } from '@/features/prompts/store/promptStore';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
@@ -45,6 +42,8 @@ import { Separator } from '@/components/ui/separator';
 import { useStoryStore } from '@/features/stories/stores/useStoryStore';
 import { PromptPreviewDialog } from '@/components/ui/prompt-preview-dialog';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
+import { $isSceneBeatNode } from '../../nodes/SceneBeatNode';
+
 function TextFormatFloatingToolbar({
   editor,
   anchorElem,
@@ -209,22 +208,70 @@ function TextFormatFloatingToolbar({
       if ($isRangeSelection(selection)) {
         selectedText = selection.getTextContent();
 
-        // Get the DOM selection
-        const domSelection = window.getSelection();
-        if (domSelection && domSelection.rangeCount > 0) {
-          const range = domSelection.getRangeAt(0);
+        // Get the current selection anchor and focus nodes
+        const anchorNode = selection.anchor.getNode();
+        const anchorOffset = selection.anchor.offset;
+        const focusNode = selection.focus.getNode();
+        const focusOffset = selection.focus.offset;
 
-          // Create a range from the start of the editor to the start of the selection
-          const editorElement = editor.getRootElement();
-          if (editorElement) {
-            const preSelectionRange = document.createRange();
-            preSelectionRange.selectNodeContents(editorElement);
-            preSelectionRange.setEnd(range.startContainer, range.startOffset);
+        // Determine if selection is backward (focus comes before anchor)
+        const isBackward = selection.isBackward();
 
-            // Get the text content of this range (all text before the selection)
-            previousWords = preSelectionRange.toString();
+        // Get the actual start and end points of the selection
+        const startNode = isBackward ? focusNode : anchorNode;
+        const startOffset = isBackward ? focusOffset : anchorOffset;
+
+        // Collect text before the selection using Lexical's node traversal
+        const textParts: string[] = [];
+        let reachedStartNode = false;
+
+        // Function to traverse the editor content in document order
+        const traverseNodes = (node: any): boolean => {
+          // If we've already reached the selection start node, stop traversal
+          if (reachedStartNode) {
+            return true;
           }
+
+          // Skip SceneBeatNodes entirely
+          if ($isSceneBeatNode(node)) {
+            return false;
+          }
+
+          // Check if this is the selection start node
+          if (node.is(startNode)) {
+            // If this is a text node, add text up to the selection start point
+            if ($isTextNode(node)) {
+              textParts.push(node.getTextContent().substring(0, startOffset));
+            }
+            reachedStartNode = true;
+            return true;
+          }
+
+          // Add text content if this is a text node
+          if ($isTextNode(node)) {
+            textParts.push(node.getTextContent());
+            return false;
+          }
+
+          // Traverse children
+          const children = node.getChildren();
+          for (const child of children) {
+            if (traverseNodes(child)) {
+              return true;
+            }
+          }
+
+          return false;
+        };
+
+        // Start traversal from the root node
+        const rootNode = editor.getEditorState()._nodeMap.get('root');
+        if (rootNode) {
+          traverseNodes(rootNode);
         }
+
+        // Join all collected text
+        previousWords = textParts.join('');
       }
     });
 
@@ -452,20 +499,11 @@ function TextFormatFloatingToolbar({
 function useFloatingTextFormatToolbar(
   editor: LexicalEditor,
   anchorElem: HTMLElement,
-  setIsLinkEditMode: Dispatch<boolean>,
 ): JSX.Element | null {
   const [isText, setIsText] = useState(false);
-  const [isLink, setIsLink] = useState(false);
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
-  const [isUppercase, setIsUppercase] = useState(false);
-  const [isLowercase, setIsLowercase] = useState(false);
-  const [isCapitalize, setIsCapitalize] = useState(false);
-  const [isStrikethrough, setIsStrikethrough] = useState(false);
-  const [isSubscript, setIsSubscript] = useState(false);
-  const [isSuperscript, setIsSuperscript] = useState(false);
-  const [isCode, setIsCode] = useState(false);
 
   const updatePopup = useCallback(() => {
     editor.getEditorState().read(() => {
@@ -497,26 +535,9 @@ function useFloatingTextFormatToolbar(
       setIsBold(selection.hasFormat('bold'));
       setIsItalic(selection.hasFormat('italic'));
       setIsUnderline(selection.hasFormat('underline'));
-      setIsUppercase(selection.hasFormat('uppercase'));
-      setIsLowercase(selection.hasFormat('lowercase'));
-      setIsCapitalize(selection.hasFormat('capitalize'));
-      setIsStrikethrough(selection.hasFormat('strikethrough'));
-      setIsSubscript(selection.hasFormat('subscript'));
-      setIsSuperscript(selection.hasFormat('superscript'));
-      setIsCode(selection.hasFormat('code'));
 
-      // Update links
-      const parent = node.getParent();
-      if ($isLinkNode(parent) || $isLinkNode(node)) {
-        setIsLink(true);
-      } else {
-        setIsLink(false);
-      }
-
-      if (
-        !$isCodeHighlightNode(selection.anchor.getNode()) &&
-        selection.getTextContent() !== ''
-      ) {
+      // Simplified condition - show text formatting toolbar if there's selected text
+      if (selection.getTextContent() !== '') {
         setIsText($isTextNode(node) || $isParagraphNode(node));
       } else {
         setIsText(false);
@@ -568,11 +589,9 @@ function useFloatingTextFormatToolbar(
 
 export default function FloatingTextFormatToolbarPlugin({
   anchorElem = document.body,
-  setIsLinkEditMode,
 }: {
   anchorElem?: HTMLElement;
-  setIsLinkEditMode: Dispatch<boolean>;
 }): JSX.Element | null {
   const [editor] = useLexicalComposerContext();
-  return useFloatingTextFormatToolbar(editor, anchorElem, setIsLinkEditMode);
+  return useFloatingTextFormatToolbar(editor, anchorElem);
 }

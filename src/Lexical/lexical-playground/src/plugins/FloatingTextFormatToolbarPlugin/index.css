@@ -79,6 +79,7 @@
   vertical-align: middle;
   -webkit-appearance: none;
   -moz-appearance: none;
+  appearance: none;
   width: 70px;
   font-size: 14px;
   color: #777;

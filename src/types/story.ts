@@ -40,6 +40,12 @@ export interface SceneBeat extends BaseEntity {
     povCharacter?: string;
     generatedContent?: string; // To store the last generated content
     accepted?: boolean; // Whether the generated content was accepted
+    metadata?: {
+        useMatchedChapter?: boolean;
+        useMatchedSceneBeat?: boolean;
+        useCustomContext?: boolean;
+        [key: string]: any; // Allow for additional metadata properties
+    };
 }
 
 // AI Chat types
@@ -135,6 +141,12 @@ export interface PromptParserConfig {
     povCharacter?: string;
     povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
     storyLanguage?: string;
+    sceneBeatContext?: {
+        useMatchedChapter: boolean;
+        useMatchedSceneBeat: boolean;
+        useCustomContext: boolean;
+        customContextItems?: string[]; // IDs of selected lorebook items
+    };
 }
 
 export interface PromptContext {
@@ -152,6 +164,12 @@ export interface PromptContext {
     povCharacter?: string;
     povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
     storyLanguage?: string;
+    sceneBeatContext?: {
+        useMatchedChapter: boolean;
+        useMatchedSceneBeat: boolean;
+        useCustomContext: boolean;
+        customContextItems?: string[]; // IDs of selected lorebook items
+    };
 }
 
 export interface ParsedPrompt {

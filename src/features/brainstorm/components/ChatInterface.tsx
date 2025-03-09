@@ -127,7 +127,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
     // Get filtered entries based on enabled categories
     const getFilteredEntries = () => {
-        return lorebookEntries;
+        // Use the centralized method from the store
+        return useLorebookStore.getState().getFilteredEntries();
     };
 
     // Check if any context is selected
@@ -147,7 +148,9 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
     // Handle lorebook item selection
     const handleItemSelect = (itemId: string) => {
-        const item = lorebookEntries.find(entry => entry.id === itemId);
+        // Use the filtered entries from the store
+        const filteredEntries = useLorebookStore.getState().getFilteredEntries();
+        const item = filteredEntries.find(entry => entry.id === itemId);
         if (item && !selectedItems.some(i => i.id === itemId)) {
             setSelectedItems([...selectedItems, item]);
         }
@@ -493,7 +496,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                         <SelectContent>
                                             {/* Group by category */}
                                             {['character', 'location', 'item', 'event', 'note'].map((category) => {
-                                                const categoryItems = lorebookEntries.filter(entry => entry.category === category);
+                                                const categoryItems = getFilteredEntries().filter(entry => entry.category === category);
                                                 if (categoryItems.length === 0) return null;
 
                                                 return (

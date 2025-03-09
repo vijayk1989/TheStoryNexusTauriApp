@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Search, Filter } from "lucide-react";
+import { Edit, Trash2, Search, Filter, EyeOff, Eye } from "lucide-react";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -17,6 +17,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { LorebookEntry } from "@/types/story";
 
 interface LorebookEntryListProps {
@@ -25,13 +27,17 @@ interface LorebookEntryListProps {
 
 type SortOption = 'name' | 'category' | 'importance' | 'created';
 
-export function LorebookEntryList({ entries }: LorebookEntryListProps) {
-    const { deleteEntry } = useLorebookStore();
+export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProps) {
+    const { deleteEntry, updateEntry, getFilteredEntries } = useLorebookStore();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState<string>("all");
     const [sortBy, setSortBy] = useState<SortOption>('name');
     const [editingEntry, setEditingEntry] = useState<LorebookEntry | null>(null);
     const [deletingEntry, setDeletingEntry] = useState<LorebookEntry | null>(null);
+    const [showDisabled, setShowDisabled] = useState(false);
+
+    // Get entries based on showDisabled setting
+    const entries = showDisabled ? allEntries : getFilteredEntries();
 
     // Filter entries based on search term and category
     const filteredEntries = entries.filter(entry => {
@@ -73,6 +79,14 @@ export function LorebookEntryList({ entries }: LorebookEntryListProps) {
         }
     };
 
+    const toggleDisabled = async (entry: LorebookEntry) => {
+        try {
+            await updateEntry(entry.id, { isDisabled: !entry.isDisabled });
+        } catch (error) {
+            console.error('Failed to update entry:', error);
+        }
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -85,7 +99,15 @@ export function LorebookEntryList({ entries }: LorebookEntryListProps) {
                         className="pl-8"
                     />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    <div className="flex items-center space-x-2">
+                        <Switch
+                            id="show-disabled"
+                            checked={showDisabled}
+                            onCheckedChange={setShowDisabled}
+                        />
+                        <Label htmlFor="show-disabled">Show Disabled</Label>
+                    </div>
                     <Select
                         value={selectedCategory}
                         onValueChange={setSelectedCategory}
@@ -128,10 +150,22 @@ export function LorebookEntryList({ entries }: LorebookEntryListProps) {
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {sortedEntries.map((entry) => (
-                    <Card key={entry.id}>
+                    <Card key={entry.id} className={entry.isDisabled ? "opacity-60" : ""}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-lg font-semibold">{entry.name}</CardTitle>
                             <div className="flex gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => toggleDisabled(entry)}
+                                    title={entry.isDisabled ? "Enable entry" : "Disable entry"}
+                                >
+                                    {entry.isDisabled ? (
+                                        <Eye className="h-4 w-4" />
+                                    ) : (
+                                        <EyeOff className="h-4 w-4" />
+                                    )}
+                                </Button>
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -154,9 +188,12 @@ export function LorebookEntryList({ entries }: LorebookEntryListProps) {
                                 {entry.metadata?.importance && (
                                     <Badge variant="outline">{entry.metadata.importance}</Badge>
                                 )}
+                                {entry.isDisabled && (
+                                    <Badge variant="outline" className="bg-destructive/10 text-destructive">Disabled</Badge>
+                                )}
                             </div>
                             <div className="flex flex-wrap gap-1 mb-2">
-                                {entry.tags.map((tag, index) => (
+                                {entry.tags && entry.tags.map((tag, index) => (
                                     <Badge
                                         key={index}
                                         variant="secondary"

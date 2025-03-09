@@ -70,7 +70,6 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
     const { generateWithPrompt, processStreamedResponse } = useAIStore();
     const { tagMap, chapterMatchedEntries, entries } = useLorebookStore();
     const [localMatchedEntries, setLocalMatchedEntries] = useState<Map<string, LorebookEntry>>(new Map());
-    const [useChapterOrScenebeatMatchedEntries, setUseChapterOrScenebeatMatchedEntries] = useState<'chapter' | 'scenebeat'>('scenebeat');
     const [showMatchedEntries, setShowMatchedEntries] = useState(false);
     const [selectedPrompt, setSelectedPrompt] = useState<Prompt>();
     const [selectedModel, setSelectedModel] = useState<AllowedModel>();

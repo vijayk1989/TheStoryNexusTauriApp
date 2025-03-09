@@ -25,6 +25,8 @@ interface LorebookState {
     // Queries
     getEntriesByTag: (tag: string) => LorebookEntry[];
     getEntriesByCategory: (category: LorebookEntry['category']) => LorebookEntry[];
+    getFilteredEntries: (includeDisabled?: boolean) => LorebookEntry[];
+    getFilteredEntriesByIds: (ids: string[], includeDisabled?: boolean) => LorebookEntry[];
 
     // New Helper Methods
     getAllCharacters: () => LorebookEntry[];
@@ -54,6 +56,9 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         const newTagMap: Record<string, LorebookEntry> = {};
 
         entries.forEach(entry => {
+            // Skip disabled entries when building the tag map
+            if (entry.isDisabled) return;
+
             entry.tags.forEach(tag => {
                 // Add the full tag
                 const normalizedTag = tag.toLowerCase().trim();
@@ -96,6 +101,7 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
                 ...entryData,
                 id,
                 createdAt: new Date(),
+                isDisabled: false, // Set isDisabled to false by default
             };
 
             await db.lorebookEntries.add(newEntry);
@@ -138,13 +144,17 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
     getEntriesByTag: (tag: string) => {
         const { entries } = get();
         return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
             entry.tags.some(t => t.toLowerCase() === tag.toLowerCase())
         );
     },
 
     getEntriesByCategory: (category: LorebookEntry['category']) => {
         const { entries } = get();
-        return entries.filter(entry => entry.category === category);
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.category === category
+        );
     },
 
     setEditorContent: (content: string) => set({ editorContent: content }),
@@ -187,52 +197,77 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
     // New Helper Methods
     getAllCharacters: () => {
         const { entries } = get();
-        return entries.filter(entry => entry.category === 'character');
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.category === 'character'
+        );
     },
 
     getAllLocations: () => {
         const { entries } = get();
-        return entries.filter(entry => entry.category === 'location');
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.category === 'location'
+        );
     },
 
     getAllItems: () => {
         const { entries } = get();
-        return entries.filter(entry => entry.category === 'item');
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.category === 'item'
+        );
     },
 
     getAllEvents: () => {
         const { entries } = get();
-        return entries.filter(entry => entry.category === 'event');
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.category === 'event'
+        );
     },
 
     getAllNotes: () => {
         const { entries } = get();
-        return entries.filter(entry => entry.category === 'note');
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.category === 'note'
+        );
     },
 
     getAllEntries: () => {
         const { entries } = get();
-        return entries;
+        return entries.filter(entry => !entry.isDisabled); // Filter out disabled entries
     },
 
     getEntriesByImportance: (importance) => {
         const { entries } = get();
-        return entries.filter(entry => entry.metadata?.importance === importance);
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.metadata?.importance === importance
+        );
     },
 
     getEntriesByStatus: (status) => {
         const { entries } = get();
-        return entries.filter(entry => entry.metadata?.status === status);
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.metadata?.status === status
+        );
     },
 
     getEntriesByType: (type) => {
         const { entries } = get();
-        return entries.filter(entry => entry.metadata?.type === type);
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.metadata?.type === type
+        );
     },
 
     getEntriesByRelationship: (targetId) => {
         const { entries } = get();
         return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
             entry.metadata?.relationships?.some(rel => rel.targetId === targetId)
         );
     },
@@ -240,7 +275,22 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
     getEntriesByCustomField: (field, value) => {
         const { entries } = get();
         return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
             entry.metadata?.customFields?.[field] === value
+        );
+    },
+
+    getFilteredEntries: (includeDisabled = false) => {
+        const { entries } = get();
+        return includeDisabled
+            ? entries
+            : entries.filter(entry => !entry.isDisabled);
+    },
+
+    getFilteredEntriesByIds: (ids: string[], includeDisabled = false) => {
+        const { entries } = get();
+        return entries.filter(entry =>
+            ids.includes(entry.id) && (includeDisabled || !entry.isDisabled)
         );
     },
 })); 

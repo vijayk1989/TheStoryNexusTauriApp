@@ -110,7 +110,7 @@ export interface LorebookEntry extends BaseEntity {
     storyId: string;
     name: string;
     description: string;
-    category: 'character' | 'location' | 'item' | 'event' | 'note';
+    category: 'character' | 'location' | 'item' | 'event' | 'note' | 'synopsis' | 'starting scenario' | 'timeline';
     // Tags are stored as an array of strings, can contain spaces and special characters
     tags: string[];
     metadata?: {
@@ -124,6 +124,7 @@ export interface LorebookEntry extends BaseEntity {
         }>;
         customFields?: Record<string, unknown>;
     };
+    isDisabled?: boolean;
 }
 
 // Prompt Parser types

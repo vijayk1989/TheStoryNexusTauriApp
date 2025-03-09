@@ -35,6 +35,7 @@ export function CreateEntryDialog({ open, onOpenChange, storyId, entry }: Create
         description: '',
         category: 'character' as const,
         tags: [],
+        isDisabled: false,
         metadata: {
             importance: 'minor' as const,
             status: 'active' as const,

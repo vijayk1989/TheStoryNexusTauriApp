@@ -36,6 +36,9 @@ export class PromptParser {
             'all_items': this.resolveAllItems.bind(this),
             'all_events': this.resolveAllEvents.bind(this),
             'all_notes': this.resolveAllNotes.bind(this),
+            'all_synopsis': this.resolveAllSynopsis.bind(this),
+            'all_starting_scenarios': this.resolveAllStartingScenarios.bind(this),
+            'all_timelines': this.resolveAllTimelines.bind(this),
         };
     }
 
@@ -618,6 +621,24 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
         const { getAllNotes } = useLorebookStore.getState();
         // getAllNotes already filters out disabled entries
         return this.formatLorebookEntries(getAllNotes());
+    }
+
+    private async resolveAllSynopsis(context: PromptContext): Promise<string> {
+        const { getAllSynopsis } = useLorebookStore.getState();
+        // getAllSynopsis already filters out disabled entries
+        return this.formatLorebookEntries(getAllSynopsis());
+    }
+
+    private async resolveAllStartingScenarios(context: PromptContext): Promise<string> {
+        const { getAllStartingScenarios } = useLorebookStore.getState();
+        // getAllStartingScenarios already filters out disabled entries
+        return this.formatLorebookEntries(getAllStartingScenarios());
+    }
+
+    private async resolveAllTimelines(context: PromptContext): Promise<string> {
+        const { getAllTimelines } = useLorebookStore.getState();
+        // getAllTimelines already filters out disabled entries
+        return this.formatLorebookEntries(getAllTimelines());
     }
 
     private async resolveSceneBeatContext(context: PromptContext): Promise<string> {

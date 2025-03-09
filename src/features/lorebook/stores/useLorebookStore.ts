@@ -34,6 +34,9 @@ interface LorebookState {
     getAllItems: () => LorebookEntry[];
     getAllEvents: () => LorebookEntry[];
     getAllNotes: () => LorebookEntry[];
+    getAllSynopsis: () => LorebookEntry[];
+    getAllStartingScenarios: () => LorebookEntry[];
+    getAllTimelines: () => LorebookEntry[];
     getAllEntries: () => LorebookEntry[];
     getEntriesByImportance: (importance: 'major' | 'minor' | 'background') => LorebookEntry[];
     getEntriesByStatus: (status: 'active' | 'inactive' | 'historical') => LorebookEntry[];
@@ -59,6 +62,11 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
             // Skip disabled entries when building the tag map
             if (entry.isDisabled) return;
 
+            // Add the entry name as a tag (normalized to lowercase for case-insensitive matching)
+            const normalizedName = entry.name.toLowerCase().trim();
+            newTagMap[normalizedName] = entry;
+
+            // Process the explicit tags
             entry.tags.forEach(tag => {
                 // Add the full tag
                 const normalizedTag = tag.toLowerCase().trim();
@@ -232,6 +240,30 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         return entries.filter(entry =>
             !entry.isDisabled && // Filter out disabled entries
             entry.category === 'note'
+        );
+    },
+
+    getAllSynopsis: () => {
+        const { entries } = get();
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.category === 'synopsis'
+        );
+    },
+
+    getAllStartingScenarios: () => {
+        const { entries } = get();
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.category === 'starting scenario'
+        );
+    },
+
+    getAllTimelines: () => {
+        const { entries } = get();
+        return entries.filter(entry =>
+            !entry.isDisabled && // Filter out disabled entries
+            entry.category === 'timeline'
         );
     },
 

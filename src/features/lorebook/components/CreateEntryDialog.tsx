@@ -18,7 +18,9 @@ interface CreateEntryDialogProps {
     entry?: LorebookEntry;
 }
 
-const CATEGORIES = ['character', 'location', 'item', 'event', 'note'] as const;
+// Use the category type directly from the LorebookEntry interface
+type LorebookCategory = LorebookEntry['category'];
+const CATEGORIES: LorebookCategory[] = ['character', 'location', 'item', 'event', 'note', 'synopsis', 'starting scenario', 'timeline'];
 const IMPORTANCE_LEVELS = ['major', 'minor', 'background'] as const;
 const STATUS_OPTIONS = ['active', 'inactive', 'historical'] as const;
 
@@ -174,7 +176,7 @@ export function CreateEntryDialog({ open, onOpenChange, storyId, entry }: Create
                                 placeholder="Harry Potter, The Boy Who Lived, Quidditch Player"
                             />
                             <p className="text-sm text-muted-foreground">
-                                Enter tags separated by commas. You can use spaces and special characters.
+                                Enter tags separated by commas. The entry name is automatically used as a tag. You can use spaces and special characters in tags.
                             </p>
                         </div>
                     </div>

@@ -123,6 +123,9 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                             <SelectItem value="item">Item</SelectItem>
                             <SelectItem value="event">Event</SelectItem>
                             <SelectItem value="note">Note</SelectItem>
+                            <SelectItem value="synopsis">Synopsis</SelectItem>
+                            <SelectItem value="starting scenario">Starting Scenario</SelectItem>
+                            <SelectItem value="timeline">Timeline</SelectItem>
                         </SelectContent>
                     </Select>
                     <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>

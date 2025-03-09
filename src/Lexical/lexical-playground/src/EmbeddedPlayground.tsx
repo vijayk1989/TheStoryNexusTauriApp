@@ -1,10 +1,14 @@
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
-import { useEffect } from 'react';
+import { useEffect, ReactNode } from 'react';
 import PlaygroundApp from './App' // using the lexical playground App component
 import './index.css' // Ensure the CSS is imported
 
-export default function EmbeddedPlayground() {
+interface EmbeddedPlaygroundProps {
+    maximizeButton?: ReactNode;
+}
+
+export default function EmbeddedPlayground({ maximizeButton }: EmbeddedPlaygroundProps) {
     const { currentChapterId } = useStoryContext();
     const { getChapter, currentChapter } = useChapterStore();
 
@@ -24,8 +28,9 @@ export default function EmbeddedPlayground() {
 
     return (
         <div className="h-full flex flex-col">
-            <div className="p-2 border-b">
+            <div className="p-2 border-b flex justify-between items-center">
                 <h2 className="text-lg font-semibold">{currentChapter.title}</h2>
+                {maximizeButton}
             </div>
             <div className="flex-1 overflow-auto">
                 <PlaygroundApp />

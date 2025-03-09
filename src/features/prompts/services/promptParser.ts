@@ -1,8 +1,6 @@
 import { StoryDatabase, db } from '@/services/database';
 import {
-    Chapter,
     LorebookEntry,
-    Prompt,
     PromptMessage,
     PromptParserConfig,
     ParsedPrompt,
@@ -32,11 +30,15 @@ export class PromptParser {
             'chat_history': this.resolveChatHistory.bind(this),
             'user_input': this.resolveUserInput.bind(this),
             'brainstorm_context': this.resolveBrainstormContext.bind(this),
+            'scenebeat_context': this.resolveSceneBeatContext.bind(this),
             'all_characters': this.resolveAllCharacters.bind(this),
             'all_locations': this.resolveAllLocations.bind(this),
             'all_items': this.resolveAllItems.bind(this),
             'all_events': this.resolveAllEvents.bind(this),
             'all_notes': this.resolveAllNotes.bind(this),
+            'all_synopsis': this.resolveAllSynopsis.bind(this),
+            'all_starting_scenarios': this.resolveAllStartingScenarios.bind(this),
+            'all_timelines': this.resolveAllTimelines.bind(this),
         };
     }
 
@@ -141,8 +143,72 @@ export class PromptParser {
             }
         }
 
-        // Handle regular variables
-        parsedContent = await this.parseRegularVariables(parsedContent, context);
+        // Special handling for combined lorebook entries
+        // Check if both matched_entries_chapter and additional_scenebeat_context are present
+        if (parsedContent.includes('{{matched_entries_chapter}}') &&
+            parsedContent.includes('{{additional_scenebeat_context}}')) {
+
+            console.log('Found both matched_entries_chapter and additional_scenebeat_context in the template');
+
+            // Get the matched entries
+            let matchedEntries = '';
+            if (context.chapterMatchedEntries && context.chapterMatchedEntries.size > 0) {
+                const entries = Array.from(context.chapterMatchedEntries);
+                entries.sort((a, b) => {
+                    const importanceOrder = { 'major': 0, 'minor': 1, 'background': 2 };
+                    const aImportance = a.metadata?.importance || 'background';
+                    const bImportance = b.metadata?.importance || 'background';
+                    return importanceOrder[aImportance] - importanceOrder[bImportance];
+                });
+                matchedEntries = this.formatLorebookEntries(entries);
+            }
+
+            // Get the additional context
+            let additionalContext = '';
+            if (context.additionalContext?.selectedItems && context.additionalContext.selectedItems.length > 0) {
+                const selectedItemIds = context.additionalContext.selectedItems as string[];
+                const lorebookStore = useLorebookStore.getState();
+                const entries = lorebookStore.entries.filter(entry => selectedItemIds.includes(entry.id));
+
+                // Create a set of entry IDs that are already included in matched entries
+                const existingEntryIds = new Set<string>();
+
+                // Add chapter matched entries
+                if (context.chapterMatchedEntries) {
+                    Array.from(context.chapterMatchedEntries.values()).forEach(entry => {
+                        existingEntryIds.add(entry.id);
+                    });
+                }
+
+                // Filter out entries that are already included in matched entries
+                const uniqueEntries = entries.filter(entry => !existingEntryIds.has(entry.id));
+
+                if (uniqueEntries.length > 0) {
+                    additionalContext = this.formatLorebookEntries(uniqueEntries);
+                }
+            }
+
+            // Combine the results
+            let combinedResult = '';
+            if (matchedEntries && additionalContext) {
+                combinedResult = matchedEntries + '\n\n' + additionalContext;
+            } else if (matchedEntries) {
+                combinedResult = matchedEntries;
+            } else if (additionalContext) {
+                combinedResult = additionalContext;
+            }
+
+            // Replace both variables with the combined result
+            parsedContent = parsedContent.replace(/\{\{matched_entries_chapter\}\}[\s\n]*\{\{[\s\n]*additional_scenebeat_context[\s\n]*\}\}/g, combinedResult);
+            parsedContent = parsedContent.replace(/\{\{[\s\n]*additional_scenebeat_context[\s\n]*\}\}[\s\n]*\{\{matched_entries_chapter\}\}/g, combinedResult);
+
+            // Remove the individual variables if they still exist
+            parsedContent = parsedContent.replace(/\{\{matched_entries_chapter\}\}/g, '');
+            parsedContent = parsedContent.replace(/\{\{[\s\n]*additional_scenebeat_context[\s\n]*\}\}/g, '');
+        } else {
+            // Handle regular variables
+            parsedContent = await this.parseRegularVariables(parsedContent, context);
+        }
 
         // Clean up any extra whitespace from comment removal
         parsedContent = parsedContent.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
@@ -167,35 +233,36 @@ export class PromptParser {
             }
 
             // Handle all_* queries
-            if (varName.startsWith('all_')) {
-                const category = varName.slice(4); // Remove 'all_' prefix
-                // Map the category to match the type from story.ts
-                const mappedCategory = category === 'characters' ? 'character' :
-                    category === 'locations' ? 'location' :
-                        category === 'items' ? 'item' :
-                            category === 'events' ? 'event' :
-                                category === 'notes' ? 'note' : category;
-
-                const entries = await this.resolveAllEntries(context, mappedCategory);
-                result = result.replace(fullMatch, entries);
+            if (varName.startsWith('all_') && this.variableResolvers[varName]) {
+                const resolved = await this.variableResolvers[varName](context);
+                result = result.replace(fullMatch, resolved);
                 continue;
             }
 
-            const resolver = this.variableResolvers[varName];
-            if (resolver) {
-                const resolved = await resolver(context, ...params);
+            // Handle character queries
+            if (varName === 'character' && params.length > 0) {
+                const characterName = params.join(' ');
+                const resolved = await this.resolveCharacter(characterName, context);
                 result = result.replace(fullMatch, resolved);
+                continue;
+            }
+
+            // Handle other variables
+            if (this.variableResolvers[varName]) {
+                try {
+                    const resolved = await this.variableResolvers[varName](context, ...params);
+                    result = result.replace(fullMatch, resolved || '');
+                } catch (error) {
+                    console.error(`Error resolving variable ${varName}:`, error);
+                    result = result.replace(fullMatch, `[Error: ${error.message}]`);
+                }
             } else {
-                console.warn(`No resolver found for variable: ${varName}`);
+                console.warn(`Unknown variable: ${varName}`);
+                result = result.replace(fullMatch, `[Unknown variable: ${varName}]`);
             }
         }
 
         return result;
-    }
-
-    // Variable resolvers
-    private async resolveLorebookChapterEntries(context: PromptContext): Promise<string> {
-        return this.resolveMatchedEntriesChapter(context);
     }
 
     private async resolveLorebookSceneBeatEntries(context: PromptContext): Promise<string> {
@@ -206,7 +273,8 @@ export class PromptParser {
                 id: e.id,
                 name: e.name,
                 category: e.category,
-                importance: e.metadata?.importance
+                importance: e.metadata?.importance,
+                isDisabled: e.isDisabled
             }))
         });
 
@@ -215,7 +283,15 @@ export class PromptParser {
             return '';
         }
 
-        const entries = Array.from(context.sceneBeatMatchedEntries);
+        // Filter out disabled entries
+        const entries = Array.from(context.sceneBeatMatchedEntries)
+            .filter(entry => !entry.isDisabled);
+
+        if (entries.length === 0) {
+            console.log('All matched entries are disabled');
+            return '';
+        }
+
         entries.sort((a, b) => {
             const importanceOrder = { 'major': 0, 'minor': 1, 'background': 2 };
             const aImportance = a.metadata?.importance || 'background';
@@ -245,7 +321,8 @@ export class PromptParser {
     private async resolvePreviousWords(context: PromptContext, count: string = '1000'): Promise<string> {
         console.log('Resolving previous words:', {
             requestedCount: count,
-            availableText: context.previousWords?.length || 0
+            availableText: context.previousWords?.length || 0,
+            newlineCount: context.previousWords ? (context.previousWords.match(/\n/g) || []).length : 0
         });
 
         if (!context.previousWords) return '';
@@ -253,17 +330,25 @@ export class PromptParser {
         // Parse the count parameter - default to 1000 if not a valid number
         const requestedWordCount = parseInt(count, 10) || 1000;
 
+        // Preserve newlines by replacing them with a special token
+        const newlineToken = '§NEWLINE§';
+        const textWithTokens = context.previousWords.replace(/\n/g, newlineToken);
+
         // Split into words and take the last N words
-        const words = context.previousWords.split(/\s+/);
-        const selectedWords = words.slice(-(requestedWordCount + 1));
+        const words = textWithTokens.split(/\s+/);
+        const selectedWords = words.slice(-requestedWordCount);
+
+        // Join the words and restore the newlines
+        const result = selectedWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
 
         console.log('Selected words:', {
             total: words.length,
             requested: requestedWordCount,
-            selected: selectedWords.length
+            selected: selectedWords.length,
+            resultNewlineCount: (result.match(/\n/g) || []).length
         });
 
-        return selectedWords.join(' ');
+        return result;
     }
 
     private async resolvePoV(context: PromptContext): Promise<string> {
@@ -288,12 +373,20 @@ export class PromptParser {
     }
 
     private async resolveCharacter(name: string, context: PromptContext): Promise<string> {
-        const entries = await this.database.lorebookEntries
-            .where('[storyId+category+name]')
-            .equals([context.storyId, 'character', name])
-            .first();
+        // Use the store instead of directly accessing the database
+        const { getFilteredEntries } = useLorebookStore.getState();
 
-        return entries ? this.formatLorebookEntries([entries]) : '';
+        // Get filtered entries (already excludes disabled entries)
+        const entries = getFilteredEntries()
+            .filter(entry =>
+                entry.storyId === context.storyId &&
+                entry.category === 'character' &&
+                entry.name.toLowerCase() === name.toLowerCase()
+            );
+
+        const matchedEntry = entries[0]; // Get the first matching entry if any
+
+        return matchedEntry ? this.formatLorebookEntries([matchedEntry]) : '';
     }
 
     private async resolveMatchedEntriesChapter(context: PromptContext): Promise<string> {
@@ -304,7 +397,8 @@ export class PromptParser {
                 id: e.id,
                 name: e.name,
                 category: e.category,
-                importance: e.metadata?.importance
+                importance: e.metadata?.importance,
+                isDisabled: e.isDisabled
             }))
         });
 
@@ -313,7 +407,15 @@ export class PromptParser {
             return '';
         }
 
-        const entries = Array.from(context.chapterMatchedEntries);
+        // Filter out disabled entries
+        const entries = Array.from(context.chapterMatchedEntries)
+            .filter(entry => !entry.isDisabled);
+
+        if (entries.length === 0) {
+            console.log('All matched entries are disabled');
+            return '';
+        }
+
         entries.sort((a, b) => {
             const importanceOrder = { 'major': 0, 'minor': 1, 'background': 2 };
             const aImportance = a.metadata?.importance || 'background';
@@ -329,8 +431,6 @@ export class PromptParser {
             const metadata = entry.metadata;
             return `${entry.category.toUpperCase()}: ${entry.name}
 Type: ${metadata?.type || 'Unknown'}
-Importance: ${metadata?.importance || 'Unknown'}
-Status: ${metadata?.status || 'Unknown'}
 Description: ${entry.description}
 ${metadata?.relationships?.length ? '\nRelationships:\n' +
                     metadata.relationships.map(r => `- ${r.type}: ${r.description}`).join('\n')
@@ -373,17 +473,21 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
     }
 
     private async resolveAllEntries(context: PromptContext, category?: string): Promise<string> {
-        const entries = await this.database.lorebookEntries
-            .where('storyId')
-            .equals(context.storyId)
-            .toArray();
+        // Use the store instead of directly accessing the database
+        const { getFilteredEntries } = useLorebookStore.getState();
 
-        let filteredEntries = entries;
+        // Get filtered entries (already excludes disabled entries)
+        let entries = getFilteredEntries();
+
+        // Filter by storyId
+        entries = entries.filter(entry => entry.storyId === context.storyId);
+
+        // Filter by category if provided
         if (category) {
-            filteredEntries = entries.filter(entry => entry.category === category);
+            entries = entries.filter(entry => entry.category === category);
         }
 
-        return this.formatLorebookEntries(filteredEntries);
+        return this.formatLorebookEntries(entries);
     }
 
     private async resolveChatHistory(context: PromptContext): Promise<string> {
@@ -491,27 +595,121 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
     private async resolveAllCharacters(context: PromptContext): Promise<string> {
         const { getAllCharacters } = useLorebookStore.getState();
+        // getAllCharacters already filters out disabled entries
         return this.formatLorebookEntries(getAllCharacters());
     }
 
     private async resolveAllLocations(context: PromptContext): Promise<string> {
         const { getAllLocations } = useLorebookStore.getState();
+        // getAllLocations already filters out disabled entries
         return this.formatLorebookEntries(getAllLocations());
     }
 
     private async resolveAllItems(context: PromptContext): Promise<string> {
         const { getAllItems } = useLorebookStore.getState();
+        // getAllItems already filters out disabled entries
         return this.formatLorebookEntries(getAllItems());
     }
 
     private async resolveAllEvents(context: PromptContext): Promise<string> {
         const { getAllEvents } = useLorebookStore.getState();
+        // getAllEvents already filters out disabled entries
         return this.formatLorebookEntries(getAllEvents());
     }
 
     private async resolveAllNotes(context: PromptContext): Promise<string> {
         const { getAllNotes } = useLorebookStore.getState();
+        // getAllNotes already filters out disabled entries
         return this.formatLorebookEntries(getAllNotes());
+    }
+
+    private async resolveAllSynopsis(context: PromptContext): Promise<string> {
+        const { getAllSynopsis } = useLorebookStore.getState();
+        // getAllSynopsis already filters out disabled entries
+        return this.formatLorebookEntries(getAllSynopsis());
+    }
+
+    private async resolveAllStartingScenarios(context: PromptContext): Promise<string> {
+        const { getAllStartingScenarios } = useLorebookStore.getState();
+        // getAllStartingScenarios already filters out disabled entries
+        return this.formatLorebookEntries(getAllStartingScenarios());
+    }
+
+    private async resolveAllTimelines(context: PromptContext): Promise<string> {
+        const { getAllTimelines } = useLorebookStore.getState();
+        // getAllTimelines already filters out disabled entries
+        return this.formatLorebookEntries(getAllTimelines());
+    }
+
+    private async resolveSceneBeatContext(context: PromptContext): Promise<string> {
+        // Create a map to store unique entries by ID
+        const uniqueEntries = new Map<string, LorebookEntry>();
+
+        // If we have sceneBeatContext, use it to determine which entries to include
+        if (context.sceneBeatContext) {
+            const { useMatchedChapter, useMatchedSceneBeat, useCustomContext, customContextItems } = context.sceneBeatContext;
+
+            // Include matched chapter entries if the toggle is enabled
+            if (useMatchedChapter && context.chapterMatchedEntries && context.chapterMatchedEntries.size > 0) {
+                console.log(`Including ${context.chapterMatchedEntries.size} chapter matched entries`);
+                context.chapterMatchedEntries.forEach(entry => {
+                    uniqueEntries.set(entry.id, entry);
+                });
+            }
+
+            // Include matched scene beat entries if the toggle is enabled
+            if (useMatchedSceneBeat && context.sceneBeatMatchedEntries && context.sceneBeatMatchedEntries.size > 0) {
+                console.log(`Including ${context.sceneBeatMatchedEntries.size} scene beat matched entries`);
+                context.sceneBeatMatchedEntries.forEach(entry => {
+                    uniqueEntries.set(entry.id, entry);
+                });
+            }
+
+            // Include custom context items if the toggle is enabled
+            if (useCustomContext && customContextItems && customContextItems.length > 0) {
+                console.log(`Including ${customContextItems.length} custom context items`);
+
+                // Load entries if they're not already loaded
+                const lorebookStore = useLorebookStore.getState();
+                if (lorebookStore.entries.length === 0 && context.storyId) {
+                    await lorebookStore.loadEntries(context.storyId);
+                }
+
+                // Get the custom entries from the store
+                const customEntries = lorebookStore.entries.filter(entry =>
+                    customContextItems.includes(entry.id)
+                );
+
+                // Add the custom entries to the unique entries map
+                customEntries.forEach(entry => {
+                    uniqueEntries.set(entry.id, entry);
+                });
+            }
+        }
+        // For backward compatibility, if no sceneBeatContext is provided but we have matched entries
+        else if (context.matchedEntries && context.matchedEntries.size > 0) {
+            context.matchedEntries.forEach(entry => {
+                uniqueEntries.set(entry.id, entry);
+            });
+        }
+
+        // Convert the map to an array and sort by importance
+        const sortedEntries = Array.from(uniqueEntries.values()).sort(
+            (a, b) => {
+                const importanceOrder = { 'major': 3, 'minor': 2, 'background': 1 };
+                const aImportance = a.metadata?.importance || 'background';
+                const bImportance = b.metadata?.importance || 'background';
+                return importanceOrder[bImportance] - importanceOrder[aImportance];
+            }
+        );
+
+        // If we have no entries, return an empty string
+        if (sortedEntries.length === 0) {
+            return 'No lorebook entries are available for this prompt.';
+        }
+
+        // Use the standard formatLorebookEntries method for consistency
+        return this.formatLorebookEntries(sortedEntries);
     }
 }
 

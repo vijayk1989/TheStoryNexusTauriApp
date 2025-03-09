@@ -9,11 +9,11 @@ import { $applyNodeReplacement, $createParagraphNode, $createTextNode, $getNodeB
 import { Suspense, useState, useMemo, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { ChevronRight, Loader2, User, Check } from 'lucide-react';
+import { ChevronRight, Loader2, User, Check, Tag, Plus, Eye, ChevronUp, ChevronDown, ChevronRightIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Trash2 } from 'lucide-react';
 import { usePromptStore } from '@/features/prompts/store/promptStore';
-import { AIModel, Prompt, PromptParserConfig, AllowedModel, PromptMessage } from '@/types/story';
+import { AIModel, Prompt, PromptParserConfig, AllowedModel, PromptMessage, SceneBeat, LorebookEntry } from '@/types/story';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { toast } from "react-toastify";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,7 +22,6 @@ import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { PromptSelectMenu } from '@/components/ui/prompt-select-menu';
 import { PromptPreviewDialog } from '@/components/ui/prompt-preview-dialog';
 import { debounce } from 'lodash';
-import { LorebookEntry } from '@/types/story';
 import { SceneBeatMatchedEntries } from './SceneBeatMatchedEntries';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
@@ -40,6 +39,14 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { X } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import {
+    Collapsible,
+    CollapsibleTrigger,
+    CollapsibleContent,
+} from '@/components/ui/collapsible';
 
 export type SerializedSceneBeatNode = Spread<
     {
@@ -63,7 +70,6 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
     const { generateWithPrompt, processStreamedResponse } = useAIStore();
     const { tagMap, chapterMatchedEntries, entries } = useLorebookStore();
     const [localMatchedEntries, setLocalMatchedEntries] = useState<Map<string, LorebookEntry>>(new Map());
-    const [useChapterOrScenebeatMatchedEntries, setUseChapterOrScenebeatMatchedEntries] = useState<string>('chapter');
     const [showMatchedEntries, setShowMatchedEntries] = useState(false);
     const [selectedPrompt, setSelectedPrompt] = useState<Prompt>();
     const [selectedModel, setSelectedModel] = useState<AllowedModel>();
@@ -82,6 +88,14 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
     const [tempPovCharacter, setTempPovCharacter] = useState<string | undefined>();
     const [sceneBeatId, setSceneBeatId] = useState<string>('');
     const [isLoaded, setIsLoaded] = useState(false);
+    const [showAdditionalContext, setShowAdditionalContext] = useState(false);
+    const [selectedItems, setSelectedItems] = useState<LorebookEntry[]>([]);
+
+    // State for context toggles
+    const [useMatchedChapter, setUseMatchedChapter] = useState(true); // Default: ON
+    const [useMatchedSceneBeat, setUseMatchedSceneBeat] = useState(false); // Default: OFF
+    const [useCustomContext, setUseCustomContext] = useState(false); // Default: OFF
+    const [showContext, setShowContext] = useState(false);
 
     // Get character entries from lorebook
     const characterEntries = useMemo(() => {
@@ -199,19 +213,76 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         };
     }, [command, tagMap]);
 
+    // Add effect to handle toggle changes
+    useEffect(() => {
+        // Log the current toggle states
+        console.log('Context toggle states changed:', {
+            useMatchedChapter,
+            useMatchedSceneBeat,
+            useCustomContext
+        });
+
+        // Save the scene beat with updated toggle states
+        if (sceneBeatId && isLoaded) {
+            const updatedSceneBeat: Partial<SceneBeat> = {
+                metadata: {
+                    useMatchedChapter,
+                    useMatchedSceneBeat,
+                    useCustomContext
+                }
+            };
+
+            sceneBeatService.updateSceneBeat(sceneBeatId, updatedSceneBeat)
+                .catch(error => {
+                    console.error('Error updating scene beat toggle states:', error);
+                });
+        }
+    }, [useMatchedChapter, useMatchedSceneBeat, useCustomContext, sceneBeatId, isLoaded, currentStoryId, currentChapterId, command, povType, povCharacter]);
+
+    // Add effect to load toggle states from scene beat
+    useEffect(() => {
+        if (sceneBeatId && isLoaded) {
+            sceneBeatService.getSceneBeat(sceneBeatId)
+                .then(sceneBeat => {
+                    if (sceneBeat?.metadata) {
+                        // Set toggle states from scene beat metadata
+                        if (typeof sceneBeat.metadata.useMatchedChapter === 'boolean') {
+                            setUseMatchedChapter(sceneBeat.metadata.useMatchedChapter);
+                        }
+                        if (typeof sceneBeat.metadata.useMatchedSceneBeat === 'boolean') {
+                            setUseMatchedSceneBeat(sceneBeat.metadata.useMatchedSceneBeat);
+                        }
+                        if (typeof sceneBeat.metadata.useCustomContext === 'boolean') {
+                            setUseCustomContext(sceneBeat.metadata.useCustomContext);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading scene beat toggle states:', error);
+                });
+        }
+    }, [sceneBeatId, isLoaded]);
+
     const handleDelete = async () => {
+        console.log('Deleting SceneBeat node with ID:', sceneBeatId);
+
         if (sceneBeatId) {
             try {
                 await sceneBeatService.deleteSceneBeat(sceneBeatId);
+                console.log('Successfully deleted SceneBeat from database');
             } catch (error) {
-                console.error('Error deleting SceneBeat:', error);
+                console.error('Error deleting SceneBeat from database:', error);
+                toast.error('Failed to delete scene beat from database');
             }
         }
 
         editor.update(() => {
             const node = $getNodeByKey(nodeKey);
             if (node) {
+                console.log('Removing SceneBeat node from editor');
                 node.remove();
+            } else {
+                console.error('Could not find SceneBeat node with key:', nodeKey);
             }
         });
     };
@@ -279,16 +350,65 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 
                 while (currentNode) {
                     if ('getTextContent' in currentNode) {
-                        textNodes.unshift(currentNode.getTextContent());
+                        // Check if the node is a paragraph node (which should have a newline)
+                        const isBlockNode = currentNode.getType() === 'paragraph' ||
+                            currentNode.getType() === 'heading' ||
+                            currentNode.getType() === 'list-item';
+
+                        const nodeText = currentNode.getTextContent();
+
+                        // Add the text content with proper newline handling
+                        if (nodeText.trim()) {
+                            textNodes.unshift(nodeText);
+
+                            // Add an extra newline after block nodes
+                            if (isBlockNode) {
+                                textNodes.unshift('\n');
+                            }
+                        }
                     }
                     currentNode = currentNode.getPreviousSibling();
                 }
 
-                previousText = textNodes.join('\n');
+                previousText = textNodes.join('');
+
+                // Log the collected text for debugging
+                console.log('Collected previous text with preserved formatting:', {
+                    length: previousText.length,
+                    newlineCount: (previousText.match(/\n/g) || []).length,
+                    preview: previousText.substring(0, 100) + (previousText.length > 100 ? '...' : '')
+                });
             }
         });
 
-        const matchedEntries = useChapterOrScenebeatMatchedEntries === 'chapter' ? chapterMatchedEntries : localMatchedEntries;
+        // Create a combined set of matched entries based on the toggle states
+        const combinedMatchedEntries = new Set<LorebookEntry>();
+
+        // Only include chapter matched entries if the toggle is enabled
+        if (useMatchedChapter && chapterMatchedEntries) {
+            console.log('Including chapter matched entries:', chapterMatchedEntries.size);
+            chapterMatchedEntries.forEach(entry => {
+                combinedMatchedEntries.add(entry);
+            });
+        }
+
+        // Only include scene beat matched entries if the toggle is enabled
+        if (useMatchedSceneBeat && localMatchedEntries) {
+            console.log('Including scene beat matched entries:', localMatchedEntries.size);
+            localMatchedEntries.forEach(entry => {
+                combinedMatchedEntries.add(entry);
+            });
+        }
+
+        // Log the matched entries for debugging
+        console.log('Creating prompt config with matched entries:', {
+            useMatchedChapter,
+            useMatchedSceneBeat,
+            useCustomContext,
+            chapterMatchedEntriesSize: chapterMatchedEntries?.size || 0,
+            localMatchedEntriesSize: localMatchedEntries?.size || 0,
+            combinedMatchedEntriesSize: combinedMatchedEntries.size
+        });
 
         return {
             promptId: prompt.id,
@@ -296,11 +416,17 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
             chapterId: currentChapterId,
             scenebeat: command.trim(),
             previousWords: previousText,
-            matchedEntries: new Set(matchedEntries.values()),
-            chapterMatchedEntries: new Set(chapterMatchedEntries.values()),
-            sceneBeatMatchedEntries: new Set(localMatchedEntries.values()),
+            matchedEntries: combinedMatchedEntries,
+            chapterMatchedEntries: new Set(chapterMatchedEntries ? Array.from(chapterMatchedEntries.values()) : []),
+            sceneBeatMatchedEntries: new Set(localMatchedEntries ? Array.from(localMatchedEntries.values()) : []),
             povType,
-            povCharacter: povType !== 'Third Person Omniscient' ? povCharacter : undefined
+            povCharacter: povType !== 'Third Person Omniscient' ? povCharacter : undefined,
+            sceneBeatContext: {
+                useMatchedChapter,
+                useMatchedSceneBeat,
+                useCustomContext,
+                customContextItems: useCustomContext ? selectedItems.map(item => item.id) : []
+            }
         };
     };
 
@@ -310,46 +436,72 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
             return;
         }
 
-        setPreviewLoading(true);
-        setPreviewError(null);
-        setPreviewMessages(undefined);
-
         try {
-            const promptParser = createPromptParser();
-            const config = createPromptConfig(selectedPrompt);
-            const result = await promptParser.parse(config);
+            setPreviewLoading(true);
+            setPreviewError(null);
+            setPreviewMessages(undefined);
 
-            if (result.error) {
-                setPreviewError(result.error);
-            } else {
-                setPreviewMessages(result.messages);
+            const config = createPromptConfig(selectedPrompt);
+
+            // Log the config for debugging
+            console.log('Preview prompt config:', {
+                promptId: config.promptId,
+                storyId: config.storyId,
+                chapterId: config.chapterId,
+                scenebeat: config.scenebeat,
+                matchedEntriesCount: config.matchedEntries?.size,
+                additionalContext: {
+                    selectedItems: config.additionalContext?.selectedItems,
+                    selectedItemsCount: config.additionalContext?.selectedItems?.length || 0
+                }
+            });
+
+            const promptParser = createPromptParser();
+            const parsedPrompt = await promptParser.parse(config);
+
+            if (parsedPrompt.error) {
+                setPreviewError(parsedPrompt.error);
+                toast.error(`Error parsing prompt: ${parsedPrompt.error}`);
+                return;
             }
+
+            setPreviewMessages(parsedPrompt.messages);
+            setShowPreviewDialog(true);
         } catch (error) {
-            console.error('Error previewing prompt:', error);
-            setPreviewError(error instanceof Error ? error.message : 'Failed to preview prompt');
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            setPreviewError(errorMessage);
+            toast.error(`Error previewing prompt: ${errorMessage}`);
         } finally {
             setPreviewLoading(false);
-            setShowPreviewDialog(true);
         }
     };
 
     const handleGenerateWithPrompt = async () => {
-        if (!selectedPrompt || !selectedModel) {
-            toast.error('Please select a prompt and model first');
+        if (!selectedPrompt) {
+            toast.error('Please select a prompt first');
             return;
         }
-
-        if (!command.trim()) {
-            toast.error('Please enter a scene beat description');
-            return;
-        }
-
-        setStreaming(true);
-        setStreamedText('');
-        setStreamComplete(false);
 
         try {
+            setStreaming(true);
+            setStreamedText('');
+            setStreamComplete(false);
+
             const config = createPromptConfig(selectedPrompt);
+
+            // Log the config for debugging
+            console.log('Generate prompt config:', {
+                promptId: config.promptId,
+                storyId: config.storyId,
+                chapterId: config.chapterId,
+                scenebeat: config.scenebeat,
+                matchedEntriesCount: config.matchedEntries?.size,
+                additionalContext: {
+                    selectedItems: config.additionalContext?.selectedItems,
+                    selectedItemsCount: config.additionalContext?.selectedItems?.length || 0
+                }
+            });
+
             const response = await generateWithPrompt(config, selectedModel);
 
             await processStreamedResponse(
@@ -413,6 +565,17 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
     const handleReject = () => {
         setStreamedText('');
         setStreamComplete(false);
+    };
+
+    const handleItemSelect = (itemId: string) => {
+        const item = entries.find(entry => entry.id === itemId);
+        if (item && !selectedItems.some(i => i.id === itemId)) {
+            setSelectedItems([...selectedItems, item]);
+        }
+    };
+
+    const removeItem = (itemId: string) => {
+        setSelectedItems(selectedItems.filter(item => item.id !== itemId));
     };
 
     return (
@@ -506,16 +669,11 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setShowMatchedEntries(true)}
                         className="h-8"
-                        disabled={localMatchedEntries.size === 0}
+                        onClick={() => setShowMatchedEntries(!showMatchedEntries)}
                     >
-                        <span>Matched Entries</span>
-                        {localMatchedEntries.size > 0 && (
-                            <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                                {localMatchedEntries.size}
-                            </span>
-                        )}
+                        <Eye className="h-4 w-4 mr-2" />
+                        <span>View Matched Entries</span>
                     </Button>
                     <Button
                         variant="ghost"
@@ -531,12 +689,156 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
             {/* Collapsible Content */}
             {!collapsed && (
                 <div className="space-y-4">
-                    <div className="relative">
+                    {/* Command textarea */}
+                    <div className="p-4">
                         <Textarea
+                            placeholder="Enter your scene beat command here..."
                             value={command}
                             onChange={(e) => setCommand(e.target.value)}
                             className="min-h-[100px] resize-none"
                         />
+                    </div>
+
+                    {/* Context section */}
+                    <div className="px-4 pb-2">
+                        <Collapsible open={showContext} onOpenChange={setShowContext}>
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm" className="flex items-center justify-between p-1 h-auto">
+                                    {showContext ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    <span className="font-medium">Context</span>
+                                </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <div className="space-y-4 mb-4">
+                                    {/* Matched Chapter Tags Toggle */}
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="font-medium">Matched Chapter Tags</div>
+                                            <div className="text-sm text-muted-foreground">
+                                                Include entries matched from the entire chapter
+                                            </div>
+                                        </div>
+                                        <Switch
+                                            checked={useMatchedChapter}
+                                            onCheckedChange={setUseMatchedChapter}
+                                        />
+                                    </div>
+
+                                    {/* Matched Scene Beat Tags Toggle */}
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="font-medium">Matched Scene Beat Tags</div>
+                                            <div className="text-sm text-muted-foreground">
+                                                Include entries matched from this scene beat
+                                            </div>
+                                        </div>
+                                        <Switch
+                                            checked={useMatchedSceneBeat}
+                                            onCheckedChange={setUseMatchedSceneBeat}
+                                        />
+                                    </div>
+
+                                    {/* Custom Context Toggle */}
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="font-medium">Custom Context Selection</div>
+                                            <div className="text-sm text-muted-foreground">
+                                                Manually select additional lorebook entries
+                                            </div>
+                                        </div>
+                                        <Switch
+                                            checked={useCustomContext}
+                                            onCheckedChange={setUseCustomContext}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Custom Context Selection */}
+                                {useCustomContext && (
+                                    <div className="mb-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h4 className="font-medium">Custom Context</h4>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-4 mb-4">
+                                            {/* Lorebook items multi-select */}
+                                            <div className="flex-1">
+                                                <div className="text-sm font-medium mb-1">Lorebook Items</div>
+                                                <Select
+                                                    onValueChange={(value) => {
+                                                        handleItemSelect(value);
+                                                        // Reset the select value after selection
+                                                        const selectElement = document.querySelector('[data-lorebook-select="true"]');
+                                                        if (selectElement) {
+                                                            (selectElement as HTMLSelectElement).value = '';
+                                                        }
+                                                    }}
+                                                    value=""
+                                                >
+                                                    <SelectTrigger className="w-full" data-lorebook-select="true">
+                                                        <SelectValue placeholder="Select lorebook item" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="max-h-[300px]">
+                                                        {/* Group by category */}
+                                                        {['character', 'location', 'item', 'event', 'note'].map((category) => {
+                                                            const categoryItems = entries.filter(entry => entry.category === category);
+                                                            if (categoryItems.length === 0) return null;
+
+                                                            return (
+                                                                <div key={category}>
+                                                                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted capitalize">
+                                                                        {category}s
+                                                                    </div>
+                                                                    {categoryItems.map((entry) => (
+                                                                        <SelectItem
+                                                                            key={entry.id}
+                                                                            value={entry.id}
+                                                                            disabled={selectedItems.some(item => item.id === entry.id)}
+                                                                        >
+                                                                            {entry.name}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        {/* Badges section */}
+                                        <div className="border rounded-md p-3 bg-muted/10">
+                                            <div className="text-sm font-medium mb-2">Selected Items</div>
+                                            <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+                                                {/* Lorebook item badges */}
+                                                {selectedItems.map((item) => (
+                                                    <Badge
+                                                        key={item.id}
+                                                        variant="secondary"
+                                                        className="flex items-center gap-1 px-3 py-1"
+                                                    >
+                                                        {item.name}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeItem(item.id)}
+                                                            className="ml-1 hover:text-destructive"
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </Badge>
+                                                ))}
+
+                                                {selectedItems.length === 0 && (
+                                                    <div className="text-muted-foreground text-sm">
+                                                        No items selected
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </CollapsibleContent>
+                        </Collapsible>
                     </div>
 
                     {streamedText && (
@@ -615,6 +917,185 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                 isLoading={previewLoading}
                 error={previewError}
             />
+
+            {/* Matched Entries Panel */}
+            {showMatchedEntries && (
+                <div className="p-4 border-t">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-medium">Matched Entries</h3>
+                        <div className="text-xs text-muted-foreground">
+                            Entries that match tags in your content
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        {/* Chapter Matched Entries */}
+                        <div>
+                            <div className="text-sm font-medium mb-2">Chapter Matched Entries {useMatchedChapter && <span className="text-xs text-green-500">(Included)</span>}</div>
+                            <div className="mb-4 border rounded-md p-3 bg-muted/10">
+                                <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+                                    {chapterMatchedEntries.size === 0 ? (
+                                        <div className="text-muted-foreground text-sm">
+                                            No matched entries found
+                                        </div>
+                                    ) : (
+                                        Array.from(chapterMatchedEntries.values()).map((entry) => (
+                                            <Badge
+                                                key={entry.id}
+                                                variant="secondary"
+                                                className="flex items-center gap-1 px-3 py-1"
+                                            >
+                                                {entry.name}
+                                                <span className="text-xs text-muted-foreground ml-1 capitalize">({entry.category})</span>
+                                            </Badge>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Scene Beat Matched Entries */}
+                        <div>
+                            <div className="text-sm font-medium mb-2">Scene Beat Matched Entries {useMatchedSceneBeat && <span className="text-xs text-green-500">(Included)</span>}</div>
+                            <div className="mb-4 border rounded-md p-3 bg-muted/10">
+                                <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+                                    {localMatchedEntries.size === 0 ? (
+                                        <div className="text-muted-foreground text-sm">
+                                            No matched entries found
+                                        </div>
+                                    ) : (
+                                        Array.from(localMatchedEntries.values()).map((entry) => (
+                                            <Badge
+                                                key={entry.id}
+                                                variant="secondary"
+                                                className="flex items-center gap-1 px-3 py-1"
+                                            >
+                                                {entry.name}
+                                                <span className="text-xs text-muted-foreground ml-1 capitalize">({entry.category})</span>
+                                            </Badge>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Custom Context Entries */}
+                        {useCustomContext && (
+                            <div>
+                                <div className="text-sm font-medium mb-2">Custom Context Entries <span className="text-xs text-green-500">(Included)</span></div>
+                                <div className="mb-4 border rounded-md p-3 bg-muted/10">
+                                    <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+                                        {selectedItems.length === 0 ? (
+                                            <div className="text-muted-foreground text-sm">
+                                                No items selected
+                                            </div>
+                                        ) : (
+                                            selectedItems.map((item) => (
+                                                <Badge
+                                                    key={item.id}
+                                                    variant="secondary"
+                                                    className="flex items-center gap-1 px-3 py-1"
+                                                >
+                                                    {item.name}
+                                                    <span className="text-xs text-muted-foreground ml-1 capitalize">({item.category})</span>
+                                                </Badge>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Additional Context Panel */}
+            {showAdditionalContext && (
+                <div className="p-4 border-t">
+                    <div className="flex justify-between items-center mb-2">
+                        <h3 className="font-medium">Additional Context</h3>
+                        <div className="text-xs text-muted-foreground">
+                            Select lorebook items to include in addition to matched entries
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-4 mb-4">
+                        {/* Lorebook items multi-select */}
+                        <div className="flex-1">
+                            <div className="text-sm font-medium mb-1">Lorebook Items</div>
+                            <Select
+                                onValueChange={(value) => {
+                                    handleItemSelect(value);
+                                    // Reset the select value after selection
+                                    const selectElement = document.querySelector('[data-lorebook-select="true"]');
+                                    if (selectElement) {
+                                        (selectElement as HTMLSelectElement).value = '';
+                                    }
+                                }}
+                                value=""
+                            >
+                                <SelectTrigger className="w-full" data-lorebook-select="true">
+                                    <SelectValue placeholder="Select lorebook item" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-[300px]">
+                                    {/* Group by category */}
+                                    {['character', 'location', 'item', 'event', 'note'].map((category) => {
+                                        const categoryItems = entries.filter(entry => entry.category === category);
+                                        if (categoryItems.length === 0) return null;
+
+                                        return (
+                                            <div key={category}>
+                                                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted capitalize">
+                                                    {category}s
+                                                </div>
+                                                {categoryItems.map((entry) => (
+                                                    <SelectItem
+                                                        key={entry.id}
+                                                        value={entry.id}
+                                                        disabled={selectedItems.some(item => item.id === entry.id)}
+                                                    >
+                                                        {entry.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </div>
+                                        );
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    {/* Badges section */}
+                    <div className="mb-4 border rounded-md p-3 bg-muted/10">
+                        <div className="text-sm font-medium mb-2">Selected Items</div>
+                        <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+                            {/* Lorebook item badges */}
+                            {selectedItems.map((item) => (
+                                <Badge
+                                    key={item.id}
+                                    variant="secondary"
+                                    className="flex items-center gap-1 px-3 py-1"
+                                >
+                                    {item.name}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeItem(item.id)}
+                                        className="ml-1 hover:text-destructive"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            ))}
+
+                            {selectedItems.length === 0 && (
+                                <div className="text-muted-foreground text-sm">
+                                    No items selected
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

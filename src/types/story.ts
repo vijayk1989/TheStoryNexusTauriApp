@@ -40,6 +40,12 @@ export interface SceneBeat extends BaseEntity {
     povCharacter?: string;
     generatedContent?: string; // To store the last generated content
     accepted?: boolean; // Whether the generated content was accepted
+    metadata?: {
+        useMatchedChapter?: boolean;
+        useMatchedSceneBeat?: boolean;
+        useCustomContext?: boolean;
+        [key: string]: any; // Allow for additional metadata properties
+    };
 }
 
 // AI Chat types
@@ -104,7 +110,7 @@ export interface LorebookEntry extends BaseEntity {
     storyId: string;
     name: string;
     description: string;
-    category: 'character' | 'location' | 'item' | 'event' | 'note';
+    category: 'character' | 'location' | 'item' | 'event' | 'note' | 'synopsis' | 'starting scenario' | 'timeline';
     // Tags are stored as an array of strings, can contain spaces and special characters
     tags: string[];
     metadata?: {
@@ -118,6 +124,7 @@ export interface LorebookEntry extends BaseEntity {
         }>;
         customFields?: Record<string, unknown>;
     };
+    isDisabled?: boolean;
 }
 
 // Prompt Parser types
@@ -135,6 +142,12 @@ export interface PromptParserConfig {
     povCharacter?: string;
     povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
     storyLanguage?: string;
+    sceneBeatContext?: {
+        useMatchedChapter: boolean;
+        useMatchedSceneBeat: boolean;
+        useCustomContext: boolean;
+        customContextItems?: string[]; // IDs of selected lorebook items
+    };
 }
 
 export interface PromptContext {
@@ -152,6 +165,12 @@ export interface PromptContext {
     povCharacter?: string;
     povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
     storyLanguage?: string;
+    sceneBeatContext?: {
+        useMatchedChapter: boolean;
+        useMatchedSceneBeat: boolean;
+        useCustomContext: boolean;
+        customContextItems?: string[]; // IDs of selected lorebook items
+    };
 }
 
 export interface ParsedPrompt {

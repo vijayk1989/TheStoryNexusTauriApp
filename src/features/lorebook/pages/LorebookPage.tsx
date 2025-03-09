@@ -78,6 +78,15 @@ export default function LorebookPage() {
                     <TabsTrigger value="note">
                         Notes ({categoryCounts.note || 0})
                     </TabsTrigger>
+                    <TabsTrigger value="synopsis">
+                        Synopsis ({categoryCounts.synopsis || 0})
+                    </TabsTrigger>
+                    <TabsTrigger value="starting scenario">
+                        Starting Scenario ({categoryCounts['starting scenario'] || 0})
+                    </TabsTrigger>
+                    <TabsTrigger value="timeline">
+                        Timeline ({categoryCounts.timeline || 0})
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value={activeTab} className="mt-6">

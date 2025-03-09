@@ -9,7 +9,9 @@ import { useLorebookStore } from "../stores/useLorebookStore";
 import { toast } from "react-toastify";
 import type { LorebookEntry } from "@/types/story";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
 
 interface CreateEntryDialogProps {
     open: boolean;
@@ -18,7 +20,9 @@ interface CreateEntryDialogProps {
     entry?: LorebookEntry;
 }
 
-const CATEGORIES = ['character', 'location', 'item', 'event', 'note'] as const;
+// Use the category type directly from the LorebookEntry interface
+type LorebookCategory = LorebookEntry['category'];
+const CATEGORIES: LorebookCategory[] = ['character', 'location', 'item', 'event', 'note', 'synopsis', 'starting scenario', 'timeline'];
 const IMPORTANCE_LEVELS = ['major', 'minor', 'background'] as const;
 const STATUS_OPTIONS = ['active', 'inactive', 'historical'] as const;
 
@@ -28,6 +32,7 @@ type StatusOption = typeof STATUS_OPTIONS[number];
 export function CreateEntryDialog({ open, onOpenChange, storyId, entry }: CreateEntryDialogProps) {
     const { createEntry, updateEntryAndRebuildTags } = useLorebookStore();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [advancedOpen, setAdvancedOpen] = useState(false);
 
     // Initial form state in a separate constant for reuse
     const initialFormState = {
@@ -35,6 +40,7 @@ export function CreateEntryDialog({ open, onOpenChange, storyId, entry }: Create
         description: '',
         category: 'character' as const,
         tags: [],
+        isDisabled: false,
         metadata: {
             importance: 'minor' as const,
             status: 'active' as const,
@@ -50,6 +56,7 @@ export function CreateEntryDialog({ open, onOpenChange, storyId, entry }: Create
             description: entry.description,
             category: entry.category,
             tags: entry.tags,
+            isDisabled: entry.isDisabled,
             metadata: entry.metadata,
         } : initialFormState
     );
@@ -59,6 +66,7 @@ export function CreateEntryDialog({ open, onOpenChange, storyId, entry }: Create
     const resetForm = () => {
         setFormData(initialFormState);
         setTagInput('');
+        setAdvancedOpen(false);
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -173,7 +181,7 @@ export function CreateEntryDialog({ open, onOpenChange, storyId, entry }: Create
                                 placeholder="Harry Potter, The Boy Who Lived, Quidditch Player"
                             />
                             <p className="text-sm text-muted-foreground">
-                                Enter tags separated by commas. You can use spaces and special characters.
+                                Enter tags separated by commas. The entry name is automatically used as a tag. You can use spaces and special characters in tags.
                             </p>
                         </div>
                     </div>
@@ -205,6 +213,99 @@ export function CreateEntryDialog({ open, onOpenChange, storyId, entry }: Create
                             required
                         />
                     </div>
+
+                    {/* Advanced Section */}
+                    <Collapsible
+                        open={advancedOpen}
+                        onOpenChange={setAdvancedOpen}
+                        className="border rounded-md p-2"
+                    >
+                        <CollapsibleTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                className="flex w-full justify-between p-2"
+                                type="button"
+                            >
+                                <span className="font-semibold">Advanced Settings</span>
+                                {advancedOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-4 pt-2">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="type">Type</Label>
+                                    <Input
+                                        id="type"
+                                        value={formData.metadata?.type || ''}
+                                        onChange={(e) => setFormData(prev => ({
+                                            ...prev,
+                                            metadata: {
+                                                ...prev.metadata,
+                                                type: e.target.value
+                                            }
+                                        }))}
+                                        placeholder="E.g., Protagonist, Villain, Capital City"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Specific type within the category (e.g., Protagonist, Villain, Capital City)
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="status">Status</Label>
+                                    <Select
+                                        value={formData.metadata?.status || 'active'}
+                                        onValueChange={(value: StatusOption) =>
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                metadata: {
+                                                    ...prev.metadata,
+                                                    status: value
+                                                }
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger id="status">
+                                            <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {STATUS_OPTIONS.map(status => (
+                                                <SelectItem key={status} value={status}>
+                                                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Custom Fields</Label>
+                                <div className="border rounded-md p-3 bg-muted/20">
+                                    <p className="text-sm text-muted-foreground mb-2">
+                                        Custom fields will be added in a future update. These will allow you to add any additional information specific to your lorebook entries.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                                <Switch
+                                    id="disabled"
+                                    checked={formData.isDisabled || false}
+                                    onCheckedChange={(checked) =>
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            isDisabled: checked
+                                        }))
+                                    }
+                                />
+                                <Label htmlFor="disabled">Disable this entry</Label>
+                                <p className="text-xs text-muted-foreground ml-2">
+                                    Disabled entries won't be matched in text or included in AI context
+                                </p>
+                            </div>
+                        </CollapsibleContent>
+                    </Collapsible>
 
                     <div className="flex justify-end gap-3">
                         <Button

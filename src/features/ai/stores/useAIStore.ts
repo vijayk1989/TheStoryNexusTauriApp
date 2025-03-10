@@ -23,6 +23,7 @@ interface AIState {
     // Model management
     getAvailableModels: (provider?: AIProvider) => Promise<AIModel[]>;
     updateProviderKey: (provider: AIProvider, key: string) => Promise<void>;
+    updateLocalApiUrl: (url: string) => Promise<void>;
 
     // Generation methods
     generateWithLocalModel: (messages: PromptMessage[]) => Promise<Response>;
@@ -76,6 +77,21 @@ export const useAIStore = create<AIState>((set, get) => ({
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to update API key',
+                isLoading: false
+            });
+            throw error;
+        }
+    },
+
+    updateLocalApiUrl: async (url: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            await aiService.updateLocalApiUrl(url);
+            const settings = await db.aiSettings.toArray();
+            set({ settings: settings[0], isLoading: false });
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update local API URL',
                 isLoading: false
             });
             throw error;

@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 export default function AISettingsPage() {
     const [openaiKey, setOpenaiKey] = useState('');
     const [openrouterKey, setOpenrouterKey] = useState('');
+    const [localApiUrl, setLocalApiUrl] = useState('http://localhost:1234/v1');
     const [isLoading, setIsLoading] = useState(false);
     const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
     const [openrouterModels, setOpenrouterModels] = useState<AIModel[]>([]);
@@ -30,9 +31,11 @@ export default function AISettingsPage() {
             // Set the keys using the new getter methods
             const openaiKey = aiService.getOpenAIKey();
             const openrouterKey = aiService.getOpenRouterKey();
+            const localApiUrl = aiService.getLocalApiUrl();
 
             if (openaiKey) setOpenaiKey(openaiKey);
             if (openrouterKey) setOpenrouterKey(openrouterKey);
+            if (localApiUrl) setLocalApiUrl(localApiUrl);
 
             console.log('Fetching available models...');
             const allModels = await aiService.getAvailableModels();
@@ -117,6 +120,32 @@ export default function AISettingsPage() {
         } catch (error) {
             console.error(`Error refreshing ${provider} models:`, error);
             toast.error(`Failed to refresh ${provider} models`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleLocalApiUrlUpdate = async (url: string) => {
+        if (!url.trim()) return;
+
+        setIsLoading(true);
+        try {
+            console.log(`Updating local API URL to ${url}...`);
+            await aiService.updateLocalApiUrl(url);
+            console.log('Fetching new local models...');
+            const models = await aiService.getAvailableModels('local');
+            console.log('Local models:', models);
+
+            setOpenaiModels(prev => {
+                const filtered = prev.filter(m => m.provider !== 'local');
+                return [...filtered, ...models];
+            });
+            setOpenSections(prev => ({ ...prev, local: true }));
+
+            toast.success('Local API URL updated successfully');
+        } catch (error) {
+            console.error('Error updating local API URL:', error);
+            toast.error('Failed to update local API URL');
         } finally {
             setIsLoading(false);
         }
@@ -277,6 +306,42 @@ export default function AISettingsPage() {
                                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Refresh Models'}
                                 </Button>
                             </div>
+
+                            <Collapsible
+                                open={openSections.localAdvanced}
+                                onOpenChange={() => toggleSection('localAdvanced')}
+                            >
+                                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                                    <ChevronRight className={cn(
+                                        "h-4 w-4 transition-transform",
+                                        openSections.localAdvanced && "transform rotate-90"
+                                    )} />
+                                    Advanced Settings
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-2 space-y-2">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="local-api-url">Local API URL</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="local-api-url"
+                                                type="text"
+                                                placeholder="http://localhost:1234/v1"
+                                                value={localApiUrl}
+                                                onChange={(e) => setLocalApiUrl(e.target.value)}
+                                            />
+                                            <Button
+                                                onClick={() => handleLocalApiUrlUpdate(localApiUrl)}
+                                                disabled={isLoading || !localApiUrl.trim()}
+                                            >
+                                                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            The URL of your local LLM server. Default is http://localhost:1234/v1
+                                        </p>
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
 
                             <Collapsible
                                 open={openSections.local}

@@ -103,6 +103,7 @@ export interface AISettings extends BaseEntity {
     openrouterKey?: string;
     availableModels: AIModel[];
     lastModelsFetch?: Date;
+    localApiUrl?: string;
 }
 
 // Lorebook types

@@ -29,6 +29,7 @@ export class AIService {
         const settings: AISettings = {
             id: crypto.randomUUID(),
             createdAt: new Date(),
+            localApiUrl: 'http://localhost:1234/v1',
             availableModels: localModels,
         };
         await db.aiSettings.add(settings);
@@ -381,6 +382,25 @@ export class AIService {
 
     getOpenRouterKey(): string | undefined {
         return this.settings?.openrouterKey;
+    }
+
+    getLocalApiUrl(): string {
+        return this.settings?.localApiUrl || 'http://localhost:1234/v1';
+    }
+
+    async updateLocalApiUrl(url: string): Promise<void> {
+        if (!this.settings) throw new Error('AIService not initialized');
+
+        // Update the URL in settings
+        await db.aiSettings.update(this.settings.id, { localApiUrl: url });
+
+        // Update the local instance
+        if (this.settings) {
+            this.settings.localApiUrl = url;
+        }
+
+        // Refresh local models with the new URL
+        await this.fetchAvailableModels('local');
     }
 
     getSettings(): AISettings | null {

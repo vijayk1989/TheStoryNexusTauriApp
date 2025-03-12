@@ -66,38 +66,51 @@ export default function ChatList({ storyId }: ChatListProps) {
                     </div>
                 </div>
                 <ul className="overflow-y-auto flex-1">
-                    {chats.map((chat) => (
-                        <li
-                            key={chat.id}
-                            className={cn(
-                                "p-4 border-b border-input hover:bg-muted cursor-pointer relative group",
-                                selectedChat?.id === chat.id && "bg-muted/50"
-                            )}
-                        >
-                            <div
-                                onClick={() => selectChat(chat)}
-                                className="flex justify-between items-start"
+                    {chats.length === 0 ? (
+                        <li className="p-8 flex flex-col items-center justify-center text-center">
+                            <p className="text-muted-foreground mb-4">No chats yet</p>
+                            <Button
+                                onClick={() => createNewChat(storyId)}
+                                className="flex items-center gap-1"
                             >
-                                <div className="flex-1 min-w-0">
-                                    <span className="text-sm block truncate text-foreground">{chat.title}</span>
-                                    <span className="text-xs text-muted-foreground block mt-1">
-                                        {new Date(chat.updatedAt || chat.createdAt).toLocaleDateString()} {new Date(chat.updatedAt || chat.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteChat(chat.id);
-                                    }}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                </Button>
-                            </div>
+                                <Plus className="h-4 w-4" />
+                                Create Your First Chat
+                            </Button>
                         </li>
-                    ))}
+                    ) : (
+                        chats.map((chat) => (
+                            <li
+                                key={chat.id}
+                                className={cn(
+                                    "p-4 border-b border-input hover:bg-muted cursor-pointer relative group",
+                                    selectedChat?.id === chat.id && "bg-muted/50"
+                                )}
+                            >
+                                <div
+                                    onClick={() => selectChat(chat)}
+                                    className="flex justify-between items-start"
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <span className="text-sm block truncate text-foreground">{chat.title}</span>
+                                        <span className="text-xs text-muted-foreground block mt-1">
+                                            {new Date(chat.updatedAt || chat.createdAt).toLocaleDateString()} {new Date(chat.updatedAt || chat.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteChat(chat.id);
+                                        }}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                    </Button>
+                                </div>
+                            </li>
+                        ))
+                    )}
                 </ul>
             </div>
         </div>

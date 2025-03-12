@@ -3728,7 +3728,7 @@ You must implement an endpoint that returns all models that should be served by 
       "created": 1690502400,
       "description": "Anthropic's flagship model...", // Optional
       "context_length": 100000, // Required
-      "max_completion_tokens": 4096, // Optional
+      "max_completion_tokens": 8192, // Optional
       "pricing": {
         "prompt": "0.000008", // pricing per 1 token
         "completion": "0.000024", // pricing per 1 token

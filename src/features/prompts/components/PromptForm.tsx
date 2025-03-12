@@ -89,10 +89,10 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
 
         // Add local model
         groups['Local'].push({
-            id: 'local/llama-3.2-3b-instruct',
-            name: 'Llama 3.2 3B Instruct',
+            id: 'local',
+            name: 'Local',
             provider: 'local',
-            contextLength: 4096,
+            contextLength: 8192,
             enabled: true
         });
 
@@ -411,7 +411,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 value={[maxTokens]}
                                 onValueChange={(value) => setMaxTokens(value[0])}
                                 min={1}
-                                max={4096}
+                                max={8192}
                                 className="flex-1"
                             />
                             <Input
@@ -423,7 +423,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                     }
 
                                     const value = parseInt(e.target.value);
-                                    if (!isNaN(value) && value >= 1 && value <= 4096) {
+                                    if (!isNaN(value) && value >= 1 && value <= 8192) {
                                         setMaxTokens(value);
                                     }
                                 }}

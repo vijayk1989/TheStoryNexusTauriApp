@@ -20,6 +20,7 @@ import AISettingsPage from "./features/ai/pages/AISettingsPage";
 import { MainLayout } from "./components/MainLayout";
 import LorebookPage from "./features/lorebook/pages/LorebookPage";
 import BrainstormPage from "./features/brainstorm/pages/BrainstormPage";
+import GuidePage from "./features/guide/pages/GuidePage";
 import { dbSeeder } from "./services/dbSeed";
 // biome-ignore lint/style/noNonNullAssertion: <explanation>
 
@@ -34,7 +35,7 @@ function DatabaseInitializer({ children }: { children: React.ReactNode }) {
 
 		const init = async () => {
 			try {
-				await dbSeeder.initialize();
+				await dbSeeder.initialize(false);
 			} catch (err) {
 				console.error("Database initialization failed:", err);
 			} finally {
@@ -75,6 +76,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 								<Route path="/stories" element={<Home />} />
 								{/* AI Settings */}
 								<Route path="/ai-settings" element={<AISettingsPage />} />
+								{/* Guide */}
+								<Route path="/guide" element={<GuidePage />} />
 							</Route>
 
 							{/* Story Dashboard */}

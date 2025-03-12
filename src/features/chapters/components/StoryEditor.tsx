@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -14,12 +14,15 @@ import {
     DrawerHeader,
     DrawerTitle,
 } from "@/components/ui/drawer";
+import { useStoryContext } from "@/features/stories/context/StoryContext";
+import { DownloadMenu } from "@/components/ui/DownloadMenu";
 
 type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
+    const { currentChapterId } = useStoryContext();
 
     const handleOpenDrawer = (drawer: DrawerType) => {
         setOpenDrawer(drawer === openDrawer ? null : drawer);
@@ -80,6 +83,18 @@ export function StoryEditor() {
                     <User className="h-4 w-4 mr-2" />
                     Edit POV
                 </Button>
+
+                {currentChapterId && (
+                    <DownloadMenu
+                        type="chapter"
+                        id={currentChapterId}
+                        variant="outline"
+                        size="sm"
+                        showIcon={true}
+                        label="Download"
+                        className="mx-2 justify-start"
+                    />
+                )}
             </div>
 
             {/* Matched Tags Drawer */}

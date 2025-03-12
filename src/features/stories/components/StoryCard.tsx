@@ -4,6 +4,7 @@ import { Button } from "../../../components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useStoryStore } from "@/features/stories/stores/useStoryStore";
+import { DownloadMenu } from "@/components/ui/DownloadMenu";
 
 interface StoryCardProps {
     story: Story;
@@ -31,37 +32,21 @@ export function StoryCard({ story, onEdit }: StoryCardProps) {
     };
 
     return (
-        <Card
-            className="w-[350px] hover:bg-accent/50 cursor-pointer transition-colors"
-            onClick={handleCardClick}
-        >
-            <CardHeader className="pb-3">
-                <CardTitle className="text-xl">{story.title}</CardTitle>
-                <CardDescription>by {story.author}</CardDescription>
+        <Card className="w-full cursor-pointer hover:bg-accent/10 transition-colors" onClick={handleCardClick}>
+            <CardHeader>
+                <CardTitle>{story.title}</CardTitle>
+                <CardDescription>By {story.author}</CardDescription>
             </CardHeader>
-            <CardContent className="pb-3">
-                <div className="space-y-2">
-                    <div className="text-sm">
-                        <span className="font-medium">Language:</span> {story.language}
-                    </div>
-                    {story.synopsis && (
-                        <div className="text-sm text-muted-foreground">
-                            {story.synopsis}
-                        </div>
-                    )}
-                    <div className="text-xs text-muted-foreground">
-                        Created: {new Date(story.createdAt).toLocaleDateString()}
-                    </div>
-                </div>
+            <CardContent>
+                {story.synopsis && <p className="text-sm text-muted-foreground">{story.synopsis}</p>}
             </CardContent>
-            <CardFooter className="flex justify-end gap-2 pt-3 border-t">
-                <Button variant="outline" size="sm" onClick={handleEdit}>
+            <CardFooter className="flex justify-end gap-2">
+                <DownloadMenu type="story" id={story.id} />
+                <Button variant="ghost" size="icon" onClick={handleEdit}>
                     <Edit className="h-4 w-4" />
-                    Edit
                 </Button>
-                <Button variant="destructive" size="sm" onClick={handleDelete}>
+                <Button variant="ghost" size="icon" onClick={handleDelete}>
                     <Trash2 className="h-4 w-4" />
-                    Delete
                 </Button>
             </CardFooter>
         </Card>

@@ -2,14 +2,19 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { PromptForm } from './PromptForm';
 import { PromptsList } from './PromptList';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus, ArrowLeft, RefreshCw } from 'lucide-react';
 import type { Prompt } from '@/types/story';
 import { cn } from '@/lib/utils';
+import { toast } from 'react-toastify';
+import { dbSeeder } from '@/services/dbSeed';
+import { usePromptStore } from '../store/promptStore';
 
 export function PromptsManager() {
     const [selectedPrompt, setSelectedPrompt] = useState<Prompt | undefined>(undefined);
     const [isCreating, setIsCreating] = useState(false);
     const [showMobileForm, setShowMobileForm] = useState(false);
+    const [isReseeding, setIsReseeding] = useState(false);
+    const { fetchPrompts } = usePromptStore();
 
     const handleNewPrompt = () => {
         setSelectedPrompt(undefined);
@@ -41,6 +46,20 @@ export function PromptsManager() {
         }
     };
 
+    const handleReseedSystemPrompts = async () => {
+        try {
+            setIsReseeding(true);
+            await dbSeeder.forceReseedSystemPrompts();
+            await fetchPrompts();
+            toast.success('System prompts reseeded successfully');
+        } catch (error) {
+            toast.error('Failed to reseed system prompts');
+            console.error('Error reseeding system prompts:', error);
+        } finally {
+            setIsReseeding(false);
+        }
+    };
+
     return (
         <div className="flex h-full">
             {/* Left panel - Fixed Sidebar */}
@@ -49,13 +68,24 @@ export function PromptsManager() {
                 showMobileForm ? "hidden md:flex" : "flex"
             )}>
                 <div className="p-4 border-b border-input">
-                    <Button
-                        onClick={handleNewPrompt}
-                        className="w-full flex items-center gap-2"
-                    >
-                        <Plus className="h-4 w-4" />
-                        New Prompt
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button
+                            onClick={handleNewPrompt}
+                            className="flex-1 flex items-center gap-2"
+                        >
+                            <Plus className="h-4 w-4" />
+                            New Prompt
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={handleReseedSystemPrompts}
+                            disabled={isReseeding}
+                            title="Reseed system prompts"
+                        >
+                            <RefreshCw className={cn("h-4 w-4", isReseeding && "animate-spin")} />
+                        </Button>
+                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     <PromptsList

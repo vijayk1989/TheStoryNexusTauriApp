@@ -105,7 +105,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     // Load selected chat messages when a chat is selected
     useEffect(() => {
         if (selectedChat) {
-            // If a chat is selected, load its messages
+            // Load the selected chat's messages
             setCurrentChatId(selectedChat.id);
             setMessages(selectedChat.messages || []);
 
@@ -113,10 +113,6 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             setTimeout(() => {
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             }, 100);
-        } else {
-            // If no chat is selected, create a new empty chat
-            setCurrentChatId(uuidv4());
-            setMessages([]);
         }
     }, [selectedChat]);
 

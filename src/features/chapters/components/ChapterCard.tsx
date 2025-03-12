@@ -33,7 +33,7 @@ import {
     SelectValue,
 } from "../../../components/ui/select";
 import { useForm } from "react-hook-form";
-import { Card, CardContent, CardHeader } from "../../../components/ui/card";
+import { Card, CardContent, CardHeader, CardFooter } from "../../../components/ui/card";
 import { Bounce, toast } from 'react-toastify';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
@@ -41,6 +41,7 @@ import { usePromptStore } from '@/features/prompts/store/promptStore';
 import { PromptParserConfig } from '@/types/story';
 import { AIGenerateMenu } from "@/components/ui/ai-generate-menu";
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
+import { DownloadMenu } from "@/components/ui/DownloadMenu";
 
 interface ChapterCardProps {
     chapter: Chapter;
@@ -275,6 +276,9 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
                     </div>
                 </CardHeader>
                 {isExpanded && cardContent}
+                <CardFooter className="flex justify-end gap-2 pt-3 border-t">
+                    <DownloadMenu type="chapter" id={chapter.id} />
+                </CardFooter>
             </Card>
 
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

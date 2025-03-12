@@ -46,7 +46,7 @@ export class AIService {
                 id: `local/${model.id}`,
                 name: model.id, // We could prettify this name if needed
                 provider: 'local' as AIProvider,
-                contextLength: 4096, // Default value since not provided by API
+                contextLength: 8192, // Default value since not provided by API
                 enabled: true
             }));
         } catch (error) {
@@ -56,7 +56,7 @@ export class AIService {
                 id: 'local/llama-3.2-3b-instruct',
                 name: 'Llama 3.2 3B Instruct',
                 provider: 'local',
-                contextLength: 4096,
+                contextLength: 8192,
                 enabled: true
             }];
         }
@@ -163,7 +163,7 @@ export class AIService {
                 id: model.id,
                 name: model.id,
                 provider: 'openai' as AIProvider,
-                contextLength: model.context_length || 4096,
+                contextLength: model.context_length || 8192,
                 enabled: true
             }));
     }

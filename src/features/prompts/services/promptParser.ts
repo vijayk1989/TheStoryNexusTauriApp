@@ -44,40 +44,12 @@ export class PromptParser {
 
     async parse(config: PromptParserConfig): Promise<ParsedPrompt> {
         try {
-            console.log('Parsing prompt with config:', {
-                promptId: config.promptId,
-                storyId: config.storyId,
-                chapterId: config.chapterId,
-                scenebeat: config.scenebeat,
-                previousWordsLength: config.previousWords?.length,
-                additionalContext: config.additionalContext ? {
-                    includeFullContext: config.additionalContext.includeFullContext,
-                    selectedTagsLength: config.additionalContext.selectedTags?.length,
-                    selectedCategoriesLength: config.additionalContext.selectedCategories?.length,
-                    selectedCategories: config.additionalContext.selectedCategories,
-                    selectedTags: config.additionalContext.selectedTags
-                } : 'none'
-            });
 
             const prompt = await this.database.prompts.get(config.promptId);
             if (!prompt) throw new Error('Prompt not found');
 
-            console.log('Found prompt:', {
-                name: prompt.name,
-                type: prompt.promptType,
-                messageCount: prompt.messages.length
-            });
-
             const context = await this.buildContext(config);
             const parsedMessages = await this.parseMessages(prompt.messages, context);
-
-            console.log('Parsed prompt result:', {
-                messageCount: parsedMessages.length,
-                preview: parsedMessages.map(m => ({
-                    role: m.role,
-                    contentPreview: m.content
-                }))
-            });
 
             return { messages: parsedMessages };
         } catch (error) {
@@ -90,13 +62,6 @@ export class PromptParser {
     }
 
     private async buildContext(config: PromptParserConfig): Promise<PromptContext> {
-        console.log('Building context from config:', {
-            storyId: config.storyId,
-            chapterId: config.chapterId,
-            promptId: config.promptId,
-            scenebeat: config.scenebeat,
-            additionalContext: config.additionalContext
-        });
 
         const [chapters, currentChapter] = await Promise.all([
             this.database.chapters.where('storyId').equals(config.storyId).toArray(),
@@ -125,12 +90,6 @@ export class PromptParser {
         // First remove comments
         let parsedContent = content.replace(/\/\*[\s\S]*?\*\//g, '');
 
-        console.log('Parsing content with variables:', {
-            originalLength: content.length,
-            withoutComments: parsedContent.length,
-            variables: parsedContent.match(/\{\{[^}]+\}\}/g)
-        });
-
         // Handle function-style variables first
         const functionRegex = /\{\{(\w+)\((.*?)\)\}\}/g;
         const matches = Array.from(parsedContent.matchAll(functionRegex));
@@ -147,8 +106,6 @@ export class PromptParser {
         // Check if both matched_entries_chapter and additional_scenebeat_context are present
         if (parsedContent.includes('{{matched_entries_chapter}}') &&
             parsedContent.includes('{{additional_scenebeat_context}}')) {
-
-            console.log('Found both matched_entries_chapter and additional_scenebeat_context in the template');
 
             // Get the matched entries
             let matchedEntries = '';
@@ -221,7 +178,6 @@ export class PromptParser {
         let result = content;
 
         const matches = Array.from(content.matchAll(variableRegex));
-        console.log('Found variables to parse:', matches.map(m => m[1]));
 
         for (const match of matches) {
             const [fullMatch, variable] = match;
@@ -266,20 +222,8 @@ export class PromptParser {
     }
 
     private async resolveLorebookSceneBeatEntries(context: PromptContext): Promise<string> {
-        console.log('Resolving scene beat matched entries:', {
-            hasMatchedEntries: !!context.sceneBeatMatchedEntries,
-            entriesSize: context.sceneBeatMatchedEntries?.size,
-            entries: Array.from(context.sceneBeatMatchedEntries || []).map(e => ({
-                id: e.id,
-                name: e.name,
-                category: e.category,
-                importance: e.metadata?.importance,
-                isDisabled: e.isDisabled
-            }))
-        });
 
         if (!context.sceneBeatMatchedEntries || context.sceneBeatMatchedEntries.size === 0) {
-            console.log('No scene beat matched entries found');
             return '';
         }
 
@@ -288,7 +232,6 @@ export class PromptParser {
             .filter(entry => !entry.isDisabled);
 
         if (entries.length === 0) {
-            console.log('All matched entries are disabled');
             return '';
         }
 
@@ -319,12 +262,6 @@ export class PromptParser {
     }
 
     private async resolvePreviousWords(context: PromptContext, count: string = '1000'): Promise<string> {
-        console.log('Resolving previous words:', {
-            requestedCount: count,
-            availableText: context.previousWords?.length || 0,
-            newlineCount: context.previousWords ? (context.previousWords.match(/\n/g) || []).length : 0
-        });
-
         if (!context.previousWords) return '';
 
         // Parse the count parameter - default to 1000 if not a valid number
@@ -340,13 +277,6 @@ export class PromptParser {
 
         // Join the words and restore the newlines
         const result = selectedWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
-
-        console.log('Selected words:', {
-            total: words.length,
-            requested: requestedWordCount,
-            selected: selectedWords.length,
-            resultNewlineCount: (result.match(/\n/g) || []).length
-        });
 
         return result;
     }
@@ -390,20 +320,8 @@ export class PromptParser {
     }
 
     private async resolveMatchedEntriesChapter(context: PromptContext): Promise<string> {
-        console.log('Resolving chapter matched entries:', {
-            hasMatchedEntries: !!context.chapterMatchedEntries,
-            entriesSize: context.chapterMatchedEntries?.size,
-            entries: Array.from(context.chapterMatchedEntries || []).map(e => ({
-                id: e.id,
-                name: e.name,
-                category: e.category,
-                importance: e.metadata?.importance,
-                isDisabled: e.isDisabled
-            }))
-        });
 
         if (!context.chapterMatchedEntries || context.chapterMatchedEntries.size === 0) {
-            console.log('No chapter matched entries found');
             return '';
         }
 
@@ -412,7 +330,6 @@ export class PromptParser {
             .filter(entry => !entry.isDisabled);
 
         if (entries.length === 0) {
-            console.log('All matched entries are disabled');
             return '';
         }
 
@@ -443,11 +360,6 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
         // Use the plain text content if available in additionalContext
         if (context.additionalContext?.plainTextContent) {
-            console.log('Using plain text content for chapter:', {
-                chapterId: context.currentChapter.id,
-                contentLength: context.additionalContext.plainTextContent.length,
-                preview: context.additionalContext.plainTextContent.slice(0, 100) + '...'
-            });
             return context.additionalContext.plainTextContent;
         }
 
@@ -456,10 +368,6 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
     }
 
     private async resolveSelectedText(context: PromptContext): Promise<string> {
-        console.log('Resolving selected text:', {
-            hasSelectedText: !!context.additionalContext?.selectedText,
-            selectedTextLength: context.additionalContext?.selectedText?.length
-        });
 
         if (!context.additionalContext?.selectedText) {
             return '';
@@ -651,7 +559,6 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
             // Include matched chapter entries if the toggle is enabled
             if (useMatchedChapter && context.chapterMatchedEntries && context.chapterMatchedEntries.size > 0) {
-                console.log(`Including ${context.chapterMatchedEntries.size} chapter matched entries`);
                 context.chapterMatchedEntries.forEach(entry => {
                     uniqueEntries.set(entry.id, entry);
                 });
@@ -659,7 +566,6 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
             // Include matched scene beat entries if the toggle is enabled
             if (useMatchedSceneBeat && context.sceneBeatMatchedEntries && context.sceneBeatMatchedEntries.size > 0) {
-                console.log(`Including ${context.sceneBeatMatchedEntries.size} scene beat matched entries`);
                 context.sceneBeatMatchedEntries.forEach(entry => {
                     uniqueEntries.set(entry.id, entry);
                 });
@@ -667,8 +573,6 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
             // Include custom context items if the toggle is enabled
             if (useCustomContext && customContextItems && customContextItems.length > 0) {
-                console.log(`Including ${customContextItems.length} custom context items`);
-
                 // Load entries if they're not already loaded
                 const lorebookStore = useLorebookStore.getState();
                 if (lorebookStore.entries.length === 0 && context.storyId) {

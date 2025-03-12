@@ -21,11 +21,11 @@ export class StoryDatabase extends Dexie {
     constructor() {
         super('StoryDatabase');
 
-        this.version(7).stores({
+        this.version(8).stores({
             stories: 'id, title, createdAt, language, isDemo',
             chapters: 'id, storyId, order, createdAt, isDemo',
             aiChats: 'id, storyId, createdAt, isDemo',
-            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem, &name',
             aiSettings: 'id, lastModelsFetch',
             lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
             sceneBeats: 'id, storyId, chapterId',

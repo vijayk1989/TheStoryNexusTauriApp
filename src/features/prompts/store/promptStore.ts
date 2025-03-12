@@ -51,6 +51,12 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
                 throw new Error('Invalid prompt data structure');
             }
 
+            // Check for duplicate name
+            const existingPrompt = await db.prompts.where('name').equals(promptData.name).first();
+            if (existingPrompt) {
+                throw new Error('A prompt with this name already exists');
+            }
+
             const id = crypto.randomUUID();
             const prompt: Prompt = {
                 ...promptData,
@@ -64,8 +70,8 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
             const prompts = await db.prompts.toArray();
             set({ prompts, error: null });
         } catch (error) {
-            set({ error: (error as Error).message });
-            throw error;
+            set({ error: null }); // Don't set error in the store
+            throw error; // Just throw the error to be handled by the form
         }
     },
 
@@ -75,12 +81,25 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
                 throw new Error('Invalid prompt data structure');
             }
 
+            // If name is being updated, check for duplicates
+            if (promptData.name) {
+                const existingPrompt = await db.prompts
+                    .where('name')
+                    .equals(promptData.name)
+                    .and(item => item.id !== id)
+                    .first();
+
+                if (existingPrompt) {
+                    throw new Error('A prompt with this name already exists');
+                }
+            }
+
             await db.prompts.update(id, promptData);
             const prompts = await db.prompts.toArray();
             set({ prompts, error: null });
         } catch (error) {
-            set({ error: (error as Error).message });
-            throw error;
+            set({ error: null }); // Don't set error in the store
+            throw error; // Just throw the error to be handled by the form
         }
     },
 

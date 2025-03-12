@@ -105,12 +105,6 @@ export default function Editor(): JSX.Element {
     };
   }, [isSmallWidthViewport]);
 
-  // Add debug logging
-  useEffect(() => {
-    console.log('Editor - Component mounted');
-    return () => console.log('Editor - Component unmounted');
-  }, []);
-
   return (
     <>
       {isRichText && (

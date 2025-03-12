@@ -240,11 +240,6 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
                 return '';
             }
 
-            console.log('getChapterPlainText - Processing chapter:', {
-                id,
-                contentLength: chapter.content.length
-            });
-
             // Parse the Lexical state
             const editorState = JSON.parse(chapter.content);
             let plainText = '';
@@ -265,11 +260,6 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
             }
 
             const finalText = plainText.trim();
-            console.log('getChapterPlainText - Extracted text:', {
-                id,
-                extractedLength: finalText.length,
-                preview: finalText.slice(0, 100) + '...'
-            });
 
             return finalText;
         } catch (error) {
@@ -298,14 +288,6 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
                 })
                 .filter(Boolean)
                 .join(', ');
-
-            console.log('Generated chapter summaries:', {
-                storyId,
-                currentOrder,
-                includeLatest,
-                chapterCount: chapters.length,
-                summaryLength: summaries.length
-            });
 
             return summaries;
         } catch (error) {
@@ -346,12 +328,6 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
                 .filter(Boolean)
                 .join('\n\n');
 
-            console.log('Generated all chapter summaries:', {
-                storyId,
-                chapterCount: chapters.length,
-                summaryLength: summaries.length
-            });
-
             return summaries;
         } catch (error) {
             console.error('Error getting all chapter summaries:', error);
@@ -389,7 +365,6 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
             const chapter = await db.chapters.get(id);
             return chapter?.outline || null;
         } catch (error) {
-            console.error('Failed to get chapter outline:', error);
             return null;
         }
     },

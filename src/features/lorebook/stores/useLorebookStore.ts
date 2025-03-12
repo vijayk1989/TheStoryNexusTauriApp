@@ -88,7 +88,6 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
             });
         });
 
-        console.log('Built tag map:', newTagMap);
         set({ tagMap: newTagMap });
     },
 
@@ -168,20 +167,10 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
     setEditorContent: (content: string) => set({ editorContent: content }),
 
     setMatchedEntries: (entries) => {
-        console.log('Setting matched entries:', {
-            entriesType: entries instanceof Map ? 'Map' : 'Other',
-            size: entries.size,
-            entries: Array.from(entries.entries())
-        });
         set({ matchedEntries: entries });
     },
 
     setChapterMatchedEntries: (entries) => {
-        console.log('Setting chapter matched entries:', {
-            entriesType: entries instanceof Map ? 'Map' : 'Other',
-            size: entries.size,
-            entries: Array.from(entries.entries())
-        });
         set({ chapterMatchedEntries: entries });
     },
 

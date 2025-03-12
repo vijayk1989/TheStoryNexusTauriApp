@@ -199,7 +199,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             }
             onSave?.();
         } catch (error) {
-            toast.error('Failed to save prompt');
+            toast.error((error as Error).message || 'Failed to save prompt');
         }
     };
 

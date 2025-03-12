@@ -32,3 +32,6 @@ dist-ssr
 .cursorrules
 .cursor/
 
+# Doc files
+docs/
+

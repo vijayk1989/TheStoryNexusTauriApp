@@ -34,27 +34,6 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
         });
     }, [fetchPrompts]);
 
-    // Debug: Log the prompts to see if there are duplicates
-    useEffect(() => {
-        if (prompts.length > 0) {
-            console.log('Loaded prompts:', prompts);
-
-            // Check for prompts with the same name
-            const promptNames = prompts.map(p => p.name);
-            const duplicateNames = promptNames.filter((name, index) => promptNames.indexOf(name) !== index);
-
-            if (duplicateNames.length > 0) {
-                console.warn('Found prompts with duplicate names:', duplicateNames);
-
-                // Log the details of prompts with duplicate names
-                duplicateNames.forEach(name => {
-                    const duplicates = prompts.filter(p => p.name === name);
-                    console.warn(`Details for prompts named "${name}":`, duplicates);
-                });
-            }
-        }
-    }, [prompts]);
-
     const handleDelete = async (e: React.MouseEvent, promptId: string) => {
         e.stopPropagation();
         try {

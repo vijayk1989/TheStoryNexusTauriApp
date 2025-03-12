@@ -18,7 +18,6 @@ export default function LorebookPage() {
     useEffect(() => {
         if (storyId) {
             loadEntries(storyId).then(() => {
-                console.log('Entries loaded, building tag map');
                 buildTagMap();
             });
         }

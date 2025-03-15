@@ -43,6 +43,13 @@ interface AIState {
     ) => Promise<void>;
 
     generateWithPrompt: (config: PromptParserConfig, selectedModel: AllowedModel) => Promise<Response>;
+
+    // New method for generating with pre-parsed messages
+    generateWithParsedMessages: (
+        messages: PromptMessage[],
+        selectedModel: AllowedModel,
+        promptId: string
+    ) => Promise<Response>;
 }
 
 export const useAIStore = create<AIState>((set, get) => ({
@@ -138,6 +145,63 @@ export const useAIStore = create<AIState>((set, get) => ({
         const top_p = prompt?.top_p;
         const top_k = prompt?.top_k;
         const repetition_penalty = prompt?.repetition_penalty;
+
+        switch (selectedModel.provider) {
+            case 'local':
+                return aiService.generateWithLocalModel(
+                    messages,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty
+                );
+            case 'openai':
+                return aiService.generateWithOpenAI(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty
+                );
+            case 'openrouter':
+                return aiService.generateWithOpenRouter(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty
+                );
+            default:
+                throw new Error(`Unsupported provider: ${selectedModel.provider}`);
+        }
+    },
+
+    // New method for generating with pre-parsed messages
+    generateWithParsedMessages: async (messages: PromptMessage[], selectedModel: AllowedModel, promptId: string) => {
+        if (!get().isInitialized) {
+            await get().initialize();
+        }
+
+        if (!messages.length) {
+            throw new Error('No messages provided for generation');
+        }
+
+        // Get the prompt to access temperature and maxTokens
+        const prompt = await db.prompts.get(promptId);
+        if (!prompt) {
+            throw new Error(`Prompt with ID ${promptId} not found`);
+        }
+
+        const temperature = prompt.temperature ?? 0.7;
+        const maxTokens = prompt.maxTokens ?? 2048;
+        const top_p = prompt.top_p;
+        const top_k = prompt.top_k;
+        const repetition_penalty = prompt.repetition_penalty;
 
         switch (selectedModel.provider) {
             case 'local':

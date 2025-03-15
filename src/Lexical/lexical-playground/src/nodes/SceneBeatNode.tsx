@@ -6,7 +6,7 @@ import type {
 } from 'lexical';
 
 import { $applyNodeReplacement, $createParagraphNode, $createTextNode, $getNodeByKey, DecoratorNode } from 'lexical';
-import { Suspense, useState, useMemo, useEffect } from 'react';
+import { Suspense, useState, useMemo, useEffect, useRef, KeyboardEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { ChevronRight, Loader2, User, Check, Tag, Plus, Eye, ChevronUp, ChevronDown, ChevronRightIcon } from 'lucide-react';
@@ -90,6 +90,10 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
     const [isLoaded, setIsLoaded] = useState(false);
     const [showAdditionalContext, setShowAdditionalContext] = useState(false);
     const [selectedItems, setSelectedItems] = useState<LorebookEntry[]>([]);
+    const [commandHistory, setCommandHistory] = useState<string[]>([]);
+    const [historyIndex, setHistoryIndex] = useState(-1);
+    const isUndoRedoAction = useRef(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // State for context toggles
     const [useMatchedChapter, setUseMatchedChapter] = useState(true); // Default: ON
@@ -262,6 +266,76 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                 });
         }
     }, [sceneBeatId, isLoaded]);
+
+    // Initialize history when command is first loaded
+    useEffect(() => {
+        if (isLoaded && command && commandHistory.length === 0) {
+            setCommandHistory([command]);
+            setHistoryIndex(0);
+        }
+    }, [isLoaded, command, commandHistory]);
+
+    // Handle command changes with history tracking
+    const handleCommandChange = (newCommand: string) => {
+        if (isUndoRedoAction.current) {
+            isUndoRedoAction.current = false;
+            setCommand(newCommand);
+            return;
+        }
+
+        // Only add to history if the command actually changed
+        if (newCommand !== command) {
+            // Truncate future history if we're not at the end
+            const newHistory = commandHistory.slice(0, historyIndex + 1);
+
+            // Add new command to history (but avoid consecutive duplicates)
+            if (newHistory[newHistory.length - 1] !== newCommand) {
+                const updatedHistory = [...newHistory, newCommand];
+                setCommandHistory(updatedHistory);
+                setHistoryIndex(updatedHistory.length - 1);
+            }
+
+            setCommand(newCommand);
+        }
+    };
+
+    const handleUndo = () => {
+        if (historyIndex > 0) {
+            isUndoRedoAction.current = true;
+            const newIndex = historyIndex - 1;
+            setHistoryIndex(newIndex);
+            setCommand(commandHistory[newIndex]);
+        }
+    };
+
+    const handleRedo = () => {
+        if (historyIndex < commandHistory.length - 1) {
+            isUndoRedoAction.current = true;
+            const newIndex = historyIndex + 1;
+            setHistoryIndex(newIndex);
+            setCommand(commandHistory[newIndex]);
+        }
+    };
+
+    // Handle keyboard shortcuts
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        // Check for Ctrl+Z (Undo)
+        if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault(); // Prevent default browser undo
+            e.stopPropagation(); // Stop event from reaching Lexical editor
+            handleUndo();
+            return;
+        }
+
+        // Check for Ctrl+Shift+Z or Ctrl+Y (Redo)
+        if ((e.ctrlKey && e.shiftKey && e.key === 'z') ||
+            (e.ctrlKey && e.key === 'y')) {
+            e.preventDefault(); // Prevent default browser redo
+            e.stopPropagation(); // Stop event from reaching Lexical editor
+            handleRedo();
+            return;
+        }
+    };
 
     const handleDelete = async () => {
         console.log('Deleting SceneBeat node with ID:', sceneBeatId);
@@ -692,9 +766,15 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                     {/* Command textarea */}
                     <div className="p-4">
                         <Textarea
+                            ref={textareaRef}
                             placeholder="Enter your scene beat command here..."
                             value={command}
-                            onChange={(e) => setCommand(e.target.value)}
+                            onChange={(e) => handleCommandChange(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            onClick={(e) => {
+                                // Ensure clicks don't propagate to the editor
+                                e.stopPropagation();
+                            }}
                             className="min-h-[100px] resize-none"
                         />
                     </div>

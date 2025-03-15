@@ -43,6 +43,10 @@ interface LorebookState {
     getEntriesByType: (type: string) => LorebookEntry[];
     getEntriesByRelationship: (targetId: string) => LorebookEntry[];
     getEntriesByCustomField: (field: string, value: unknown) => LorebookEntry[];
+
+    // Export/Import functions
+    exportEntries: (storyId: string) => void;
+    importEntries: (jsonData: string, targetStoryId: string) => Promise<void>;
 }
 
 export const useLorebookStore = create<LorebookState>((set, get) => ({
@@ -313,5 +317,66 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         return entries.filter(entry =>
             ids.includes(entry.id) && (includeDisabled || !entry.isDisabled)
         );
+    },
+
+    // Export lorebook entries
+    exportEntries: (storyId: string) => {
+        const { entries } = get();
+        const storyEntries = entries.filter(entry => entry.storyId === storyId);
+
+        // Create a JSON file
+        const dataStr = JSON.stringify({
+            version: "1.0",
+            type: "lorebook",
+            entries: storyEntries
+        }, null, 2);
+
+        // Create and trigger download
+        const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+        const exportName = `lorebook-export-${new Date().toISOString().slice(0, 10)}.json`;
+
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportName);
+        linkElement.click();
+    },
+
+    // Import lorebook entries
+    importEntries: async (jsonData: string, targetStoryId: string) => {
+        try {
+            const data = JSON.parse(jsonData);
+
+            // Validate the data format
+            if (!data.type || data.type !== "lorebook" || !Array.isArray(data.entries)) {
+                throw new Error("Invalid lorebook data format");
+            }
+
+            // Process each entry
+            for (const entry of data.entries) {
+                // Create a new ID for the entry
+                const newId = crypto.randomUUID();
+
+                // Create a new entry with the target storyId
+                const newEntry: LorebookEntry = {
+                    ...entry,
+                    id: newId,
+                    storyId: targetStoryId,
+                    createdAt: new Date()
+                };
+
+                // Add to database
+                await db.lorebookEntries.add(newEntry);
+            }
+
+            // Reload entries after import
+            await get().loadEntries(targetStoryId);
+
+            // Rebuild tag map
+            get().buildTagMap();
+
+        } catch (error) {
+            console.error("Import failed:", error);
+            throw error;
+        }
     },
 })); 

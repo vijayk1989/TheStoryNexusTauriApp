@@ -26,9 +26,10 @@ export function DownloadMenu({
     size = "icon",
     showIcon = true,
     label = "Download",
-    className = ""
+    className = "",
 }: DownloadMenuProps) {
-    const handleDownload = async (format: 'html' | 'text') => {
+    const handleDownload = async (format: 'html' | 'text', e: React.MouseEvent) => {
+        e.stopPropagation();
         try {
             if (type === 'story') {
                 await downloadStory(id, format);
@@ -57,10 +58,10 @@ export function DownloadMenu({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleDownload('html')}>
+                <DropdownMenuItem onClick={(e) => handleDownload('html', e)}>
                     Download as HTML
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleDownload('text')}>
+                <DropdownMenuItem onClick={(e) => handleDownload('text', e)}>
                     Download as Text
                 </DropdownMenuItem>
             </DropdownMenuContent>

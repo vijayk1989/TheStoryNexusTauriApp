@@ -28,19 +28,16 @@ interface LorebookEntryListProps {
 type SortOption = 'name' | 'category' | 'importance' | 'created';
 
 export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProps) {
-    const { deleteEntry, updateEntry, getFilteredEntries } = useLorebookStore();
+    const { deleteEntry, updateEntry } = useLorebookStore();
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedCategory, setSelectedCategory] = useState<string>("all");
     const [sortBy, setSortBy] = useState<SortOption>('name');
     const [editingEntry, setEditingEntry] = useState<LorebookEntry | null>(null);
     const [deletingEntry, setDeletingEntry] = useState<LorebookEntry | null>(null);
     const [showDisabled, setShowDisabled] = useState(false);
 
-    // Get entries based on showDisabled setting
-    const entries = showDisabled ? allEntries : getFilteredEntries();
-
-    // Filter entries based on search term and category
-    const filteredEntries = entries.filter(entry => {
+    // Filter entries based on search term and disabled status only
+    const filteredEntries = allEntries.filter(entry => {
+        // Apply search filter
         const searchMatch = !searchTerm || [
             entry.name,
             entry.description,
@@ -49,9 +46,10 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
             field?.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
-        const categoryMatch = selectedCategory === 'all' || entry.category === selectedCategory;
+        // Apply disabled filter
+        const disabledMatch = showDisabled || !entry.isDisabled;
 
-        return searchMatch && categoryMatch;
+        return searchMatch && disabledMatch;
     });
 
     // Sort entries
@@ -96,7 +94,7 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                         placeholder="Search entries..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-8"
+                        className="pl-8 border-2 border-gray-300 dark:border-gray-700"
                     />
                 </div>
                 <div className="flex gap-2 items-center">
@@ -105,31 +103,12 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                             id="show-disabled"
                             checked={showDisabled}
                             onCheckedChange={setShowDisabled}
+                            className="border-2 border-gray-300 dark:border-gray-700 data-[state=unchecked]:bg-gray-200 dark:data-[state=unchecked]:bg-gray-800"
                         />
-                        <Label htmlFor="show-disabled">Show Disabled</Label>
+                        <Label htmlFor="show-disabled" className="font-medium">Show Disabled</Label>
                     </div>
-                    <Select
-                        value={selectedCategory}
-                        onValueChange={setSelectedCategory}
-                    >
-                        <SelectTrigger className="w-[180px]">
-                            <Filter className="mr-2 h-4 w-4" />
-                            <SelectValue placeholder="All Categories" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Categories</SelectItem>
-                            <SelectItem value="character">Character</SelectItem>
-                            <SelectItem value="location">Location</SelectItem>
-                            <SelectItem value="item">Item</SelectItem>
-                            <SelectItem value="event">Event</SelectItem>
-                            <SelectItem value="note">Note</SelectItem>
-                            <SelectItem value="synopsis">Synopsis</SelectItem>
-                            <SelectItem value="starting scenario">Starting Scenario</SelectItem>
-                            <SelectItem value="timeline">Timeline</SelectItem>
-                        </SelectContent>
-                    </Select>
                     <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-                        <SelectTrigger className="w-[150px]">
+                        <SelectTrigger className="w-[150px] border-2 border-gray-300 dark:border-gray-700">
                             <SelectValue placeholder="Sort by..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -145,7 +124,7 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
             {/* Show message when no entries match the filters */}
             {sortedEntries.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                    {entries.length === 0
+                    {allEntries.length === 0
                         ? "No entries yet. Create your first entry!"
                         : "No entries match your search criteria."}
                 </div>
@@ -153,8 +132,11 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {sortedEntries.map((entry) => (
-                    <Card key={entry.id} className={entry.isDisabled ? "opacity-60" : ""}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <Card
+                        key={entry.id}
+                        className={`border-2 border-gray-300 dark:border-gray-700 shadow-sm ${entry.isDisabled ? "opacity-60" : ""}`}
+                    >
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 dark:bg-transparent">
                             <CardTitle className="text-lg font-semibold">{entry.name}</CardTitle>
                             <div className="flex gap-2">
                                 <Button

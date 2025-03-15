@@ -673,7 +673,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                         onClick={() => setShowMatchedEntries(!showMatchedEntries)}
                     >
                         <Eye className="h-4 w-4 mr-2" />
-                        <span>View Matched Entries</span>
+                        <span>Scenebeat Matched Tags</span>
                     </Button>
                     <Button
                         variant="ghost"

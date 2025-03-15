@@ -227,6 +227,9 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
                             onGenerate={handleGenerateSummary}
                         />
                     </div>
+                    <div className="flex justify-end gap-2 pt-3 border-t">
+                        <DownloadMenu type="chapter" id={chapter.id} />
+                    </div>
                 </div>
             </div>
         </CardContent>
@@ -276,9 +279,6 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
                     </div>
                 </CardHeader>
                 {isExpanded && cardContent}
-                <CardFooter className="flex justify-end gap-2 pt-3 border-t">
-                    <DownloadMenu type="chapter" id={chapter.id} />
-                </CardFooter>
             </Card>
 
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

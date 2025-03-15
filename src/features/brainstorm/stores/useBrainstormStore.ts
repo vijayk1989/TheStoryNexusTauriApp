@@ -8,6 +8,7 @@ interface BrainstormState {
     selectedChat: AIChat | null;
     isLoading: boolean;
     error: string | null;
+    draftMessage: string;
 
     // Actions
     fetchChats: (storyId: string) => Promise<void>;
@@ -16,6 +17,8 @@ interface BrainstormState {
     createNewChat: (storyId: string) => Promise<string>;
     deleteChat: (chatId: string) => Promise<void>;
     updateChat: (chatId: string, data: Partial<AIChat>) => Promise<void>;
+    setDraftMessage: (message: string) => void;
+    clearDraftMessage: () => void;
 }
 
 export const useBrainstormStore = create<BrainstormState>((set, get) => ({
@@ -23,6 +26,7 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
     selectedChat: null,
     isLoading: false,
     error: null,
+    draftMessage: '',
 
     fetchChats: async (storyId) => {
         set({ isLoading: true, error: null });
@@ -139,5 +143,13 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
             set({ error: (error as Error).message });
             throw error;
         }
+    },
+
+    setDraftMessage: (message: string) => {
+        set({ draftMessage: message });
+    },
+
+    clearDraftMessage: () => {
+        set({ draftMessage: '' });
     },
 })); 

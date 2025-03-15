@@ -21,12 +21,20 @@ interface AIState {
     initialize: () => Promise<void>;
 
     // Model management
-    getAvailableModels: (provider?: AIProvider) => Promise<AIModel[]>;
+    getAvailableModels: (provider?: AIProvider, forceRefresh?: boolean) => Promise<AIModel[]>;
     updateProviderKey: (provider: AIProvider, key: string) => Promise<void>;
     updateLocalApiUrl: (url: string) => Promise<void>;
 
     // Generation methods
-    generateWithLocalModel: (messages: PromptMessage[]) => Promise<Response>;
+    generateWithLocalModel: (
+        messages: PromptMessage[],
+        temperature?: number,
+        maxTokens?: number,
+        top_p?: number,
+        top_k?: number,
+        repetition_penalty?: number
+    ) => Promise<Response>;
+
     processStreamedResponse: (
         response: Response,
         onToken: (text: string) => void,
@@ -61,11 +69,11 @@ export const useAIStore = create<AIState>((set, get) => ({
         }
     },
 
-    getAvailableModels: async (provider?: AIProvider) => {
+    getAvailableModels: async (provider?: AIProvider, forceRefresh: boolean = false) => {
         if (!get().isInitialized) {
             await get().initialize();
         }
-        return aiService.getAvailableModels(provider);
+        return aiService.getAvailableModels(provider, forceRefresh);
     },
 
     updateProviderKey: async (provider: AIProvider, key: string) => {
@@ -98,11 +106,11 @@ export const useAIStore = create<AIState>((set, get) => ({
         }
     },
 
-    generateWithLocalModel: async (messages: PromptMessage[]) => {
+    generateWithLocalModel: async (messages: PromptMessage[], temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number) => {
         if (!get().isInitialized) {
             await get().initialize();
         }
-        return aiService.generateWithLocalModel(messages);
+        return aiService.generateWithLocalModel(messages, temperature, maxTokens, top_p, top_k, repetition_penalty);
     },
 
     processStreamedResponse: async (response, onToken, onComplete, onError) => {
@@ -126,13 +134,41 @@ export const useAIStore = create<AIState>((set, get) => ({
         const temperature = prompt?.temperature ?? 0.7;
         const maxTokens = prompt?.maxTokens ?? 2048;
 
+        // Get the new parameters with their default values if not set
+        const top_p = prompt?.top_p;
+        const top_k = prompt?.top_k;
+        const repetition_penalty = prompt?.repetition_penalty;
+
         switch (selectedModel.provider) {
             case 'local':
-                return aiService.generateWithLocalModel(messages, temperature, maxTokens);
+                return aiService.generateWithLocalModel(
+                    messages,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty
+                );
             case 'openai':
-                return aiService.generateWithOpenAI(messages, selectedModel.id, temperature, maxTokens);
+                return aiService.generateWithOpenAI(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty
+                );
             case 'openrouter':
-                return aiService.generateWithOpenRouter(messages, selectedModel.id, temperature, maxTokens);
+                return aiService.generateWithOpenRouter(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty
+                );
             default:
                 throw new Error(`Unsupported provider: ${selectedModel.provider}`);
         }

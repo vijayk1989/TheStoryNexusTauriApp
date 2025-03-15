@@ -38,20 +38,33 @@ export class AIService {
 
     private async fetchLocalModels(): Promise<AIModel[]> {
         try {
-            const response = await fetch(`${this.LOCAL_API_URL}/models`);
-            if (!response.ok) throw new Error('Failed to fetch local models');
+            // Always use the URL from settings if available, otherwise fall back to default
+            const apiUrl = this.settings?.localApiUrl || this.LOCAL_API_URL;
+            console.log(`[AIService] Fetching local models from: ${apiUrl}`);
+
+            const response = await fetch(`${apiUrl}/models`);
+            if (!response.ok) {
+                console.error(`[AIService] Failed to fetch local models: ${response.status} ${response.statusText}`);
+                throw new Error('Failed to fetch local models');
+            }
 
             const result = await response.json();
-            return result.data.map((model: { id: string, object: string, owned_by: string }) => ({
+            console.log(`[AIService] Received ${result.data.length} local models from API`);
+
+            const models = result.data.map((model: { id: string, object: string, owned_by: string }) => ({
                 id: `local/${model.id}`,
                 name: model.id, // We could prettify this name if needed
                 provider: 'local' as AIProvider,
                 contextLength: 8192, // Default value since not provided by API
                 enabled: true
             }));
+
+            console.log(`[AIService] Mapped ${models.length} local models`);
+            return models;
         } catch (error) {
-            console.warn('Failed to fetch local models:', error);
+            console.warn('[AIService] Failed to fetch local models:', error);
             // Fallback to default model if fetch fails
+            console.log('[AIService] Using fallback local model');
             return [{
                 id: 'local/llama-3.2-3b-instruct',
                 name: 'Llama 3.2 3B Instruct',
@@ -88,51 +101,64 @@ export class AIService {
     async updateKey(provider: AIProvider, key: string) {
         if (!this.settings) throw new Error('AIService not initialized');
 
+        console.log(`[AIService] Updating key for provider: ${provider}`);
         const update: Partial<AISettings> = {
             ...(provider === 'openai' && { openaiKey: key }),
             ...(provider === 'openrouter' && { openrouterKey: key })
         };
 
+        console.log(`[AIService] Updating database with new key for ${provider}`);
         await db.aiSettings.update(this.settings.id, update);
         Object.assign(this.settings, update);
+        console.log(`[AIService] Key updated in memory and database`);
 
         // Initialize clients if needed
         if (provider === 'openrouter') {
+            console.log(`[AIService] Initializing OpenRouter client`);
             this.initializeOpenRouter();
         } else if (provider === 'openai') {
+            console.log(`[AIService] Initializing OpenAI client`);
             this.initializeOpenAI();
         }
 
         // Fetch available models when key is updated
+        console.log(`[AIService] Fetching available models for ${provider} after key update`);
         await this.fetchAvailableModels(provider);
     }
 
     private async fetchAvailableModels(provider: AIProvider) {
         if (!this.settings) throw new Error('AIService not initialized');
 
+        console.log(`[AIService] Fetching available models for provider: ${provider}`);
         try {
             let models: AIModel[] = [];
 
             switch (provider) {
                 case 'local':
+                    console.log(`[AIService] Fetching local models from: ${this.settings.localApiUrl || this.LOCAL_API_URL}`);
                     models = await this.fetchLocalModels();
                     break;
                 case 'openai':
                     if (this.settings.openaiKey) {
+                        console.log('[AIService] Fetching OpenAI models');
                         models = await this.fetchOpenAIModels();
                     }
                     break;
                 case 'openrouter':
                     if (this.settings.openrouterKey) {
+                        console.log('[AIService] Fetching OpenRouter models');
                         models = await this.fetchOpenRouterModels();
                     }
                     break;
             }
 
+            console.log(`[AIService] Fetched ${models.length} models for ${provider}`);
+
             // Update only models from this provider, keep others
             const existingModels = this.settings.availableModels.filter(m => m.provider !== provider);
             const updatedModels = [...existingModels, ...models];
 
+            console.log(`[AIService] Updating database with ${updatedModels.length} total models`);
             await db.aiSettings.update(this.settings.id, {
                 availableModels: updatedModels,
                 lastModelsFetch: new Date()
@@ -140,6 +166,7 @@ export class AIService {
 
             this.settings.availableModels = updatedModels;
             this.settings.lastModelsFetch = new Date();
+            console.log(`[AIService] Models updated in memory and database`);
         } catch (error) {
             console.error('Error fetching models:', error);
             throw error;
@@ -187,37 +214,68 @@ export class AIService {
         }));
     }
 
-    async getAvailableModels(provider?: AIProvider): Promise<AIModel[]> {
+    async getAvailableModels(provider?: AIProvider, forceRefresh: boolean = true): Promise<AIModel[]> {
         if (!this.settings) throw new Error('AIService not initialized');
+
+        console.log(`[AIService] getAvailableModels called for provider: ${provider || 'all'}, forceRefresh: ${forceRefresh}`);
 
         // Ensure settings are up to date
         const dbSettings = await db.aiSettings.get(this.settings.id);
         if (dbSettings) {
+            console.log(`[AIService] Loaded settings from DB, last fetch: ${dbSettings.lastModelsFetch?.toISOString() || 'never'}`);
             this.settings = dbSettings;
         }
 
-        return provider
+        // Check if we should fetch fresh models
+        if (provider && forceRefresh) {
+            console.log(`[AIService] Fetching fresh models for provider: ${provider}`);
+            await this.fetchAvailableModels(provider);
+        }
+
+        const result = provider
             ? this.settings.availableModels.filter(m => m.provider === provider)
             : this.settings.availableModels;
+
+        console.log(`[AIService] Returning ${result.length} models`);
+        return result;
     }
 
     async generateWithLocalModel(
         messages: PromptMessage[],
         temperature: number = 1.0,
-        maxTokens: number = 2048
+        maxTokens: number = 2048,
+        top_p?: number,
+        top_k?: number,
+        repetition_penalty?: number
     ): Promise<Response> {
+        // Create request body with optional parameters
+        const requestBody: any = {
+            messages,
+            stream: true,
+            model: 'local/llama-3.2-3b-instruct',
+            temperature,
+            max_tokens: maxTokens,
+        };
+
+        // Only add parameters if they are defined and not 0 (disabled)
+        if (top_p !== undefined && top_p !== 0) {
+            requestBody.top_p = top_p;
+        }
+
+        if (top_k !== undefined && top_k !== 0) {
+            requestBody.top_k = top_k;
+        }
+
+        if (repetition_penalty !== undefined && repetition_penalty !== 0) {
+            requestBody.repetition_penalty = repetition_penalty;
+        }
+
         const response = await fetch(`${this.LOCAL_API_URL}/chat/completions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                messages,
-                stream: true,
-                model: 'local/llama-3.2-3b-instruct',
-                temperature,
-                max_tokens: maxTokens,
-            }),
+            body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
@@ -277,7 +335,10 @@ export class AIService {
         messages: PromptMessage[],
         modelId: string,
         temperature: number = 1.0,
-        maxTokens: number = 2048
+        maxTokens: number = 2048,
+        top_p?: number,
+        top_k?: number,
+        repetition_penalty?: number
     ): Promise<Response> {
         if (!this.settings?.openaiKey) {
             throw new Error('OpenAI API key not configured');
@@ -287,31 +348,47 @@ export class AIService {
             this.initializeOpenAI();
         }
 
-        const stream = await this.openAI!.chat.completions.create({
+        // Create request options with optional parameters
+        const requestOptions: any = {
             model: modelId,
             messages,
             stream: true,
             temperature,
             max_tokens: maxTokens,
-        });
+        };
+
+        // Only add parameters if they are defined and not 0 (disabled)
+        if (top_p !== undefined && top_p !== 0) {
+            requestOptions.top_p = top_p;
+        }
+
+        // Note: OpenAI doesn't support top_k and repetition_penalty directly
+        // We'll ignore them for OpenAI
+
+        const stream = await this.openAI!.chat.completions.create(requestOptions);
 
         // Convert the stream to a Response object to maintain compatibility
         const encoder = new TextEncoder();
         const readable = new ReadableStream({
             async start(controller) {
-                for await (const chunk of stream) {
-                    const text = chunk.choices[0]?.delta?.content || '';
-                    if (text) {
-                        const data = {
-                            choices: [{
-                                delta: { content: text }
-                            }]
-                        };
-                        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+                try {
+                    for await (const chunk of stream as any) {
+                        const text = chunk.choices[0]?.delta?.content || '';
+                        if (text) {
+                            const data = {
+                                choices: [{
+                                    delta: { content: text }
+                                }]
+                            };
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+                        }
                     }
+                    controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                    controller.close();
+                } catch (error) {
+                    console.error('Error processing OpenAI stream:', error);
+                    controller.error(error);
                 }
-                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                controller.close();
             }
         });
 
@@ -328,7 +405,10 @@ export class AIService {
         messages: PromptMessage[],
         modelId: string,
         temperature: number = 1.0,
-        maxTokens: number = 2048
+        maxTokens: number = 2048,
+        top_p?: number,
+        top_k?: number,
+        repetition_penalty?: number
     ): Promise<Response> {
         if (!this.settings?.openrouterKey) {
             throw new Error('OpenRouter API key not configured');
@@ -338,31 +418,53 @@ export class AIService {
             this.initializeOpenRouter();
         }
 
-        const stream = await this.openRouter!.chat.completions.create({
+        // Create request options with optional parameters
+        const requestOptions: any = {
             model: modelId,
             messages,
             stream: true,
             temperature,
             max_tokens: maxTokens,
-        });
+        };
+
+        // Only add parameters if they are defined and not 0 (disabled)
+        if (top_p !== undefined && top_p !== 0) {
+            requestOptions.top_p = top_p;
+        }
+
+        if (top_k !== undefined && top_k !== 0) {
+            requestOptions.top_k = top_k;
+        }
+
+        if (repetition_penalty !== undefined && repetition_penalty !== 0) {
+            // OpenRouter uses frequency_penalty instead of repetition_penalty
+            requestOptions.frequency_penalty = repetition_penalty - 1.0;
+        }
+
+        const stream = await this.openRouter!.chat.completions.create(requestOptions);
 
         // Convert the stream to a Response object to maintain compatibility
         const encoder = new TextEncoder();
         const readable = new ReadableStream({
             async start(controller) {
-                for await (const chunk of stream) {
-                    const text = chunk.choices[0]?.delta?.content || '';
-                    if (text) {
-                        const data = {
-                            choices: [{
-                                delta: { content: text }
-                            }]
-                        };
-                        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+                try {
+                    for await (const chunk of stream as any) {
+                        const text = chunk.choices[0]?.delta?.content || '';
+                        if (text) {
+                            const data = {
+                                choices: [{
+                                    delta: { content: text }
+                                }]
+                            };
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+                        }
                     }
+                    controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                    controller.close();
+                } catch (error) {
+                    console.error('Error processing OpenRouter stream:', error);
+                    controller.error(error);
                 }
-                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                controller.close();
             }
         });
 
@@ -391,15 +493,20 @@ export class AIService {
     async updateLocalApiUrl(url: string): Promise<void> {
         if (!this.settings) throw new Error('AIService not initialized');
 
+        console.log(`[AIService] Updating local API URL to: ${url}`);
+
         // Update the URL in settings
         await db.aiSettings.update(this.settings.id, { localApiUrl: url });
+        console.log(`[AIService] Local API URL updated in database`);
 
         // Update the local instance
         if (this.settings) {
             this.settings.localApiUrl = url;
+            console.log(`[AIService] Local API URL updated in memory`);
         }
 
         // Refresh local models with the new URL
+        console.log(`[AIService] Fetching local models with new URL: ${url}`);
         await this.fetchAvailableModels('local');
     }
 

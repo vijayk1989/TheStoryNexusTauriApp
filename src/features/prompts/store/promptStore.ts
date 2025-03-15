@@ -63,7 +63,10 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
                 id,
                 createdAt: new Date(),
                 temperature: promptData.temperature || 1.0,
-                maxTokens: promptData.maxTokens || 2048
+                maxTokens: promptData.maxTokens || 4096,
+                top_p: promptData.top_p !== undefined ? promptData.top_p : 1.0,
+                top_k: promptData.top_k !== undefined ? promptData.top_k : 50,
+                repetition_penalty: promptData.repetition_penalty !== undefined ? promptData.repetition_penalty : 1.0
             };
 
             await db.prompts.add(prompt);

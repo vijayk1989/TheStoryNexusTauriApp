@@ -85,6 +85,9 @@ export interface Prompt extends BaseEntity {
     isSystem?: boolean; // Flag to identify system prompts
     temperature?: number;
     maxTokens?: number;
+    top_p?: number; // Nucleus sampling: 1.0 means consider all tokens, 0 means disabled
+    top_k?: number; // Limit sampling to top k tokens: 50 is default, 0 means disabled
+    repetition_penalty?: number; // Penalty for repeating tokens: 1.0 means no penalty, 0 means disabled
 }
 
 // AI Provider and Model types

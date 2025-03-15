@@ -26,6 +26,7 @@ interface ChapterState {
     updateChapterOutline: (id: string, outline: ChapterOutline) => Promise<void>;
     getChapterOutline: (id: string) => Promise<ChapterOutline | null>;
     getChapterSummary: (id: string) => Promise<string>;
+    getPreviousChapter: (chapterId: string) => Promise<Chapter | null>;
 }
 
 export const useChapterStore = create<ChapterState>((set, _get) => ({
@@ -365,6 +366,36 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
             const chapter = await db.chapters.get(id);
             return chapter?.outline || null;
         } catch (error) {
+            return null;
+        }
+    },
+
+    getPreviousChapter: async (chapterId: string): Promise<Chapter | null> => {
+        try {
+            // First get the current chapter to determine its order and storyId
+            const currentChapter = await db.chapters.get(chapterId);
+            if (!currentChapter) {
+                console.error('Current chapter not found:', chapterId);
+                return null;
+            }
+
+            // Find all chapters with lower order in the same story
+            const previousChapters = await db.chapters
+                .where('storyId')
+                .equals(currentChapter.storyId)
+                .and(chapter => chapter.order < currentChapter.order)
+                .toArray();
+
+            if (previousChapters.length === 0) {
+                return null; // No previous chapters
+            }
+
+            // Find the chapter with the highest order (the immediate previous chapter)
+            return previousChapters.reduce((prev, current) =>
+                prev.order > current.order ? prev : current
+            );
+        } catch (error) {
+            console.error('Error fetching previous chapter:', error);
             return null;
         }
     },

@@ -52,6 +52,11 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const { createPrompt, updatePrompt } = usePromptStore();
     const [temperature, setTemperature] = useState(prompt?.temperature || 1.0);
     const [maxTokens, setMaxTokens] = useState(prompt?.maxTokens || 2048);
+    const [topP, setTopP] = useState(prompt?.top_p !== undefined ? prompt.top_p : 1.0);
+    const [topK, setTopK] = useState(prompt?.top_k !== undefined ? prompt.top_k : 50);
+    const [repetitionPenalty, setRepetitionPenalty] = useState(
+        prompt?.repetition_penalty !== undefined ? prompt.repetition_penalty : 1.0
+    );
 
     const {
         initialize,
@@ -187,7 +192,10 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 promptType,
                 allowedModels: selectedModels,
                 temperature,
-                maxTokens
+                maxTokens,
+                top_p: topP,
+                top_k: topK,
+                repetition_penalty: repetitionPenalty
             };
 
             if (prompt?.id) {
@@ -429,6 +437,132 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 }}
                                 className="w-20 text-center"
                             />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Top-p (nucleus sampling) */}
+                <div className="space-y-4 mt-4">
+                    <div className="flex items-center gap-4">
+                        <Label htmlFor="topP" className="w-28">Top-p</Label>
+                        <div className="flex-1 flex items-center gap-2">
+                            <Slider
+                                id="topP"
+                                value={[topP]}
+                                onValueChange={(value) => setTopP(value[0])}
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                className="flex-1"
+                                disabled={topP === 0}
+                            />
+                            <Input
+                                type="text"
+                                value={topP === 0 ? "Disabled" : topP.toFixed(2)}
+                                onChange={(e) => {
+                                    if (e.target.value === '') {
+                                        return;
+                                    }
+
+                                    const value = parseFloat(e.target.value);
+                                    if (!isNaN(value) && value >= 0 && value <= 1) {
+                                        setTopP(value);
+                                    }
+                                }}
+                                className="w-20 text-center"
+                            />
+                            <Button
+                                type="button"
+                                variant={topP === 0 ? "default" : "outline"}
+                                onClick={() => setTopP(topP === 0 ? 1.0 : 0)}
+                                className="whitespace-nowrap"
+                            >
+                                {topP === 0 ? "Enable" : "Disable"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Top-k */}
+                <div className="space-y-4 mt-4">
+                    <div className="flex items-center gap-4">
+                        <Label htmlFor="topK" className="w-28">Top-k</Label>
+                        <div className="flex-1 flex items-center gap-2">
+                            <Slider
+                                id="topK"
+                                value={[topK]}
+                                onValueChange={(value) => setTopK(value[0])}
+                                min={0}
+                                max={100}
+                                step={1}
+                                className="flex-1"
+                                disabled={topK === 0}
+                            />
+                            <Input
+                                type="text"
+                                value={topK === 0 ? "Disabled" : topK.toString()}
+                                onChange={(e) => {
+                                    if (e.target.value === '') {
+                                        return;
+                                    }
+
+                                    const value = parseInt(e.target.value);
+                                    if (!isNaN(value) && value >= 0 && value <= 100) {
+                                        setTopK(value);
+                                    }
+                                }}
+                                className="w-20 text-center"
+                            />
+                            <Button
+                                type="button"
+                                variant={topK === 0 ? "default" : "outline"}
+                                onClick={() => setTopK(topK === 0 ? 50 : 0)}
+                                className="whitespace-nowrap"
+                            >
+                                {topK === 0 ? "Enable" : "Disable"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Repetition Penalty */}
+                <div className="space-y-4 mt-4">
+                    <div className="flex items-center gap-4">
+                        <Label htmlFor="repetitionPenalty" className="w-28">Repetition Penalty</Label>
+                        <div className="flex-1 flex items-center gap-2">
+                            <Slider
+                                id="repetitionPenalty"
+                                value={[repetitionPenalty]}
+                                onValueChange={(value) => setRepetitionPenalty(value[0])}
+                                min={0}
+                                max={2}
+                                step={0.05}
+                                className="flex-1"
+                                disabled={repetitionPenalty === 0}
+                            />
+                            <Input
+                                type="text"
+                                value={repetitionPenalty === 0 ? "Disabled" : repetitionPenalty.toFixed(2)}
+                                onChange={(e) => {
+                                    if (e.target.value === '') {
+                                        return;
+                                    }
+
+                                    const value = parseFloat(e.target.value);
+                                    if (!isNaN(value) && value >= 0 && value <= 2) {
+                                        setRepetitionPenalty(value);
+                                    }
+                                }}
+                                className="w-20 text-center"
+                            />
+                            <Button
+                                type="button"
+                                variant={repetitionPenalty === 0 ? "default" : "outline"}
+                                onClick={() => setRepetitionPenalty(repetitionPenalty === 0 ? 1.0 : 0)}
+                                className="whitespace-nowrap"
+                            >
+                                {repetitionPenalty === 0 ? "Enable" : "Disable"}
+                            </Button>
                         </div>
                     </div>
                 </div>

@@ -9,7 +9,6 @@
 import type { JSX } from 'react';
 
 import { AutoFocusPlugin } from '@lexical/react/LexicalAutoFocusPlugin';
-import { CharacterLimitPlugin } from '@lexical/react/LexicalCharacterLimitPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
@@ -35,13 +34,10 @@ import FloatingLinkEditorPlugin from './plugins/FloatingLinkEditorPlugin';
 import FloatingTextFormatToolbarPlugin from './plugins/FloatingTextFormatToolbarPlugin';
 import ImagesPlugin from './plugins/ImagesPlugin';
 import InlineImagePlugin from './plugins/InlineImagePlugin';
-import KeywordsPlugin from './plugins/KeywordsPlugin';
 import { LayoutPlugin } from './plugins/LayoutPlugin/LayoutPlugin';
 import LinkPlugin from './plugins/LinkPlugin';
 import MarkdownShortcutPlugin from './plugins/MarkdownShortcutPlugin';
-import { MaxLengthPlugin } from './plugins/MaxLengthPlugin';
 import PageBreakPlugin from './plugins/PageBreakPlugin';
-import SpecialTextPlugin from './plugins/SpecialTextPlugin';
 import SpeechToTextPlugin from './plugins/SpeechToTextPlugin';
 import TabFocusPlugin from './plugins/TabFocusPlugin';
 import ToolbarPlugin from './plugins/ToolbarPlugin';
@@ -57,14 +53,10 @@ export default function Editor(): JSX.Element {
   const {
     settings: {
       isCollab,
-      isMaxLength,
-      isCharLimit,
       hasLinkAttributes,
-      isCharLimitUtf8,
       isRichText,
       showTreeView,
       shouldUseLexicalContextMenu,
-      shouldAllowHighlightingWithBrackets,
       selectionAlwaysOnDisplay,
     },
   } = useSettings();
@@ -118,13 +110,11 @@ export default function Editor(): JSX.Element {
       <div className={`editor-container ${showTreeView ? 'tree-view' : ''} ${!isRichText ? 'plain-text' : ''}`}>
         <LoadChapterContentPlugin />
         <SaveChapterContentPlugin />
-        {isMaxLength && <MaxLengthPlugin maxLength={30} />}
         <DragDropPaste />
         <AutoFocusPlugin />
         {selectionAlwaysOnDisplay && <SelectionAlwaysOnDisplay />}
         <AutoEmbedPlugin />
         <HashtagPlugin />
-        <KeywordsPlugin />
         <SpeechToTextPlugin />
         <AutoLinkPlugin />
         {isRichText ? (
@@ -177,14 +167,7 @@ export default function Editor(): JSX.Element {
             <HistoryPlugin externalHistoryState={historyState} />
           </>
         )}
-        {(isCharLimit || isCharLimitUtf8) && (
-          <CharacterLimitPlugin
-            charset={isCharLimit ? 'UTF-16' : 'UTF-8'}
-            maxLength={5}
-          />
-        )}
         {shouldUseLexicalContextMenu && <ContextMenuPlugin />}
-        {shouldAllowHighlightingWithBrackets && <SpecialTextPlugin />}
       </div>
     </>
   );

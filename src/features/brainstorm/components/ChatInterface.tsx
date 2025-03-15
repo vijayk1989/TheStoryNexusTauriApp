@@ -27,7 +27,7 @@ interface ChatInterfaceProps {
 
 export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     // State for chat
-    const [input, setInput] = useState('');
+    const [input, setInput] = useState(useBrainstormStore.getState().draftMessage);
     const [isGenerating, setIsGenerating] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +49,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     const { loadEntries, entries: lorebookEntries } = useLorebookStore();
     const { fetchPrompts, prompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
     const { initialize: initializeAI, getAvailableModels, generateWithPrompt, processStreamedResponse } = useAIStore();
-    const { addChat, updateChat, selectedChat } = useBrainstormStore();
+    const { addChat, updateChat, selectedChat, draftMessage, setDraftMessage, clearDraftMessage } = useBrainstormStore();
     const { fetchChapters } = useChapterStore();
 
     // State for AI
@@ -99,7 +99,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
     // Reset input when a new chat is created or selected
     useEffect(() => {
-        setInput('');
+        setInput(useBrainstormStore.getState().draftMessage);
     }, [selectedChat]);
 
     // Load selected chat messages when a chat is selected
@@ -238,7 +238,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             // Add user message to chat
             const updatedMessages = [...messages, userMessage];
             setMessages(updatedMessages);
+
+            // Clear both the input and the draft message
             setInput('');
+            clearDraftMessage();
 
             // Create assistant message placeholder
             const assistantMessageId = uuidv4();
@@ -352,6 +355,13 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         }
     }, [includeFullContext]);
 
+    // Update the input change handler
+    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const newValue = e.target.value;
+        setInput(newValue);
+        setDraftMessage(newValue);
+    };
+
     return (
         <div className="flex flex-col h-full">
             {/* Chat messages */}
@@ -423,6 +433,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                 <Switch
                                     checked={includeFullContext}
                                     onCheckedChange={toggleIncludeFullContext}
+                                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
                                 />
                                 <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-popover text-popover-foreground text-xs rounded-md shadow-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
                                     When enabled, all lorebook entries and chapter summaries will be included
@@ -490,15 +501,24 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                             <SelectValue placeholder="Select lorebook item" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {/* Group by category */}
-                                            {['character', 'location', 'item', 'event', 'note'].map((category) => {
+                                            {/* Group by all available categories */}
+                                            {[
+                                                'character',
+                                                'location',
+                                                'item',
+                                                'event',
+                                                'note',
+                                                'synopsis',
+                                                'starting scenario',
+                                                'timeline'
+                                            ].map((category) => {
                                                 const categoryItems = getFilteredEntries().filter(entry => entry.category === category);
                                                 if (categoryItems.length === 0) return null;
 
                                                 return (
                                                     <div key={category}>
                                                         <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted capitalize">
-                                                            {category}s
+                                                            {category === 'starting scenario' ? 'Starting Scenarios' : `${category}s`}
                                                         </div>
                                                         {categoryItems.map((entry) => (
                                                             <SelectItem
@@ -606,7 +626,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                         <Textarea
                             placeholder="Type your message..."
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onChange={handleInputChange}
                             className="min-h-[80px]"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {

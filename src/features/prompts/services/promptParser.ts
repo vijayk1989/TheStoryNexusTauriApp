@@ -5,7 +5,7 @@ import {
     PromptParserConfig,
     ParsedPrompt,
     PromptContext,
-    VariableResolver
+    VariableResolver,
 } from '@/types/story';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
@@ -262,21 +262,92 @@ export class PromptParser {
     }
 
     private async resolvePreviousWords(context: PromptContext, count: string = '1000'): Promise<string> {
-        if (!context.previousWords) return '';
-
         // Parse the count parameter - default to 1000 if not a valid number
         const requestedWordCount = parseInt(count, 10) || 1000;
 
-        // Preserve newlines by replacing them with a special token
-        const newlineToken = '§NEWLINE§';
-        const textWithTokens = context.previousWords.replace(/\n/g, newlineToken);
+        // Start with current context's previous words
+        let result = '';
+        let currentWordCount = 0;
 
-        // Split into words and take the last N words
-        const words = textWithTokens.split(/\s+/);
-        const selectedWords = words.slice(-requestedWordCount);
+        if (context.previousWords) {
+            // Preserve newlines by replacing them with a special token
+            const newlineToken = '§NEWLINE§';
+            const textWithTokens = context.previousWords.replace(/\n/g, newlineToken);
 
-        // Join the words and restore the newlines
-        const result = selectedWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
+            // Split into words and count them
+            const words = textWithTokens.split(/\s+/);
+            currentWordCount = words.length;
+
+            // If we have enough words, just return the last N words
+            if (currentWordCount >= requestedWordCount) {
+                const selectedWords = words.slice(-requestedWordCount);
+                result = selectedWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
+                return result;
+            }
+
+            // Otherwise, use what we have so far
+            result = context.previousWords;
+        }
+
+        // If we don't have enough words and have chapter context, try to get content from previous chapter
+        if (currentWordCount < requestedWordCount && context.currentChapter) {
+            try {
+                // Get the current chapter's POV settings
+                const currentPovType = context.povType || context.currentChapter.povType;
+                const currentPovCharacter = context.povCharacter || context.currentChapter.povCharacter;
+
+                // Use our new helper method to get the previous chapter directly
+                const chapterStore = useChapterStore.getState();
+                const previousChapter = await chapterStore.getPreviousChapter(context.currentChapter.id);
+
+                if (previousChapter) {
+                    // Check if POV settings match
+                    const prevPovType = previousChapter.povType;
+                    const prevPovCharacter = previousChapter.povCharacter;
+
+                    const povMatches =
+                        // If both are omniscient, they match
+                        (currentPovType === 'Third Person Omniscient' && prevPovType === 'Third Person Omniscient') ||
+                        // If both are the same type and have the same character
+                        (currentPovType === prevPovType && currentPovCharacter === prevPovCharacter);
+
+                    if (povMatches) {
+                        // Get the plain text content of the previous chapter
+                        const previousContent = await chapterStore.getChapterPlainText(previousChapter.id);
+
+                        if (previousContent) {
+                            // Calculate how many more words we need
+                            const wordsNeeded = requestedWordCount - currentWordCount;
+
+                            // Get the last N words from the previous chapter
+                            const newlineToken = '§NEWLINE§';
+                            const textWithTokens = previousContent.replace(/\n/g, newlineToken);
+                            const prevWords = textWithTokens.split(/\s+/);
+
+                            // Take only what we need from the end of the previous chapter
+                            const wordsToTake = Math.min(wordsNeeded, prevWords.length);
+                            const selectedPrevWords = prevWords.slice(-wordsToTake);
+
+                            // Combine previous chapter content with current content
+                            if (selectedPrevWords.length > 0) {
+                                const prevContent = selectedPrevWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
+
+                                // Add a separator to indicate content from previous chapter
+                                result = prevContent + '\n\n[...]\n\n' + result;
+
+                                console.log(`Added ${selectedPrevWords.length} words from previous chapter to context`);
+                            }
+                        }
+                    } else {
+                        console.log('Previous chapter POV does not match current chapter POV, skipping');
+                    }
+                } else {
+                    console.log('No previous chapter found');
+                }
+            } catch (error) {
+                console.error('Error fetching previous chapter content:', error);
+            }
+        }
 
         return result;
     }

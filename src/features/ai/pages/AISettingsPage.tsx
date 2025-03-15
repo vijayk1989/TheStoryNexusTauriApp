@@ -25,6 +25,7 @@ export default function AISettingsPage() {
 
     const loadInitialData = async () => {
         try {
+            console.log('[AISettingsPage] Initializing AI service');
             await aiService.initialize();
 
             // Set the keys using the new getter methods
@@ -32,15 +33,21 @@ export default function AISettingsPage() {
             const openrouterKey = aiService.getOpenRouterKey();
             const localApiUrl = aiService.getLocalApiUrl();
 
+            console.log('[AISettingsPage] Retrieved API keys and URL from service');
             if (openaiKey) setOpenaiKey(openaiKey);
             if (openrouterKey) setOpenrouterKey(openrouterKey);
             if (localApiUrl) setLocalApiUrl(localApiUrl);
 
-            const allModels = await aiService.getAvailableModels();
+            console.log('[AISettingsPage] Getting all available models');
+            // Don't force refresh on initial load to avoid unnecessary API calls
+            const allModels = await aiService.getAvailableModels(undefined, false);
+            console.log(`[AISettingsPage] Received ${allModels.length} total models`);
 
             const localModels = allModels.filter(m => m.provider === 'local');
             const openaiModels = allModels.filter(m => m.provider === 'openai');
             const openrouterModels = allModels.filter(m => m.provider === 'openrouter');
+
+            console.log(`[AISettingsPage] Filtered models - Local: ${localModels.length}, OpenAI: ${openaiModels.length}, OpenRouter: ${openrouterModels.length}`);
 
             setOpenaiModels(openaiModels);
             setOpenrouterModels(openrouterModels);
@@ -54,9 +61,12 @@ export default function AISettingsPage() {
         if (provider !== 'local' && !key.trim()) return;
 
         setIsLoading(true);
+        console.log(`[AISettingsPage] Updating key for provider: ${provider}`);
         try {
             await aiService.updateKey(provider, key);
+            console.log(`[AISettingsPage] Key updated for ${provider}, fetching models`);
             const models = await aiService.getAvailableModels(provider);
+            console.log(`[AISettingsPage] Received ${models.length} models for ${provider}`);
 
             if (provider === 'openai') {
                 setOpenaiModels(models);
@@ -65,9 +75,13 @@ export default function AISettingsPage() {
                 setOpenrouterModels(models);
                 setOpenSections(prev => ({ ...prev, openrouter: true }));
             } else if (provider === 'local') {
+                console.log(`[AISettingsPage] Updating local models, received ${models.length} models`);
                 setOpenaiModels(prev => {
                     const filtered = prev.filter(m => m.provider !== 'local');
-                    return [...filtered, ...models];
+                    console.log(`[AISettingsPage] Filtered out ${prev.length - filtered.length} old local models`);
+                    const newModels = [...filtered, ...models];
+                    console.log(`[AISettingsPage] New models array has ${newModels.length} models`);
+                    return newModels;
                 });
                 setOpenSections(prev => ({ ...prev, local: true }));
             }
@@ -82,8 +96,11 @@ export default function AISettingsPage() {
 
     const handleRefreshModels = async (provider: 'openai' | 'openrouter' | 'local') => {
         setIsLoading(true);
+        console.log(`[AISettingsPage] Refreshing models for provider: ${provider}`);
         try {
-            const models = await aiService.getAvailableModels(provider);
+            // Force refresh by passing true as the second parameter
+            const models = await aiService.getAvailableModels(provider, true);
+            console.log(`[AISettingsPage] Received ${models.length} models for ${provider}`);
 
             switch (provider) {
                 case 'openai':
@@ -95,9 +112,13 @@ export default function AISettingsPage() {
                     setOpenSections(prev => ({ ...prev, openrouter: true }));
                     break;
                 case 'local':
+                    console.log(`[AISettingsPage] Updating local models, received ${models.length} models`);
                     setOpenaiModels(prev => {
                         const filtered = prev.filter(m => m.provider !== 'local');
-                        return [...filtered, ...models];
+                        console.log(`[AISettingsPage] Filtered out ${prev.length - filtered.length} old local models`);
+                        const newModels = [...filtered, ...models];
+                        console.log(`[AISettingsPage] New models array has ${newModels.length} models`);
+                        return newModels;
                     });
                     setOpenSections(prev => ({ ...prev, local: true }));
                     break;
@@ -116,13 +137,20 @@ export default function AISettingsPage() {
         if (!url.trim()) return;
 
         setIsLoading(true);
+        console.log(`[AISettingsPage] Updating local API URL to: ${url}`);
         try {
             await aiService.updateLocalApiUrl(url);
-            const models = await aiService.getAvailableModels('local');
+            console.log(`[AISettingsPage] Local API URL updated, fetching models`);
+            // Force refresh by passing true as the second parameter
+            const models = await aiService.getAvailableModels('local', true);
+            console.log(`[AISettingsPage] Received ${models.length} local models`);
 
             setOpenaiModels(prev => {
                 const filtered = prev.filter(m => m.provider !== 'local');
-                return [...filtered, ...models];
+                console.log(`[AISettingsPage] Filtered out ${prev.length - filtered.length} old local models`);
+                const newModels = [...filtered, ...models];
+                console.log(`[AISettingsPage] New models array has ${newModels.length} models`);
+                return newModels;
             });
             setOpenSections(prev => ({ ...prev, local: true }));
 

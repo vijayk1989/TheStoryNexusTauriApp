@@ -34,7 +34,10 @@ const systemPrompts: Partial<Prompt>[] = [
         ],
         isSystem: true,
         temperature: 1.0,
-        maxTokens: 8192
+        maxTokens: 8192,
+        top_p: 1.0,
+        top_k: 50,
+        repetition_penalty: 1.0
     },
     {
         id: "gen-summary-system",
@@ -60,7 +63,10 @@ const systemPrompts: Partial<Prompt>[] = [
         ],
         isSystem: true,
         temperature: 1.0,
-        maxTokens: 512
+        maxTokens: 512,
+        top_p: 1.0,
+        top_k: 50,
+        repetition_penalty: 1.0
     },
     {
         id: "selection-expand-system",
@@ -86,7 +92,10 @@ const systemPrompts: Partial<Prompt>[] = [
         ],
         isSystem: true,
         temperature: 1.0,
-        maxTokens: 512
+        maxTokens: 512,
+        top_p: 1.0,
+        top_k: 50,
+        repetition_penalty: 1.0
     },
     {
         id: "selection-rewrite-system",
@@ -112,7 +121,10 @@ const systemPrompts: Partial<Prompt>[] = [
         ],
         isSystem: true,
         temperature: 1.0,
-        maxTokens: 512
+        maxTokens: 512,
+        top_p: 1.0,
+        top_k: 50,
+        repetition_penalty: 1.0
     },
     {
         id: "selection-shorten-system",
@@ -138,7 +150,10 @@ const systemPrompts: Partial<Prompt>[] = [
         ],
         isSystem: true,
         temperature: 1.0,
-        maxTokens: 512
+        maxTokens: 512,
+        top_p: 1.0,
+        top_k: 50,
+        repetition_penalty: 1.0
     },
     {
         id: "brainstorm-system",
@@ -168,7 +183,10 @@ const systemPrompts: Partial<Prompt>[] = [
         ],
         isSystem: true,
         temperature: 1.0,
-        maxTokens: 8192
+        maxTokens: 8192,
+        top_p: 1.0,
+        top_k: 50,
+        repetition_penalty: 1.0
     }
 ];
 

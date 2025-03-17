@@ -45,6 +45,9 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     const [previewLoading, setPreviewLoading] = useState(false);
     const [previewError, setPreviewError] = useState<string | null>(null);
 
+    // State for chapter content
+    const [selectedChapterContent, setSelectedChapterContent] = useState<string[]>([]);
+
     // Get stores
     const { loadEntries, entries: lorebookEntries } = useLorebookStore();
     const { fetchPrompts, prompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
@@ -139,6 +142,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         if (!newValue) {
             setSelectedSummaries([]);
             setSelectedItems([]);
+            setSelectedChapterContent([]);
         }
     };
 
@@ -157,6 +161,18 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         setSelectedItems(selectedItems.filter(item => item.id !== itemId));
     };
 
+    // Handle chapter content selection
+    const handleChapterContentSelect = (chapterId: string) => {
+        if (!selectedChapterContent.includes(chapterId)) {
+            setSelectedChapterContent([...selectedChapterContent, chapterId]);
+        }
+    };
+
+    // Remove chapter content
+    const removeChapterContent = (chapterId: string) => {
+        setSelectedChapterContent(selectedChapterContent.filter(id => id !== chapterId));
+    };
+
     // Create prompt config for brainstorming
     const createPromptConfig = (prompt: Prompt): PromptParserConfig => {
         return {
@@ -170,7 +186,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 })),
                 includeFullContext,
                 selectedSummaries: includeFullContext ? [] : selectedSummaries,
-                selectedItems: includeFullContext ? [] : selectedItems.map(item => item.id)
+                selectedItems: includeFullContext ? [] : selectedItems.map(item => item.id),
+                selectedChapterContent: includeFullContext ? [] : selectedChapterContent
             }
         };
     };
@@ -352,6 +369,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         if (includeFullContext) {
             setSelectedSummaries([]);
             setSelectedItems([]);
+            setSelectedChapterContent([]);
         }
     }, [includeFullContext]);
 
@@ -482,6 +500,31 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                     </Select>
                                 </div>
 
+                                {/* New chapter content dropdown */}
+                                <div className="flex-1 min-w-[200px]">
+                                    <div className="text-sm font-medium mb-1">Chapter Content</div>
+                                    <Select
+                                        onValueChange={handleChapterContentSelect}
+                                        disabled={includeFullContext}
+                                        value=""
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select chapter content" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {chapters.map((chapter) => (
+                                                <SelectItem
+                                                    key={chapter.id}
+                                                    value={chapter.id}
+                                                    disabled={selectedChapterContent.includes(chapter.id)}
+                                                >
+                                                    Chapter {chapter.order}: {chapter.title}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
                                 {/* Lorebook items multi-select */}
                                 <div className="flex-1 min-w-[200px]">
                                     <div className="text-sm font-medium mb-1">Lorebook Items</div>
@@ -575,6 +618,29 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                                 <button
                                                     type="button"
                                                     onClick={() => removeSummary(summaryId)}
+                                                    className="ml-1 hover:text-destructive"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </Badge>
+                                        );
+                                    })}
+
+                                    {/* Chapter content badges */}
+                                    {selectedChapterContent.map((chapterId) => {
+                                        const chapter = chapters.find(c => c.id === chapterId);
+                                        if (!chapter) return null;
+
+                                        return (
+                                            <Badge
+                                                key={chapterId}
+                                                variant="secondary"
+                                                className="flex items-center gap-1 px-3 py-1"
+                                            >
+                                                Ch. {chapter.order} Content
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeChapterContent(chapterId)}
                                                     className="ml-1 hover:text-destructive"
                                                 >
                                                     <X className="h-3 w-3" />

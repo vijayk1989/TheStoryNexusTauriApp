@@ -27,6 +27,7 @@ interface ChapterState {
     getChapterOutline: (id: string) => Promise<ChapterOutline | null>;
     getChapterSummary: (id: string) => Promise<string>;
     getPreviousChapter: (chapterId: string) => Promise<Chapter | null>;
+    getChapterPlainTextByChapterOrder: (chapterOrder: number) => Promise<string>;
 }
 
 export const useChapterStore = create<ChapterState>((set, _get) => ({
@@ -145,12 +146,35 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
     deleteChapter: async (id: string) => {
         set({ loading: true, error: null });
         try {
-            await db.chapters.delete(id);
-            set(state => ({
-                chapters: state.chapters.filter(chapter => chapter.id !== id),
-                currentChapter: state.currentChapter?.id === id ? null : state.currentChapter,
-                loading: false
-            }));
+            // Use a transaction to ensure all operations complete together
+            await db.transaction('rw', [db.chapters], async () => {
+                const chapterToDelete = await db.chapters.get(id);
+                if (!chapterToDelete) throw new Error('Chapter not found');
+
+                // Delete the chapter
+                await db.chapters.delete(id);
+
+                // Update all chapters with higher order in one operation
+                await db.chapters
+                    .where('storyId')
+                    .equals(chapterToDelete.storyId)
+                    .filter(chapter => chapter.order > chapterToDelete.order)
+                    .modify(chapter => {
+                        chapter.order -= 1;
+                    });
+
+                // Fetch updated chapters to reflect in state
+                const updatedChapters = await db.chapters
+                    .where('storyId')
+                    .equals(chapterToDelete.storyId)
+                    .sortBy('order');
+
+                set(state => ({
+                    chapters: updatedChapters,
+                    currentChapter: state.currentChapter?.id === id ? null : state.currentChapter,
+                    loading: false
+                }));
+            });
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to delete chapter',
@@ -399,4 +423,13 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
             return null;
         }
     },
+
+    getChapterPlainTextByChapterOrder: async (chapterOrder: number) => {
+        const { getChapterPlainText } = useChapterStore.getState();
+        const chapter = await db.chapters.where('order').equals(chapterOrder).first();
+        if (!chapter) {
+            return 'No chapter data is available for this order number.';
+        }
+        return getChapterPlainText(chapter.id);
+    }
 })); 

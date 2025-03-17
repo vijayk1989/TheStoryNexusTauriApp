@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Button } from "../../../components/ui/button";
 import { Pencil, Trash2, PenLine, ChevronUp, ChevronDown } from "lucide-react";
 import { useChapterStore } from "../stores/useChapterStore";
@@ -84,6 +84,29 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
     const characterEntries = useMemo(() => {
         return entries.filter(entry => entry.category === 'character');
     }, [entries]);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const adjustTextareaHeight = useCallback(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isExpanded) {
+            // Add a small delay to ensure the content is rendered
+            const timer = setTimeout(() => {
+                adjustTextareaHeight();
+            }, 0);
+            return () => clearTimeout(timer);
+        }
+    }, [isExpanded, adjustTextareaHeight]);
+
+    useEffect(() => {
+        adjustTextareaHeight();
+    }, [summary, adjustTextareaHeight]);
 
     useEffect(() => {
         localStorage.setItem(expandedStateKey, JSON.stringify(isExpanded));
@@ -202,11 +225,14 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
                 <div className="space-y-2">
                     <Label htmlFor={`summary-${chapter.id}`}>Chapter Summary</Label>
                     <Textarea
+                        ref={textareaRef}
                         id={`summary-${chapter.id}`}
                         placeholder="Enter a brief summary of this chapter..."
                         value={summary}
-                        onChange={(e) => setSummary(e.target.value)}
-                        className="min-h-[100px] resize-none"
+                        onChange={(e) => {
+                            setSummary(e.target.value);
+                        }}
+                        className="min-h-[100px] overflow-hidden"
                     />
                     <div className="flex justify-between items-center">
                         <Button
@@ -241,7 +267,7 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
                 <CardHeader className="p-4">
                     <div className="flex items-center justify-between">
                         <div className="flex-1 flex items-center gap-2">
-                            <h3 className="text-lg font-semibold">Chapter {chapter.order}: {chapter.title}</h3>
+                            <h3 className="text-lg font-semibold">{chapter.order}: {chapter.title}</h3>
                             {chapter.povCharacter && (
                                 <span className="text-xs text-muted-foreground">
                                     POV: {chapter.povCharacter} ({chapter.povType})

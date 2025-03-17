@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { usePromptStore } from '../store/promptStore';
 import { Button } from "@/components/ui/button";
-import { Trash2, Copy } from 'lucide-react';
+import { Trash2, Copy, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { Prompt } from '@/types/story';
 import { cn } from '@/lib/utils';
@@ -88,7 +88,7 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
                     key={prompt.id}
                     className={cn(
                         "group relative",
-                        selectedPromptId === prompt.id && "bg-muted"
+                        selectedPromptId === prompt.id && "bg-muted border-l-2 border-emerald-600 dark:border-emerald-400"
                     )}
                 >
                     <button
@@ -99,7 +99,14 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
                         )}
                     >
                         <div className="flex items-center">
-                            <h3 className="font-medium text-foreground">{prompt.name}</h3>
+                            <h3 className={cn(
+                                "font-medium",
+                                selectedPromptId === prompt.id
+                                    ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                                    : "text-foreground"
+                            )}>
+                                {prompt.name}
+                            </h3>
                             {prompt.isSystem && (
                                 <span className="ml-2 px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
                                     System

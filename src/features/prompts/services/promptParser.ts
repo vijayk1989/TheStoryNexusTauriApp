@@ -39,6 +39,8 @@ export class PromptParser {
             'all_synopsis': this.resolveAllSynopsis.bind(this),
             'all_starting_scenarios': this.resolveAllStartingScenarios.bind(this),
             'all_timelines': this.resolveAllTimelines.bind(this),
+            'chapter_outline': this.resolveChapterOutline.bind(this),
+            'chapter_data': this.resolveChapterData.bind(this),
         };
     }
 
@@ -98,6 +100,10 @@ export class PromptParser {
             const [fullMatch, func, args] = match;
             if (func === 'previous_words') {
                 const resolved = await this.resolvePreviousWords(context, args.trim());
+                parsedContent = parsedContent.replace(fullMatch, resolved);
+            }
+            if (func === 'chapter_data') {
+                const resolved = await this.resolveChapterData(args.trim());
                 parsedContent = parsedContent.replace(fullMatch, resolved);
             }
         }
@@ -556,20 +562,48 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
         let result = '';
 
-        // Add lorebook entries if available
-        if (entries.length > 0) {
-            if (chapterSummary) {
-                result += "Story World Information:\n";
+        // Handle chapter summaries
+        if (context.additionalContext?.selectedSummaries?.length > 0) {
+            const summaries = await Promise.all(
+                context.additionalContext.selectedSummaries.map(id =>
+                    chapterStore.getChapterSummary(id)
+                )
+            );
+            const summaryText = summaries.filter(Boolean).join('\n\n');
+            if (summaryText) {
+                result += `Story Chapter Summaries:\n${summaryText}\n\n`;
             }
-            result += this.formatLorebookEntries(entries);
         }
 
-        // Add chapter summaries if available
-        if (chapterSummary) {
-            result += `Story Chapter Summaries:\n${chapterSummary}\n\n`;
+        // Handle chapter content
+        if (context.additionalContext?.selectedChapterContent?.length > 0) {
+            const contents = await Promise.all(
+                context.additionalContext.selectedChapterContent.map(async id => {
+                    const chapter = await db.chapters.get(id);
+                    if (!chapter) return '';
+                    const content = await chapterStore.getChapterPlainText(id);
+                    return `Chapter ${chapter.order} Content:\n${content}`;
+                })
+            );
+            const contentText = contents.filter(Boolean).join('\n\n');
+            if (contentText) {
+                result += `Full Chapter Content:\n${contentText}\n\n`;
+            }
         }
 
-        return result;
+        // Handle lorebook entries
+        if (context.additionalContext?.selectedItems?.length > 0) {
+            const selectedItemIds = context.additionalContext.selectedItems;
+            entries = lorebookStore.entries.filter(entry =>
+                selectedItemIds.includes(entry.id)
+            );
+            if (entries.length > 0) {
+                result += "Story World Information:\n";
+                result += this.formatLorebookEntries(entries);
+            }
+        }
+
+        return result || "No story context is available for this query. Feel free to ask about anything related to writing or storytelling in general.";
     }
 
     private async resolveAllCharacters(context: PromptContext): Promise<string> {
@@ -685,6 +719,19 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
         // Use the standard formatLorebookEntries method for consistency
         return this.formatLorebookEntries(sortedEntries);
+    }
+
+    private async resolveChapterOutline(context: PromptContext): Promise<string> {
+        const { getChapterOutline } = useChapterStore.getState();
+        const outline = await getChapterOutline(context.currentChapter?.id);
+        return outline ? outline.content : 'No chapter outline is available for this prompt.';
+    }
+
+    private async resolveChapterData(args: string): Promise<string> {
+        const chapterOrder = parseInt(args);
+        const { getChapterPlainTextByChapterOrder } = useChapterStore.getState();
+        const data = await getChapterPlainTextByChapterOrder(chapterOrder);
+        return data ? data : 'No chapter data is available for this prompt.';
     }
 }
 

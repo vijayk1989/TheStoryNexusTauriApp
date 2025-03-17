@@ -259,6 +259,7 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
     // New method to get chapter plain text
     getChapterPlainText: async (id: string) => {
         try {
+            console.log('DEBUG: getChapterPlainText called for chapter ID:', id);
             const chapter = await db.chapters.get(id);
             if (!chapter) {
                 console.error('getChapterPlainText - Chapter not found:', id);

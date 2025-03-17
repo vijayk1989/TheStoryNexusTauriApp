@@ -209,6 +209,17 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
             const config = createPromptConfig(selectedPrompt);
 
+            // Add this log
+            console.log('DEBUG: Preview config:', {
+                ...config,
+                additionalContext: {
+                    ...config.additionalContext,
+                    selectedChapterContent: config.additionalContext?.selectedChapterContent,
+                    selectedSummaries: config.additionalContext?.selectedSummaries,
+                    selectedItems: config.additionalContext?.selectedItems
+                }
+            });
+
             const promptParser = createPromptParser();
             const parsedPrompt = await promptParser.parse(config);
 
@@ -234,7 +245,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         if (showPreview && selectedPrompt) {
             handlePreviewPrompt();
         }
-    }, [includeFullContext, selectedSummaries, selectedItems, input]);
+    }, [includeFullContext, selectedSummaries, selectedItems, selectedChapterContent, input]);
 
     // Handle submit
     const handleSubmit = async (e: React.FormEvent) => {
@@ -504,11 +515,18 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                                 <div className="flex-1 min-w-[200px]">
                                     <div className="text-sm font-medium mb-1">Chapter Content</div>
                                     <Select
-                                        onValueChange={handleChapterContentSelect}
+                                        onValueChange={(value) => {
+                                            handleChapterContentSelect(value);
+                                            // Reset the select value after selection
+                                            const selectElement = document.querySelector('[data-chapter-content-select="true"]');
+                                            if (selectElement) {
+                                                (selectElement as HTMLSelectElement).value = '';
+                                            }
+                                        }}
                                         disabled={includeFullContext}
                                         value=""
                                     >
-                                        <SelectTrigger className="w-full">
+                                        <SelectTrigger className="w-full" data-chapter-content-select="true">
                                             <SelectValue placeholder="Select chapter content" />
                                         </SelectTrigger>
                                         <SelectContent>

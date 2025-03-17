@@ -6,7 +6,8 @@ import {
     Prompt,
     AISettings,
     LorebookEntry,
-    SceneBeat
+    SceneBeat,
+    Note
 } from '../types/story';
 
 export class StoryDatabase extends Dexie {
@@ -17,11 +18,12 @@ export class StoryDatabase extends Dexie {
     aiSettings!: Table<AISettings>;
     lorebookEntries!: Table<LorebookEntry>;
     sceneBeats!: Table<SceneBeat>;
+    notes!: Table<Note>;
 
     constructor() {
         super('StoryDatabase');
 
-        this.version(8).stores({
+        this.version(9).stores({
             stories: 'id, title, createdAt, language, isDemo',
             chapters: 'id, storyId, order, createdAt, isDemo',
             aiChats: 'id, storyId, createdAt, isDemo',
@@ -29,6 +31,7 @@ export class StoryDatabase extends Dexie {
             aiSettings: 'id, lastModelsFetch',
             lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
             sceneBeats: 'id, storyId, chapterId',
+            notes: 'id, storyId, title, type, createdAt, updatedAt',
         });
     }
 

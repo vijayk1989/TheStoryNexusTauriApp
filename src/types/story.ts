@@ -109,6 +109,15 @@ export interface AISettings extends BaseEntity {
     localApiUrl?: string;
 }
 
+// Note types
+export interface Note extends BaseEntity {
+    storyId: string;
+    title: string;
+    content: string;
+    type: 'idea' | 'research' | 'todo' | 'other';
+    updatedAt: Date;
+}
+
 // Lorebook types
 export interface LorebookEntry extends BaseEntity {
     storyId: string;

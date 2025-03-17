@@ -22,6 +22,7 @@ import LorebookPage from "./features/lorebook/pages/LorebookPage";
 import BrainstormPage from "./features/brainstorm/pages/BrainstormPage";
 import GuidePage from "./features/guide/pages/GuidePage";
 import { dbSeeder } from "./services/dbSeed";
+import NotesPage from "./features/notes/pages/NotesPage";
 // biome-ignore lint/style/noNonNullAssertion: <explanation>
 
 function DatabaseInitializer({ children }: { children: React.ReactNode }) {
@@ -87,6 +88,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 								<Route path="prompts" element={<PromptsPage />} />
 								<Route path="lorebook" element={<LorebookPage />} />
 								<Route path="brainstorm" element={<BrainstormPage />} />
+								<Route path="notes" element={<NotesPage />} />
 							</Route>
 						</Routes>
 					</StoryProvider>

@@ -32,7 +32,8 @@ interface AIState {
         maxTokens?: number,
         top_p?: number,
         top_k?: number,
-        repetition_penalty?: number
+        repetition_penalty?: number,
+        min_p?: number
     ) => Promise<Response>;
 
     processStreamedResponse: (
@@ -113,11 +114,11 @@ export const useAIStore = create<AIState>((set, get) => ({
         }
     },
 
-    generateWithLocalModel: async (messages: PromptMessage[], temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number) => {
+    generateWithLocalModel: async (messages: PromptMessage[], temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number, min_p?: number) => {
         if (!get().isInitialized) {
             await get().initialize();
         }
-        return aiService.generateWithLocalModel(messages, temperature, maxTokens, top_p, top_k, repetition_penalty);
+        return aiService.generateWithLocalModel(messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p);
     },
 
     processStreamedResponse: async (response, onToken, onComplete, onError) => {
@@ -145,6 +146,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         const top_p = prompt?.top_p;
         const top_k = prompt?.top_k;
         const repetition_penalty = prompt?.repetition_penalty;
+        const min_p = prompt?.min_p;
 
         switch (selectedModel.provider) {
             case 'local':
@@ -154,7 +156,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     maxTokens,
                     top_p,
                     top_k,
-                    repetition_penalty
+                    repetition_penalty,
+                    min_p
                 );
             case 'openai':
                 return aiService.generateWithOpenAI(
@@ -164,7 +167,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     maxTokens,
                     top_p,
                     top_k,
-                    repetition_penalty
+                    repetition_penalty,
+                    min_p
                 );
             case 'openrouter':
                 return aiService.generateWithOpenRouter(
@@ -174,7 +178,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     maxTokens,
                     top_p,
                     top_k,
-                    repetition_penalty
+                    repetition_penalty,
+                    min_p
                 );
             default:
                 throw new Error(`Unsupported provider: ${selectedModel.provider}`);
@@ -202,6 +207,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         const top_p = prompt.top_p;
         const top_k = prompt.top_k;
         const repetition_penalty = prompt.repetition_penalty;
+        const min_p = prompt.min_p;
 
         switch (selectedModel.provider) {
             case 'local':
@@ -211,7 +217,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     maxTokens,
                     top_p,
                     top_k,
-                    repetition_penalty
+                    repetition_penalty,
+                    min_p
                 );
             case 'openai':
                 return aiService.generateWithOpenAI(
@@ -221,7 +228,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     maxTokens,
                     top_p,
                     top_k,
-                    repetition_penalty
+                    repetition_penalty,
+                    min_p
                 );
             case 'openrouter':
                 return aiService.generateWithOpenRouter(
@@ -231,7 +239,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     maxTokens,
                     top_p,
                     top_k,
-                    repetition_penalty
+                    repetition_penalty,
+                    min_p
                 );
             default:
                 throw new Error(`Unsupported provider: ${selectedModel.provider}`);

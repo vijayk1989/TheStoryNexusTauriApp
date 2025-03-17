@@ -57,6 +57,9 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const [repetitionPenalty, setRepetitionPenalty] = useState(
         prompt?.repetition_penalty !== undefined ? prompt.repetition_penalty : 1.0
     );
+    const [minP, setMinP] = useState(
+        prompt?.min_p !== undefined ? prompt.min_p : 0.0
+    );
 
     const {
         initialize,
@@ -195,7 +198,8 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 maxTokens,
                 top_p: topP,
                 top_k: topK,
-                repetition_penalty: repetitionPenalty
+                repetition_penalty: repetitionPenalty,
+                min_p: minP
             };
 
             if (prompt?.id) {
@@ -562,6 +566,48 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 className="whitespace-nowrap"
                             >
                                 {repetitionPenalty === 0 ? "Enable" : "Disable"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Min-P */}
+                <div className="space-y-4 mt-4">
+                    <div className="flex items-center gap-4">
+                        <Label htmlFor="minP" className="w-28">Min-P</Label>
+                        <div className="flex-1 flex items-center gap-2">
+                            <Slider
+                                id="minP"
+                                value={[minP]}
+                                onValueChange={(value) => setMinP(value[0])}
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                className="flex-1"
+                                disabled={minP === 0}
+                            />
+                            <Input
+                                type="text"
+                                value={minP === 0 ? "Disabled" : minP.toFixed(2)}
+                                onChange={(e) => {
+                                    if (e.target.value === '') {
+                                        return;
+                                    }
+
+                                    const value = parseFloat(e.target.value);
+                                    if (!isNaN(value) && value >= 0 && value <= 1) {
+                                        setMinP(value);
+                                    }
+                                }}
+                                className="w-20 text-center"
+                            />
+                            <Button
+                                type="button"
+                                variant={minP === 0 ? "default" : "outline"}
+                                onClick={() => setMinP(minP === 0 ? 0.1 : 0)}
+                                className="whitespace-nowrap"
+                            >
+                                {minP === 0 ? "Enable" : "Disable"}
                             </Button>
                         </div>
                     </div>

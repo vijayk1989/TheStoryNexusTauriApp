@@ -246,7 +246,8 @@ export class AIService {
         maxTokens: number = 2048,
         top_p?: number,
         top_k?: number,
-        repetition_penalty?: number
+        repetition_penalty?: number,
+        min_p?: number
     ): Promise<Response> {
         // Create request body with optional parameters
         const requestBody: any = {
@@ -268,6 +269,10 @@ export class AIService {
 
         if (repetition_penalty !== undefined && repetition_penalty !== 0) {
             requestBody.repetition_penalty = repetition_penalty;
+        }
+
+        if (min_p !== undefined && min_p !== 0) {
+            requestBody.min_p = min_p;
         }
 
         const response = await fetch(`${this.LOCAL_API_URL}/chat/completions`, {
@@ -338,7 +343,8 @@ export class AIService {
         maxTokens: number = 2048,
         top_p?: number,
         top_k?: number,
-        repetition_penalty?: number
+        repetition_penalty?: number,
+        min_p?: number
     ): Promise<Response> {
         if (!this.settings?.openaiKey) {
             throw new Error('OpenAI API key not configured');
@@ -362,7 +368,7 @@ export class AIService {
             requestOptions.top_p = top_p;
         }
 
-        // Note: OpenAI doesn't support top_k and repetition_penalty directly
+        // Note: OpenAI doesn't support top_k, repetition_penalty and min_p directly
         // We'll ignore them for OpenAI
 
         const stream = await this.openAI!.chat.completions.create(requestOptions);
@@ -408,7 +414,8 @@ export class AIService {
         maxTokens: number = 2048,
         top_p?: number,
         top_k?: number,
-        repetition_penalty?: number
+        repetition_penalty?: number,
+        min_p?: number
     ): Promise<Response> {
         if (!this.settings?.openrouterKey) {
             throw new Error('OpenRouter API key not configured');
@@ -439,6 +446,10 @@ export class AIService {
         if (repetition_penalty !== undefined && repetition_penalty !== 0) {
             // OpenRouter uses frequency_penalty instead of repetition_penalty
             requestOptions.frequency_penalty = repetition_penalty - 1.0;
+        }
+
+        if (min_p !== undefined && min_p !== 0) {
+            requestOptions.min_p = min_p;
         }
 
         const stream = await this.openRouter!.chat.completions.create(requestOptions);

@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import systemPrompts from '@/data/systemPrompts';
 import {
     Story,
     Chapter,
@@ -27,11 +28,26 @@ export class StoryDatabase extends Dexie {
             stories: 'id, title, createdAt, language, isDemo',
             chapters: 'id, storyId, order, createdAt, isDemo',
             aiChats: 'id, storyId, createdAt, isDemo',
-            prompts: 'id, name, promptType, storyId, createdAt, isSystem, &name',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
             aiSettings: 'id, lastModelsFetch',
-            lorebookEntries: 'id, storyId, name, category, isDemo',
+            lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
             sceneBeats: 'id, storyId, chapterId',
             notes: 'id, storyId, title, type, createdAt, updatedAt',
+        });
+
+        this.on('populate', async () => {
+            console.log('Populating database with initial data...');
+
+            // Add system prompts
+            for (const promptData of systemPrompts) {
+                await this.prompts.add({
+                    ...promptData,
+                    createdAt: new Date(),
+                    isSystem: true
+                } as Prompt);
+            }
+
+            console.log('Database successfully populated with initial data');
         });
     }
 
@@ -79,17 +95,15 @@ export class StoryDatabase extends Dexie {
 
     async getLorebookEntriesByTag(storyId: string, tag: string) {
         return await this.lorebookEntries
-            .where('storyId')
-            .equals(storyId)
-            .filter(entry => entry.tags && entry.tags.includes(tag))
+            .where(['storyId', 'tags'])
+            .equals([storyId, tag])
             .toArray();
     }
 
     async getLorebookEntriesByCategory(storyId: string, category: LorebookEntry['category']) {
         return await this.lorebookEntries
-            .where('storyId')
-            .equals(storyId)
-            .filter(entry => entry.category === category)
+            .where(['storyId', 'category'])
+            .equals([storyId, category])
             .toArray();
     }
 

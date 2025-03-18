@@ -23,13 +23,13 @@ export class StoryDatabase extends Dexie {
     constructor() {
         super('StoryDatabase');
 
-        this.version(9).stores({
+        this.version(12).stores({
             stories: 'id, title, createdAt, language, isDemo',
             chapters: 'id, storyId, order, createdAt, isDemo',
             aiChats: 'id, storyId, createdAt, isDemo',
             prompts: 'id, name, promptType, storyId, createdAt, isSystem, &name',
             aiSettings: 'id, lastModelsFetch',
-            lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
+            lorebookEntries: 'id, storyId, name, category, isDemo',
             sceneBeats: 'id, storyId, chapterId',
             notes: 'id, storyId, title, type, createdAt, updatedAt',
         });
@@ -79,15 +79,17 @@ export class StoryDatabase extends Dexie {
 
     async getLorebookEntriesByTag(storyId: string, tag: string) {
         return await this.lorebookEntries
-            .where(['storyId', 'tags'])
-            .equals([storyId, tag])
+            .where('storyId')
+            .equals(storyId)
+            .filter(entry => entry.tags && entry.tags.includes(tag))
             .toArray();
     }
 
     async getLorebookEntriesByCategory(storyId: string, category: LorebookEntry['category']) {
         return await this.lorebookEntries
-            .where(['storyId', 'category'])
-            .equals([storyId, category])
+            .where('storyId')
+            .equals(storyId)
+            .filter(entry => entry.category === category)
             .toArray();
     }
 

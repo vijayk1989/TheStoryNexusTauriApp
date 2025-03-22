@@ -65,10 +65,12 @@ export default function NoteEditor({ storyId }: NoteEditorProps) {
                     onChange={(e) => setContent(e.target.value)}
                     containerProps={{
                         className: cn(
-                            "prose prose-sm max-w-none h-full",
-                            "dark:prose-invert"
+                            "prose prose-sm max-w-none min-h-full",
+                            "dark:prose-invert",
+                            "overflow-y-auto"
                         )
                     }}
+                    className="h-full"
                 />
             </div>
         </div>

@@ -10,7 +10,8 @@ import {
     MessageSquare,
     ChevronLeft,
     ChevronRight,
-    StickyNote
+    StickyNote,
+    Paintbrush
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -18,6 +19,8 @@ import { useStoryStore } from "@/features/stories/stores/useStoryStore";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "react-router";
+import { useStoryContext } from "@/features/stories/context/StoryContext";
+import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 
 export default function StoryDashboard() {
     const { storyId } = useParams();
@@ -28,6 +31,8 @@ export default function StoryDashboard() {
         const savedState = localStorage.getItem('nav-expanded');
         return savedState ? JSON.parse(savedState) : false;
     });
+    const { currentChapterId } = useStoryContext();
+    const { lastEditedChapterId } = useChapterStore();
 
     useEffect(() => {
         if (storyId) {
@@ -109,6 +114,13 @@ export default function StoryDashboard() {
                     {storyId && (
                         <>
                             {navButton(<BookOpen className="h-5 w-5" />, `/dashboard/${storyId}/chapters`, "Chapters")}
+                            {lastEditedChapterId && (
+                                navButton(
+                                    <Paintbrush className="h-5 w-5" />,
+                                    `/dashboard/${storyId}/chapters/${lastEditedChapterId}`,
+                                    "Last Edited"
+                                )
+                            )}
                             {navButton(<Book className="h-5 w-5" />, `/dashboard/${storyId}/lorebook`, "Lorebook")}
                             {navButton(<Sparkles className="h-5 w-5" />, `/dashboard/${storyId}/prompts`, "Prompts")}
                             {navButton(<MessageSquare className="h-5 w-5" />, `/dashboard/${storyId}/brainstorm`, "Brainstorm")}

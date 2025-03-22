@@ -24,9 +24,15 @@ export interface Chapter extends BaseEntity {
     wordCount: number;
     povCharacter?: string;
     povType?: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
+    notes?: ChapterNotes;
 }
 
 export interface ChapterOutline {
+    content: string;
+    lastUpdated: Date;
+}
+
+export interface ChapterNotes {
     content: string;
     lastUpdated: Date;
 }

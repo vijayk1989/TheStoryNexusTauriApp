@@ -24,11 +24,20 @@ const PROMPT_TYPES: Array<{ value: PromptType; label: string }> = [
 ] as const;
 
 const MOST_USED_MODELS = [
-    'gpt-4',
-    'claude-3-sonnet',
-    'claude-3-opus',
-    'mistral-large',
-    'gemini-pro'
+    'Cohere: Command A',
+    'TheDrummer: Anubis Pro 105B V1',
+    'LatitudeGames: Wayfarer Large 70B Llama 3.3',
+    'DeepSeek: DeepSeek R1',
+    'Anthropic: Claude 3.7 Sonnet',
+    'Anthropic: Claude 3.5 Sonnet',
+    'xAI: Grok 2 1212',
+    'OpenAI: GPT-4o (2024-11-20)',
+    'OpenAI: GPT-4o',
+    'TheDrummer: Skyfall 36B V2',
+    'Google: Gemini Flash 2.0',
+    'Mistral Large 2411',
+    'Mistral Large 2407',
+    'Mistral: Mistral Small 3.1 24B'
 ];
 
 interface ModelsByProvider {
@@ -89,9 +98,13 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         const groups: ModelsByProvider = {
             'Most Used': [],
             'Local': [],
-            'Free': [],
-            'OpenAI': [],
+            'xAI': [],
             'Anthropic': [],
+            'OpenAI': [],
+            'DeepSeek': [],
+            'Mistral': [],
+            'NVIDIA': [],
+            'Free': [],
             'Other': []
         };
 
@@ -104,8 +117,10 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             enabled: true
         });
 
+        console.log(availableModels);
+
         availableModels.forEach(model => {
-            if (MOST_USED_MODELS.some(id => model.id.includes(id))) {
+            if (MOST_USED_MODELS.some(name => model.name === name)) {
                 groups['Most Used'].push(model);
             } else if (model.name.toLowerCase().includes('(free)')) {
                 groups['Free'].push(model);
@@ -114,6 +129,14 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             } else if (model.provider === 'openrouter') {
                 if (model.name.includes('Anthropic')) {
                     groups['Anthropic'].push(model);
+                } else if (model.name.includes('DeepSeek')) {
+                    groups['DeepSeek'].push(model)
+                } else if (model.name.includes('Mistral')) {
+                    groups['Mistral'].push(model)
+                } else if (model.name.includes('NVIDIA')) {
+                    groups['NVIDIA'].push(model)
+                } else if (model.name.includes('xAI')) {
+                    groups['xAI'].push(model)
                 } else {
                     groups['Other'].push(model);
                 }

@@ -77,12 +77,12 @@ export function MatchedTagEntries() {
                             </Button>
                         )}
                     </div>
-                    <CollapsibleContent className="p-2 text-sm space-y-2">
-                        <div>
+                    <CollapsibleContent className="p-2 text-sm space-y-2 select-text">
+                        <div className="select-text">
                             <span className="font-semibold">Tags: </span>
                             {entry.tags.join(', ')}
                         </div>
-                        <div>
+                        <div className="select-text">
                             <span className="font-semibold">Description: </span>
                             {entry.description}
                         </div>

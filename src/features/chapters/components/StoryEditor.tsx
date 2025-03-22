@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -16,8 +16,15 @@ import {
 } from "@/components/ui/drawer";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { DownloadMenu } from "@/components/ui/DownloadMenu";
+import { ChapterNotesEditor } from "@/features/chapters/components/ChapterNotesEditor";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
@@ -82,6 +89,16 @@ export function StoryEditor() {
                 >
                     <User className="h-4 w-4 mr-2" />
                     Edit POV
+                </Button>
+
+                <Button
+                    variant={openDrawer === "chapterNotes" ? "default" : "outline"}
+                    size="sm"
+                    className="mx-2 justify-start"
+                    onClick={() => handleOpenDrawer("chapterNotes")}
+                >
+                    <StickyNote className="h-4 w-4 mr-2" />
+                    Chapter Notes
                 </Button>
 
                 {currentChapterId && (
@@ -156,6 +173,21 @@ export function StoryEditor() {
                     </DrawerFooter>
                 </DrawerContent>
             </Drawer>
+
+            {/* Replace the Chapter Notes Drawer with this Sheet */}
+            <Sheet open={openDrawer === "chapterNotes"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] min-w-[800px]"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Scribble</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[100vh]">
+                        <ChapterNotesEditor onClose={() => setOpenDrawer(null)} />
+                    </div>
+                </SheetContent>
+            </Sheet>
         </div>
     );
 }

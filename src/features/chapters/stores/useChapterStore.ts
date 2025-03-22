@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db } from '../../../services/database';
-import type { Chapter, ChapterOutline } from '../../../types/story';
+import type { Chapter, ChapterOutline, ChapterNotes } from '../../../types/story';
 
 interface ChapterState {
     chapters: Chapter[];
@@ -8,6 +8,7 @@ interface ChapterState {
     loading: boolean;
     error: string | null;
     summariesSoFar: string;
+    lastEditedChapterId: string | null;
 
     // Actions
     fetchChapters: (storyId: string) => Promise<void>;
@@ -28,14 +29,19 @@ interface ChapterState {
     getChapterSummary: (id: string) => Promise<string>;
     getPreviousChapter: (chapterId: string) => Promise<Chapter | null>;
     getChapterPlainTextByChapterOrder: (chapterOrder: number) => Promise<string>;
+    updateChapterNotes: (id: string, notes: ChapterNotes) => Promise<void>;
+    getChapterNotes: (id: string) => Promise<ChapterNotes | null>;
+    setLastEditedChapterId: (id: string) => void;
+    getLastEditedChapterId: () => string | null;
 }
 
-export const useChapterStore = create<ChapterState>((set, _get) => ({
+export const useChapterStore = create<ChapterState>((set, get) => ({
     chapters: [],
     currentChapter: null,
     loading: false,
     error: null,
     summariesSoFar: '',
+    lastEditedChapterId: localStorage.getItem('lastEditedChapterId'),
 
     // Fetch all chapters for a story
     fetchChapters: async (storyId: string) => {
@@ -118,9 +124,11 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
     updateChapter: async (id: string, chapterData: Partial<Chapter>) => {
         set({ loading: true, error: null });
         try {
-            // If content is being updated, recalculate word count
+            // If content is being updated, recalculate word count and set last edited
             if (chapterData.content) {
                 chapterData.wordCount = chapterData.content.split(/\s+/).length;
+                set({ lastEditedChapterId: id });
+                localStorage.setItem('lastEditedChapterId', id);
             }
 
             await db.chapters.update(id, chapterData);
@@ -432,5 +440,48 @@ export const useChapterStore = create<ChapterState>((set, _get) => ({
             return 'No chapter data is available for this order number.';
         }
         return getChapterPlainText(chapter.id);
+    },
+
+    // Add new methods for chapter notes
+    updateChapterNotes: async (id: string, notes: ChapterNotes) => {
+        set({ loading: true, error: null });
+        try {
+            await db.chapters.update(id, { notes });
+            const updatedChapter = await db.chapters.get(id);
+            if (!updatedChapter) throw new Error('Chapter not found after update');
+
+            set(state => ({
+                chapters: state.chapters.map(chapter =>
+                    chapter.id === id ? updatedChapter : chapter
+                ),
+                currentChapter: state.currentChapter?.id === id ? updatedChapter : state.currentChapter,
+                loading: false
+            }));
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update chapter notes',
+                loading: false
+            });
+            throw error;
+        }
+    },
+
+    getChapterNotes: async (id: string) => {
+        try {
+            const chapter = await db.chapters.get(id);
+            return chapter?.notes || null;
+        } catch (error) {
+            return null;
+        }
+    },
+
+    setLastEditedChapterId: (id: string) => {
+        set({ lastEditedChapterId: id });
+        localStorage.setItem('lastEditedChapterId', id);
+    },
+
+    getLastEditedChapterId: () => {
+        const { lastEditedChapterId } = get();
+        return lastEditedChapterId;
     }
 })); 

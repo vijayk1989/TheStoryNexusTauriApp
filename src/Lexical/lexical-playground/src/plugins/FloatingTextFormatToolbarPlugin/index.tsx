@@ -330,6 +330,7 @@ function TextFormatFloatingToolbar({
           editor.update(() => {
             const currentSelection = $getSelection();
             if ($isRangeSelection(currentSelection)) {
+              currentSelection.formatText('italic');
               currentSelection.insertText(fullText);
             }
           });

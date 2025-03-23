@@ -8,7 +8,7 @@ interface ChapterState {
     loading: boolean;
     error: string | null;
     summariesSoFar: string;
-    lastEditedChapterId: string | null;
+    lastEditedChapterIds: Record<string, string>; // Map of storyId -> chapterId
 
     // Actions
     fetchChapters: (storyId: string) => Promise<void>;
@@ -31,8 +31,8 @@ interface ChapterState {
     getChapterPlainTextByChapterOrder: (chapterOrder: number) => Promise<string>;
     updateChapterNotes: (id: string, notes: ChapterNotes) => Promise<void>;
     getChapterNotes: (id: string) => Promise<ChapterNotes | null>;
-    setLastEditedChapterId: (id: string) => void;
-    getLastEditedChapterId: () => string | null;
+    setLastEditedChapterId: (storyId: string, chapterId: string) => void;
+    getLastEditedChapterId: (storyId: string) => string | null;
 }
 
 export const useChapterStore = create<ChapterState>((set, get) => ({
@@ -41,7 +41,7 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
     loading: false,
     error: null,
     summariesSoFar: '',
-    lastEditedChapterId: localStorage.getItem('lastEditedChapterId'),
+    lastEditedChapterIds: JSON.parse(localStorage.getItem('lastEditedChapterIds') || '{}'),
 
     // Fetch all chapters for a story
     fetchChapters: async (storyId: string) => {
@@ -124,11 +124,19 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
     updateChapter: async (id: string, chapterData: Partial<Chapter>) => {
         set({ loading: true, error: null });
         try {
-            // If content is being updated, recalculate word count and set last edited
             if (chapterData.content) {
                 chapterData.wordCount = chapterData.content.split(/\s+/).length;
-                set({ lastEditedChapterId: id });
-                localStorage.setItem('lastEditedChapterId', id);
+                const chapter = await db.chapters.get(id);
+                if (chapter) {
+                    // Store last edited with storyId
+                    const { lastEditedChapterIds } = get();
+                    const newLastEdited = {
+                        ...lastEditedChapterIds,
+                        [chapter.storyId]: id
+                    };
+                    set({ lastEditedChapterIds: newLastEdited });
+                    localStorage.setItem('lastEditedChapterIds', JSON.stringify(newLastEdited));
+                }
             }
 
             await db.chapters.update(id, chapterData);
@@ -475,13 +483,18 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
         }
     },
 
-    setLastEditedChapterId: (id: string) => {
-        set({ lastEditedChapterId: id });
-        localStorage.setItem('lastEditedChapterId', id);
+    setLastEditedChapterId: (storyId: string, chapterId: string) => {
+        const { lastEditedChapterIds } = get();
+        const newLastEdited = {
+            ...lastEditedChapterIds,
+            [storyId]: chapterId
+        };
+        set({ lastEditedChapterIds: newLastEdited });
+        localStorage.setItem('lastEditedChapterIds', JSON.stringify(newLastEdited));
     },
 
-    getLastEditedChapterId: () => {
-        const { lastEditedChapterId } = get();
-        return lastEditedChapterId;
+    getLastEditedChapterId: (storyId: string) => {
+        const { lastEditedChapterIds } = get();
+        return lastEditedChapterIds[storyId] || null;
     }
 })); 

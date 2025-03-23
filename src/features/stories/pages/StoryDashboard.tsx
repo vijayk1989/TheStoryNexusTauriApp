@@ -11,7 +11,7 @@ import {
     ChevronLeft,
     ChevronRight,
     StickyNote,
-    Paintbrush
+    PenLine
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -31,8 +31,10 @@ export default function StoryDashboard() {
         const savedState = localStorage.getItem('nav-expanded');
         return savedState ? JSON.parse(savedState) : false;
     });
-    const { currentChapterId } = useStoryContext();
-    const { lastEditedChapterId } = useChapterStore();
+
+    // Get last edited for current story only
+    const { getLastEditedChapterId } = useChapterStore();
+    const lastEditedChapterId = storyId ? getLastEditedChapterId(storyId) : null;
 
     useEffect(() => {
         if (storyId) {
@@ -116,7 +118,7 @@ export default function StoryDashboard() {
                             {navButton(<BookOpen className="h-5 w-5" />, `/dashboard/${storyId}/chapters`, "Chapters")}
                             {lastEditedChapterId && (
                                 navButton(
-                                    <Paintbrush className="h-5 w-5" />,
+                                    <PenLine className="h-5 w-5" />,
                                     `/dashboard/${storyId}/chapters/${lastEditedChapterId}`,
                                     "Last Edited"
                                 )

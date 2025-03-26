@@ -32,9 +32,11 @@ export default function StoryDashboard() {
         return savedState ? JSON.parse(savedState) : false;
     });
 
-    // Get last edited for current story only
-    const { getLastEditedChapterId } = useChapterStore();
+    const { getLastEditedChapterId, chapters } = useChapterStore();
+
+    // Check if the last edited chapter still exists
     const lastEditedChapterId = storyId ? getLastEditedChapterId(storyId) : null;
+    const lastEditedChapterExists = lastEditedChapterId && chapters.some(chapter => chapter.id === lastEditedChapterId);
 
     useEffect(() => {
         if (storyId) {
@@ -116,7 +118,7 @@ export default function StoryDashboard() {
                     {storyId && (
                         <>
                             {navButton(<BookOpen className="h-5 w-5" />, `/dashboard/${storyId}/chapters`, "Chapters")}
-                            {lastEditedChapterId && (
+                            {lastEditedChapterId && lastEditedChapterExists && (
                                 navButton(
                                     <PenLine className="h-5 w-5" />,
                                     `/dashboard/${storyId}/chapters/${lastEditedChapterId}`,

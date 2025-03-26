@@ -33,6 +33,7 @@ interface ChapterState {
     getChapterNotes: (id: string) => Promise<ChapterNotes | null>;
     setLastEditedChapterId: (storyId: string, chapterId: string) => void;
     getLastEditedChapterId: (storyId: string) => string | null;
+    updateChapterOrders: (updates: Array<{ id: string, order: number }>) => Promise<void>;
 }
 
 export const useChapterStore = create<ChapterState>((set, get) => ({
@@ -162,13 +163,21 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
     deleteChapter: async (id: string) => {
         set({ loading: true, error: null });
         try {
-            // Use a transaction to ensure all operations complete together
             await db.transaction('rw', [db.chapters], async () => {
                 const chapterToDelete = await db.chapters.get(id);
                 if (!chapterToDelete) throw new Error('Chapter not found');
 
                 // Delete the chapter
                 await db.chapters.delete(id);
+
+                // Clean up last edited reference if this was the last edited chapter
+                const { lastEditedChapterIds } = get();
+                if (lastEditedChapterIds[chapterToDelete.storyId] === id) {
+                    const newLastEdited = { ...lastEditedChapterIds };
+                    delete newLastEdited[chapterToDelete.storyId];
+                    localStorage.setItem('lastEditedChapterIds', JSON.stringify(newLastEdited));
+                    set({ lastEditedChapterIds: newLastEdited });
+                }
 
                 // Update all chapters with higher order in one operation
                 await db.chapters
@@ -496,5 +505,34 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
     getLastEditedChapterId: (storyId: string) => {
         const { lastEditedChapterIds } = get();
         return lastEditedChapterIds[storyId] || null;
-    }
+    },
+
+    // Add new method implementation
+    updateChapterOrders: async (updates) => {
+        set({ loading: true, error: null });
+        try {
+            await db.transaction('rw', [db.chapters], async () => {
+                await Promise.all(
+                    updates.map(({ id, order }) =>
+                        db.chapters.update(id, { order })
+                    )
+                );
+            });
+
+            // Update local state
+            set(state => ({
+                chapters: state.chapters.map(chapter => {
+                    const update = updates.find(u => u.id === chapter.id);
+                    return update ? { ...chapter, order: update.order } : chapter;
+                }),
+                loading: false
+            }));
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update chapter orders',
+                loading: false
+            });
+            throw error;
+        }
+    },
 })); 

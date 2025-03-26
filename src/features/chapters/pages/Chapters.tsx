@@ -28,6 +28,22 @@ import { useForm } from "react-hook-form";
 import { toast } from 'react-toastify';
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { Chapter } from "@/types/story";
 
 interface CreateChapterForm {
     title: string;
@@ -38,7 +54,7 @@ interface CreateChapterForm {
 export default function Chapters() {
     const { storyId } = useParams();
     const { setCurrentStoryId } = useStoryContext();
-    const { chapters, loading, error, fetchChapters, createChapter } = useChapterStore();
+    const { chapters, loading, error, fetchChapters, createChapter, updateChapter, updateChapterOrders } = useChapterStore();
     const { fetchPrompts } = usePromptStore();
     const { entries } = useLorebookStore();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -50,6 +66,13 @@ export default function Chapters() {
 
     const povType = form.watch('povType');
     const characterEntries = entries.filter(entry => entry.category === 'character');
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     useEffect(() => {
         if (storyId) {
@@ -98,6 +121,39 @@ export default function Chapters() {
         } catch (error) {
             console.error('Failed to create chapter:', error);
             toast.error('Failed to create chapter');
+        }
+    };
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        const activeId = active.id.toString();
+        const overId = over?.id.toString();
+
+        if (!over || activeId === overId) return;
+
+        const oldIndex = chapters.findIndex(chapter => chapter.id === activeId);
+        const newIndex = chapters.findIndex(chapter => chapter.id === overId);
+
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        try {
+            const updatedChapters = arrayMove(chapters, oldIndex, newIndex);
+
+            // Use the new bulk update method
+            await updateChapterOrders(
+                updatedChapters.map((chapter: Chapter, index) => ({
+                    id: chapter.id,
+                    order: index + 1
+                }))
+            );
+
+            toast.success('Chapter order updated successfully');
+        } catch (error) {
+            console.error('Failed to update chapter order:', error);
+            toast.error('Failed to update chapter order');
+            // Refetch to ensure UI is in sync with database
+            await fetchChapters(storyId);
         }
     };
 
@@ -209,17 +265,28 @@ export default function Chapters() {
                         </Button>
                     </div>
                 ) : (
-                    <div className="space-y-2">
-                        {chapters
-                            .sort((a, b) => a.order - b.order)
-                            .map((chapter) => (
-                                <ChapterCard
-                                    key={chapter.id}
-                                    chapter={chapter}
-                                    storyId={storyId}
-                                />
-                            ))}
-                    </div>
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <SortableContext
+                            items={chapters.map(chapter => chapter.id)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            <div className="space-y-2">
+                                {chapters
+                                    .sort((a, b) => a.order - b.order)
+                                    .map((chapter) => (
+                                        <ChapterCard
+                                            key={chapter.id}
+                                            chapter={chapter}
+                                            storyId={storyId}
+                                        />
+                                    ))}
+                            </div>
+                        </SortableContext>
+                    </DndContext>
                 )}
             </ScrollArea>
         </div>

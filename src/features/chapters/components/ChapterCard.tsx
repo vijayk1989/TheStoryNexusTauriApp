@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Button } from "../../../components/ui/button";
-import { Pencil, Trash2, PenLine, ChevronUp, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, PenLine, ChevronUp, ChevronDown, GripVertical } from "lucide-react";
 import { useChapterStore } from "../stores/useChapterStore";
 import type { AllowedModel, Chapter, Prompt } from "../../../types/story";
 import { useNavigate } from "react-router";
@@ -42,6 +42,8 @@ import { PromptParserConfig } from '@/types/story';
 import { AIGenerateMenu } from "@/components/ui/ai-generate-menu";
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { DownloadMenu } from "@/components/ui/DownloadMenu";
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface ChapterCardProps {
     chapter: Chapter;
@@ -85,6 +87,21 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
         return entries.filter(entry => entry.category === 'character');
     }, [entries]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: chapter.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
 
     const adjustTextareaHeight = useCallback(() => {
         const textarea = textareaRef.current;
@@ -262,11 +279,20 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
     ), [summary, chapter.id, isGenerating, isLoading, error, prompts]);
 
     return (
-        <>
+        <div ref={setNodeRef} style={style}>
             <Card className="w-full">
                 <CardHeader className="p-4">
                     <div className="flex items-center justify-between">
                         <div className="flex-1 flex items-center gap-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="cursor-grab active:cursor-grabbing"
+                                {...attributes}
+                                {...listeners}
+                            >
+                                <GripVertical className="h-4 w-4" />
+                            </Button>
                             <h3 className="text-lg font-semibold">{chapter.order}: {chapter.title}</h3>
                             {chapter.povCharacter && (
                                 <span className="text-xs text-muted-foreground">
@@ -390,6 +416,6 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
                     </form>
                 </DialogContent>
             </Dialog>
-        </>
+        </div>
     );
 }

@@ -73,6 +73,17 @@ To run Tauri create release build:
 npm run tauri build
 ```
 
+## Screenshots
+
+![App Screenshot](screenshots/Home.jpg)
+![App Screenshot](screenshots/Stories.jpg)
+![App Screenshot](screenshots/Prompts.jpg)
+![App Screenshot](screenshots/Lorebook.jpg)
+![App Screenshot](screenshots/CreateChapter.jpg)
+![App Screenshot](screenshots/Editor.jpg)
+![App Screenshot](screenshots/Scenebeat.jpg)
+![App Screenshot](screenshots/GeneratedProse.jpg)
+
 ## Project Structure
 
 - `src/features/` - Main application features (stories, chapters, prompts, ai, lorebook)

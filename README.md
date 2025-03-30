@@ -81,7 +81,7 @@ npm run tauri build
 ![App Screenshot](screenshots/Lorebook.jpg)
 ![App Screenshot](screenshots/CreateChapter.jpg)
 ![App Screenshot](screenshots/Editor.jpg)
-![App Screenshot](screenshots/Scenebeat.jpg)
+![App Screenshot](screenshots/SceneBeat.jpg)
 ![App Screenshot](screenshots/GeneratedProse.jpg)
 
 ## Project Structure

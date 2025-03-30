@@ -33,21 +33,21 @@ export default function BasicsGuide() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                         <div className="border rounded-lg p-4 bg-card">
-                            <h4 className="font-medium mb-2">OpenAI</h4>
-                            <p className="text-sm text-muted-foreground">
-                                Enter your OpenAI API key to access models like GPT-4 and GPT-3.5.
-                            </p>
-                        </div>
-                        <div className="border rounded-lg p-4 bg-card">
                             <h4 className="font-medium mb-2">OpenRouter</h4>
                             <p className="text-sm text-muted-foreground">
                                 Enter your OpenRouter API key to access a variety of models from different providers.
                             </p>
                         </div>
                         <div className="border rounded-lg p-4 bg-card">
+                            <h4 className="font-medium mb-2">OpenAI</h4>
+                            <p className="text-sm text-muted-foreground">
+                                Enter your OpenAI API key to access models like GPT-4 and GPT-3.5.
+                            </p>
+                        </div>
+                        <div className="border rounded-lg p-4 bg-card">
                             <h4 className="font-medium mb-2">Local</h4>
                             <p className="text-sm text-muted-foreground">
-                                Connect to a locally hosted model by entering the API URL (e.g., http://localhost:1234/v1).
+                                Connect to a locally hosted model by entering the API URL (default: http://localhost:1234/v1).
                             </p>
                         </div>
                     </div>

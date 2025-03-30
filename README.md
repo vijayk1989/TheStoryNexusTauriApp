@@ -10,9 +10,9 @@ The Story Nexus is a local-first desktop application designed for writers who wa
 
 - **Story Management**: Create and organize your stories with chapters, outlines, and summaries
 - **Rich Text Editor**: Write and edit your stories using a powerful Lexical-based editor
-- **AI Integration**: Generate content using AI models from providers like OpenAI and OpenRouter
+- **AI Integration**: Generate content using AI models from providers like OpenAI and OpenRouter or use a locally hosted model
 - **Custom Prompts**: Create and manage custom prompts to guide AI generation
-- **Scene Beats**: Use AI to generate scene beats and continue your story
+- **Scene Beats Addon to Editor**: Press alt (option for mac) + s in editor to open Scene Beat AI command
 - **Lorebook**: Maintain a database of characters, locations, items, events, and notes for your story
 - **Local-First**: All your data is stored locally using IndexedDB with DexieJS
 
@@ -59,6 +59,18 @@ To run Tauri commands:
 
 ```
 npm run tauri
+```
+
+To run Tauri create debug release:
+
+```
+npm run tauri build -- --debug
+```
+
+To run Tauri create release build:
+
+```
+npm run tauri build
 ```
 
 ## Project Structure

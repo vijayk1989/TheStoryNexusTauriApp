@@ -66,8 +66,8 @@ export class AIService {
             // Fallback to default model if fetch fails
             console.log('[AIService] Using fallback local model');
             return [{
-                id: 'local/llama-3.2-3b-instruct',
-                name: 'Llama 3.2 3B Instruct',
+                id: 'local',
+                name: 'Local Model',
                 provider: 'local',
                 contextLength: 8192,
                 enabled: true

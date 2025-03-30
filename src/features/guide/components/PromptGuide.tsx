@@ -238,7 +238,7 @@ export default function PromptGuide() {
                                     </p>
                                     <div className="bg-muted p-3 rounded mt-2 text-sm">
                                         <p className="font-mono">
-                                            "Write a scene where &#123;&#123;character&#125;&#125; enters &#123;&#123;location&#125;&#125; for the first time."
+                                            "Write a scene where x character enters y location for the first time."
                                         </p>
                                     </div>
                                 </div>
@@ -397,6 +397,14 @@ export default function PromptGuide() {
                                         <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;all_locations&#125;&#125;</td>
                                             <td className="border p-2">All location entries from the Lorebook</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;user_input&#125;&#125;</td>
+                                            <td className="border p-2">Specifically for brainstorm section, adds user_input to resolved prompt</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;chat_history&#125;&#125;</td>
+                                            <td className="border p-2">Specifically for brainstorm section, adds current chat history to resolved prompt</td>
                                         </tr>
                                     </tbody>
                                 </table>

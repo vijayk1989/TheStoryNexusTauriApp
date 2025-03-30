@@ -108,19 +108,10 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             'Other': []
         };
 
-        // Add local model
-        groups['Local'].push({
-            id: 'local',
-            name: 'Local',
-            provider: 'local',
-            contextLength: 8192,
-            enabled: true
-        });
-
-        console.log(availableModels);
-
         availableModels.forEach(model => {
-            if (MOST_USED_MODELS.some(name => model.name === name)) {
+            if (model.provider === 'local') {
+                groups['Local'].push(model);
+            } else if (MOST_USED_MODELS.some(name => model.name === name)) {
                 groups['Most Used'].push(model);
             } else if (model.name.toLowerCase().includes('(free)')) {
                 groups['Free'].push(model);

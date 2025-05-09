@@ -6,22 +6,22 @@
  *
  */
 
-import type { JSX } from 'react';
-import { $isListNode, ListNode } from '@lexical/list';
-import { INSERT_HORIZONTAL_RULE_COMMAND } from '@lexical/react/LexicalHorizontalRuleNode';
-import { $isHeadingNode } from '@lexical/rich-text';
+import type { JSX } from "react";
+import { $isListNode, ListNode } from "@lexical/list";
+import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/react/LexicalHorizontalRuleNode";
+import { $isHeadingNode } from "@lexical/rich-text";
 import {
   $getSelectionStyleValueForProperty,
   $isParentElementRTL,
   $patchStyleText,
-} from '@lexical/selection';
-import { $isTableNode, $isTableSelection } from '@lexical/table';
+} from "@lexical/selection";
+import { $isTableNode, $isTableSelection } from "@lexical/table";
 import {
   $findMatchingParent,
   $getNearestNodeOfType,
   $isEditorIsNestedEditor,
   mergeRegister,
-} from '@lexical/utils';
+} from "@lexical/utils";
 import {
   $createParagraphNode,
   $getNodeByKey,
@@ -43,23 +43,21 @@ import {
   REDO_COMMAND,
   SELECTION_CHANGE_COMMAND,
   UNDO_COMMAND,
-} from 'lexical';
-import { Dispatch, useCallback, useEffect, useState } from 'react';
-import { IS_APPLE } from 'shared/environment';
+} from "lexical";
+import { Dispatch, useCallback, useEffect, useState } from "react";
+import { IS_APPLE } from "shared/environment";
 
 import {
   blockTypeToBlockName,
   useToolbarState,
-} from '../../context/ToolbarContext';
-import useModal from '../../hooks/useModal';
-import { getSelectedNode } from '../../utils/getSelectedNode';
-import {
-  InsertImageDialog,
-} from '../ImagesPlugin';
+} from "../../context/ToolbarContext";
+import useModal from "../../hooks/useModal";
+import { getSelectedNode } from "../../utils/getSelectedNode";
+import { InsertImageDialog } from "../ImagesPlugin";
 
-import { INSERT_PAGE_BREAK } from '../PageBreakPlugin';
-import { SHORTCUTS } from '../ShortcutsPlugin/shortcuts';
-import FontSize from './fontSize';
+import { INSERT_PAGE_BREAK } from "../PageBreakPlugin";
+import { SHORTCUTS } from "../ShortcutsPlugin/shortcuts";
+import FontSize from "./fontSize";
 import {
   clearFormatting,
   formatBulletList,
@@ -68,92 +66,120 @@ import {
   formatNumberedList,
   formatParagraph,
   formatQuote,
-} from './utils';
-import { $createHelloWorldNode } from '../../nodes/HelloWorldNode';
+} from "./utils";
+import { $createHelloWorldNode } from "../../nodes/HelloWorldNode";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { ChevronDown, MoreHorizontal, Bold, Italic, Underline, Link, AlignLeft, AlignCenter, AlignRight, AlignJustify, Heading1, Heading2, Heading3, List, ListOrdered, CheckSquare, Quote, Code, Minus, SeparatorHorizontal, Image, Bot, Type, Superscript, Subscript, Strikethrough, X } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { $createSceneBeatNode } from '../../nodes/SceneBeatNode';
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import {
+  ChevronDown,
+  MoreHorizontal,
+  Bold,
+  Italic,
+  Underline,
+  Link,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  CheckSquare,
+  Quote,
+  Code,
+  Minus,
+  SeparatorHorizontal,
+  Image,
+  Bot,
+  Type,
+  Superscript,
+  Subscript,
+  Strikethrough,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { $createSceneBeatNode } from "../../nodes/SceneBeatNode";
 
 const rootTypeToRootName = {
-  root: 'Root',
-  table: 'Table',
+  root: "Root",
+  table: "Table",
 };
 
 const FONT_FAMILY_OPTIONS: [string, string][] = [
-  ['Arial', 'Arial'],
-  ['Courier New', 'Courier New'],
-  ['Georgia', 'Georgia'],
-  ['Times New Roman', 'Times New Roman'],
-  ['Trebuchet MS', 'Trebuchet MS'],
-  ['Verdana', 'Verdana'],
+  ["Arial", "Arial"],
+  ["Courier New", "Courier New"],
+  ["Georgia", "Georgia"],
+  ["Times New Roman", "Times New Roman"],
+  ["Trebuchet MS", "Trebuchet MS"],
+  ["Verdana", "Verdana"],
 ];
 
 const FONT_SIZE_OPTIONS: [string, string][] = [
-  ['10px', '10px'],
-  ['11px', '11px'],
-  ['12px', '12px'],
-  ['13px', '13px'],
-  ['14px', '14px'],
-  ['15px', '15px'],
-  ['16px', '16px'],
-  ['17px', '17px'],
-  ['18px', '18px'],
-  ['19px', '19px'],
-  ['20px', '20px'],
+  ["10px", "10px"],
+  ["11px", "11px"],
+  ["12px", "12px"],
+  ["13px", "13px"],
+  ["14px", "14px"],
+  ["15px", "15px"],
+  ["16px", "16px"],
+  ["17px", "17px"],
+  ["18px", "18px"],
+  ["19px", "19px"],
+  ["20px", "20px"],
 ];
 
 const ELEMENT_FORMAT_OPTIONS: {
-  [key in Exclude<ElementFormatType, ''>]: {
+  [key in Exclude<ElementFormatType, "">]: {
     icon: string;
     iconRTL: string;
     name: string;
   };
 } = {
   center: {
-    icon: 'center-align',
-    iconRTL: 'center-align',
-    name: 'Center Align',
+    icon: "center-align",
+    iconRTL: "center-align",
+    name: "Center Align",
   },
   end: {
-    icon: 'right-align',
-    iconRTL: 'left-align',
-    name: 'End Align',
+    icon: "right-align",
+    iconRTL: "left-align",
+    name: "End Align",
   },
   justify: {
-    icon: 'justify-align',
-    iconRTL: 'justify-align',
-    name: 'Justify Align',
+    icon: "justify-align",
+    iconRTL: "justify-align",
+    name: "Justify Align",
   },
   left: {
-    icon: 'left-align',
-    iconRTL: 'left-align',
-    name: 'Left Align',
+    icon: "left-align",
+    iconRTL: "left-align",
+    name: "Left Align",
   },
   right: {
-    icon: 'right-align',
-    iconRTL: 'right-align',
-    name: 'Right Align',
+    icon: "right-align",
+    iconRTL: "right-align",
+    name: "Right Align",
   },
   start: {
-    icon: 'left-align',
-    iconRTL: 'right-align',
-    name: 'Start Align',
+    icon: "left-align",
+    iconRTL: "right-align",
+    name: "Start Align",
   },
 };
 
 function dropDownActiveClass(active: boolean) {
   if (active) {
-    return 'active dropdown-item-active';
+    return "active dropdown-item-active";
   } else {
-    return '';
+    return "";
   }
 }
 
@@ -187,7 +213,8 @@ function BlockFormatDropDown({
             className="hover:bg-accent/50 transition-colors cursor-pointer"
             onClick={() => {
               formatParagraph(editor);
-            }}>
+            }}
+          >
             <span className="text">{blockTypeToBlockName.paragraph}</span>
           </DropdownMenuItem>
         )}
@@ -195,8 +222,9 @@ function BlockFormatDropDown({
           <DropdownMenuItem
             className="hover:bg-accent/50 transition-colors cursor-pointer"
             onClick={() => {
-              formatHeading(editor, blockType, 'h1');
-            }}>
+              formatHeading(editor, blockType, "h1");
+            }}
+          >
             <span className="text">{blockTypeToBlockName.h1}</span>
           </DropdownMenuItem>
         )}
@@ -204,8 +232,9 @@ function BlockFormatDropDown({
           <DropdownMenuItem
             className="hover:bg-accent/50 transition-colors cursor-pointer"
             onClick={() => {
-              formatHeading(editor, blockType, 'h2');
-            }}>
+              formatHeading(editor, blockType, "h2");
+            }}
+          >
             <span className="text">{blockTypeToBlockName.h2}</span>
           </DropdownMenuItem>
         )}
@@ -213,8 +242,9 @@ function BlockFormatDropDown({
           <DropdownMenuItem
             className="hover:bg-accent/50 transition-colors cursor-pointer"
             onClick={() => {
-              formatHeading(editor, blockType, 'h3');
-            }}>
+              formatHeading(editor, blockType, "h3");
+            }}
+          >
             <span className="text">{blockTypeToBlockName.h3}</span>
           </DropdownMenuItem>
         )}
@@ -223,7 +253,8 @@ function BlockFormatDropDown({
             className="hover:bg-accent/50 transition-colors cursor-pointer"
             onClick={() => {
               formatBulletList(editor, blockType);
-            }}>
+            }}
+          >
             <span className="text">{blockTypeToBlockName.bullet}</span>
           </DropdownMenuItem>
         )}
@@ -232,7 +263,8 @@ function BlockFormatDropDown({
             className="hover:bg-accent/50 transition-colors cursor-pointer"
             onClick={() => {
               formatNumberedList(editor, blockType);
-            }}>
+            }}
+          >
             <span className="text">{blockTypeToBlockName.number}</span>
           </DropdownMenuItem>
         )}
@@ -241,7 +273,8 @@ function BlockFormatDropDown({
             className="hover:bg-accent/50 transition-colors cursor-pointer"
             onClick={() => {
               formatCheckList(editor, blockType);
-            }}>
+            }}
+          >
             <span className="text">{blockTypeToBlockName.check}</span>
           </DropdownMenuItem>
         )}
@@ -250,7 +283,8 @@ function BlockFormatDropDown({
             className="hover:bg-accent/50 transition-colors cursor-pointer"
             onClick={() => {
               formatQuote(editor, blockType);
-            }}>
+            }}
+          >
             <span className="text">{blockTypeToBlockName.quote}</span>
           </DropdownMenuItem>
         )}
@@ -285,7 +319,7 @@ function FontDropDown({
         }
       });
     },
-    [editor, style],
+    [editor, style]
   );
 
   return (
@@ -302,17 +336,18 @@ function FontDropDown({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-[180px]">
-        {(style === 'font-family' ? FONT_FAMILY_OPTIONS : FONT_SIZE_OPTIONS).map(
-          ([option, text]) => (
-            <DropdownMenuItem
-              key={option}
-              className="hover:bg-accent/50 transition-colors cursor-pointer"
-              onClick={() => handleClick(option)}
-            >
-              <span className="text">{text}</span>
-            </DropdownMenuItem>
-          ),
-        )}
+        {(style === "font-family"
+          ? FONT_FAMILY_OPTIONS
+          : FONT_SIZE_OPTIONS
+        ).map(([option, text]) => (
+          <DropdownMenuItem
+            key={option}
+            className="hover:bg-accent/50 transition-colors cursor-pointer"
+            onClick={() => handleClick(option)}
+          >
+            <span className="text">{text}</span>
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -329,7 +364,7 @@ function ElementFormatDropdown({
   isRTL: boolean;
   disabled: boolean;
 }) {
-  const formatOption = ELEMENT_FORMAT_OPTIONS[value || 'left'];
+  const formatOption = ELEMENT_FORMAT_OPTIONS[value || "left"];
 
   return (
     <DropdownMenu>
@@ -348,64 +383,82 @@ function ElementFormatDropdown({
         <DropdownMenuItem
           className="hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => {
-            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'left');
-          }}>
+            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "left");
+          }}
+        >
           <div className="flex items-center gap-2">
             <i className="icon left-align" />
             <span className="text">Left Align</span>
           </div>
-          <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.LEFT_ALIGN}</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {SHORTCUTS.LEFT_ALIGN}
+          </span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => {
-            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'center');
-          }}>
+            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "center");
+          }}
+        >
           <div className="flex items-center gap-2">
             <i className="icon center-align" />
             <span className="text">Center Align</span>
           </div>
-          <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.CENTER_ALIGN}</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {SHORTCUTS.CENTER_ALIGN}
+          </span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => {
-            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'right');
-          }}>
+            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "right");
+          }}
+        >
           <div className="flex items-center gap-2">
             <i className="icon right-align" />
             <span className="text">Right Align</span>
           </div>
-          <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.RIGHT_ALIGN}</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {SHORTCUTS.RIGHT_ALIGN}
+          </span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => {
-            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'justify');
-          }}>
+            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "justify");
+          }}
+        >
           <div className="flex items-center gap-2">
             <i className="icon justify-align" />
             <span className="text">Justify Align</span>
           </div>
-          <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.JUSTIFY_ALIGN}</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {SHORTCUTS.JUSTIFY_ALIGN}
+          </span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => {
-            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'start');
-          }}>
+            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "start");
+          }}
+        >
           <div className="flex items-center gap-2">
-            <i className={`icon ${isRTL ? ELEMENT_FORMAT_OPTIONS.start.iconRTL : ELEMENT_FORMAT_OPTIONS.start.icon}`} />
+            <i
+              className={`icon ${isRTL ? ELEMENT_FORMAT_OPTIONS.start.iconRTL : ELEMENT_FORMAT_OPTIONS.start.icon}`}
+            />
             <span className="text">Start Align</span>
           </div>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => {
-            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, 'end');
-          }}>
+            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "end");
+          }}
+        >
           <div className="flex items-center gap-2">
-            <i className={`icon ${isRTL ? ELEMENT_FORMAT_OPTIONS.end.iconRTL : ELEMENT_FORMAT_OPTIONS.end.icon}`} />
+            <i
+              className={`icon ${isRTL ? ELEMENT_FORMAT_OPTIONS.end.iconRTL : ELEMENT_FORMAT_OPTIONS.end.icon}`}
+            />
             <span className="text">End Align</span>
           </div>
         </DropdownMenuItem>
@@ -414,23 +467,29 @@ function ElementFormatDropdown({
           className="hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => {
             editor.dispatchCommand(OUTDENT_CONTENT_COMMAND, undefined);
-          }}>
+          }}
+        >
           <div className="flex items-center gap-2">
-            <i className={'icon ' + (isRTL ? 'indent' : 'outdent')} />
+            <i className={"icon " + (isRTL ? "indent" : "outdent")} />
             <span className="text">Outdent</span>
           </div>
-          <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.OUTDENT}</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {SHORTCUTS.OUTDENT}
+          </span>
         </DropdownMenuItem>
         <DropdownMenuItem
           className="hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => {
             editor.dispatchCommand(INDENT_CONTENT_COMMAND, undefined);
-          }}>
+          }}
+        >
           <div className="flex items-center gap-2">
-            <i className={'icon ' + (isRTL ? 'outdent' : 'indent')} />
+            <i className={"icon " + (isRTL ? "outdent" : "indent")} />
             <span className="text">Indent</span>
           </div>
-          <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.INDENT}</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {SHORTCUTS.INDENT}
+          </span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -449,7 +508,7 @@ export default function ToolbarPlugin({
   setIsLinkEditMode: Dispatch<boolean>;
 }): JSX.Element {
   const [selectedElementKey, setSelectedElementKey] = useState<NodeKey | null>(
-    null,
+    null
   );
   const [modal, showModal] = useModal();
   const [isEditable, setIsEditable] = useState(() => editor.isEditable());
@@ -461,23 +520,23 @@ export default function ToolbarPlugin({
       if (activeEditor !== editor && $isEditorIsNestedEditor(activeEditor)) {
         const rootElement = activeEditor.getRootElement();
         updateToolbarState(
-          'isImageCaption',
+          "isImageCaption",
           !!rootElement?.parentElement?.classList.contains(
-            'image-caption-container',
-          ),
+            "image-caption-container"
+          )
         );
       } else {
-        updateToolbarState('isImageCaption', false);
+        updateToolbarState("isImageCaption", false);
       }
 
       const anchorNode = selection.anchor.getNode();
       let element =
-        anchorNode.getKey() === 'root'
+        anchorNode.getKey() === "root"
           ? anchorNode
           : $findMatchingParent(anchorNode, (e) => {
-            const parent = e.getParent();
-            return parent !== null && $isRootOrShadowRoot(parent);
-          });
+              const parent = e.getParent();
+              return parent !== null && $isRootOrShadowRoot(parent);
+            });
 
       if (element === null) {
         element = anchorNode.getTopLevelElementOrThrow();
@@ -486,7 +545,7 @@ export default function ToolbarPlugin({
       const elementKey = element.getKey();
       const elementDOM = activeEditor.getElementByKey(elementKey);
 
-      updateToolbarState('isRTL', $isParentElementRTL(selection));
+      updateToolbarState("isRTL", $isParentElementRTL(selection));
 
       // Update links
       const node = getSelectedNode(selection);
@@ -494,9 +553,9 @@ export default function ToolbarPlugin({
 
       const tableNode = $findMatchingParent(node, $isTableNode);
       if ($isTableNode(tableNode)) {
-        updateToolbarState('rootType', 'table');
+        updateToolbarState("rootType", "table");
       } else {
-        updateToolbarState('rootType', 'root');
+        updateToolbarState("rootType", "root");
       }
 
       if (elementDOM !== null) {
@@ -504,72 +563,72 @@ export default function ToolbarPlugin({
         if ($isListNode(element)) {
           const parentList = $getNearestNodeOfType<ListNode>(
             anchorNode,
-            ListNode,
+            ListNode
           );
           const type = parentList
             ? parentList.getListType()
             : element.getListType();
 
-          updateToolbarState('blockType', type);
+          updateToolbarState("blockType", type);
         } else {
           const type = $isHeadingNode(element)
             ? element.getTag()
             : element.getType();
           if (type in blockTypeToBlockName) {
             updateToolbarState(
-              'blockType',
-              type as keyof typeof blockTypeToBlockName,
+              "blockType",
+              type as keyof typeof blockTypeToBlockName
             );
           }
         }
       }
       // Handle buttons
       updateToolbarState(
-        'fontColor',
-        $getSelectionStyleValueForProperty(selection, 'color', '#000'),
+        "fontColor",
+        $getSelectionStyleValueForProperty(selection, "color", "#000")
       );
       updateToolbarState(
-        'bgColor',
+        "bgColor",
         $getSelectionStyleValueForProperty(
           selection,
-          'background-color',
-          '#fff',
-        ),
+          "background-color",
+          "#fff"
+        )
       );
       updateToolbarState(
-        'fontFamily',
-        $getSelectionStyleValueForProperty(selection, 'font-family', 'Arial'),
+        "fontFamily",
+        $getSelectionStyleValueForProperty(selection, "font-family", "Arial")
       );
       let matchingParent;
 
       // If matchingParent is a valid node, pass it's format type
       updateToolbarState(
-        'elementFormat',
+        "elementFormat",
         $isElementNode(matchingParent)
           ? matchingParent.getFormatType()
           : $isElementNode(node)
             ? node.getFormatType()
-            : parent?.getFormatType() || 'left',
+            : parent?.getFormatType() || "left"
       );
     }
     if ($isRangeSelection(selection) || $isTableSelection(selection)) {
       // Update text format
-      updateToolbarState('isBold', selection.hasFormat('bold'));
-      updateToolbarState('isItalic', selection.hasFormat('italic'));
-      updateToolbarState('isUnderline', selection.hasFormat('underline'));
+      updateToolbarState("isBold", selection.hasFormat("bold"));
+      updateToolbarState("isItalic", selection.hasFormat("italic"));
+      updateToolbarState("isUnderline", selection.hasFormat("underline"));
       updateToolbarState(
-        'isStrikethrough',
-        selection.hasFormat('strikethrough'),
+        "isStrikethrough",
+        selection.hasFormat("strikethrough")
       );
-      updateToolbarState('isSubscript', selection.hasFormat('subscript'));
-      updateToolbarState('isSuperscript', selection.hasFormat('superscript'));
+      updateToolbarState("isSubscript", selection.hasFormat("subscript"));
+      updateToolbarState("isSuperscript", selection.hasFormat("superscript"));
       updateToolbarState(
-        'fontSize',
-        $getSelectionStyleValueForProperty(selection, 'font-size', '15px'),
+        "fontSize",
+        $getSelectionStyleValueForProperty(selection, "font-size", "15px")
       );
-      updateToolbarState('isLowercase', selection.hasFormat('lowercase'));
-      updateToolbarState('isUppercase', selection.hasFormat('uppercase'));
-      updateToolbarState('isCapitalize', selection.hasFormat('capitalize'));
+      updateToolbarState("isLowercase", selection.hasFormat("lowercase"));
+      updateToolbarState("isUppercase", selection.hasFormat("uppercase"));
+      updateToolbarState("isCapitalize", selection.hasFormat("capitalize"));
     }
   }, [activeEditor, editor, updateToolbarState]);
 
@@ -581,7 +640,7 @@ export default function ToolbarPlugin({
         $updateToolbar();
         return false;
       },
-      COMMAND_PRIORITY_CRITICAL,
+      COMMAND_PRIORITY_CRITICAL
     );
   }, [editor, $updateToolbar, setActiveEditor]);
 
@@ -604,19 +663,19 @@ export default function ToolbarPlugin({
       activeEditor.registerCommand<boolean>(
         CAN_UNDO_COMMAND,
         (payload) => {
-          updateToolbarState('canUndo', payload);
+          updateToolbarState("canUndo", payload);
           return false;
         },
-        COMMAND_PRIORITY_CRITICAL,
+        COMMAND_PRIORITY_CRITICAL
       ),
       activeEditor.registerCommand<boolean>(
         CAN_REDO_COMMAND,
         (payload) => {
-          updateToolbarState('canRedo', payload);
+          updateToolbarState("canRedo", payload);
           return false;
         },
-        COMMAND_PRIORITY_CRITICAL,
-      ),
+        COMMAND_PRIORITY_CRITICAL
+      )
     );
   }, [$updateToolbar, activeEditor, editor, updateToolbarState]);
 
@@ -629,25 +688,26 @@ export default function ToolbarPlugin({
             $patchStyleText(selection, styles);
           }
         },
-        skipHistoryStack ? { tag: 'historic' } : {},
+        skipHistoryStack ? { tag: "historic" } : {}
       );
     },
-    [activeEditor],
+    [activeEditor]
   );
 
   const canViewerSeeInsertDropdown = !toolbarState.isImageCaption;
 
   return (
-    <div className="toolbar">
+    <div className="toolbar flex items-center w-full">
       <button
         disabled={!toolbarState.canUndo || !isEditable}
         onClick={() => {
           activeEditor.dispatchCommand(UNDO_COMMAND, undefined);
         }}
-        title={IS_APPLE ? 'Undo (⌘Z)' : 'Undo (Ctrl+Z)'}
+        title={IS_APPLE ? "Undo (⌘Z)" : "Undo (Ctrl+Z)"}
         type="button"
         className="toolbar-item spaced"
-        aria-label="Undo">
+        aria-label="Undo"
+      >
         <i className="format undo" />
       </button>
       <button
@@ -655,10 +715,11 @@ export default function ToolbarPlugin({
         onClick={() => {
           activeEditor.dispatchCommand(REDO_COMMAND, undefined);
         }}
-        title={IS_APPLE ? 'Redo (⇧⌘Z)' : 'Redo (Ctrl+Y)'}
+        title={IS_APPLE ? "Redo (⇧⌘Z)" : "Redo (Ctrl+Y)"}
         type="button"
         className="toolbar-item"
-        aria-label="Redo">
+        aria-label="Redo"
+      >
         <i className="format redo" />
       </button>
       <Divider />
@@ -677,7 +738,7 @@ export default function ToolbarPlugin({
       <>
         <FontDropDown
           disabled={!isEditable}
-          style={'font-family'}
+          style={"font-family"}
           value={toolbarState.fontFamily}
           editor={activeEditor}
         />
@@ -691,11 +752,14 @@ export default function ToolbarPlugin({
         <Button
           disabled={!isEditable}
           onClick={() => {
-            activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
+            activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
           }}
           variant="ghost"
           size="icon"
-          className={'h-8 w-8 hover:bg-accent/50 transition-colors ' + (toolbarState.isBold ? 'bg-accent/50' : '')}
+          className={
+            "h-8 w-8 hover:bg-accent/50 transition-colors " +
+            (toolbarState.isBold ? "bg-accent/50" : "")
+          }
           title={`Bold (${SHORTCUTS.BOLD})`}
           aria-label={`Format text as bold. Shortcut: ${SHORTCUTS.BOLD}`}
         >
@@ -704,11 +768,14 @@ export default function ToolbarPlugin({
         <Button
           disabled={!isEditable}
           onClick={() => {
-            activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
+            activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
           }}
           variant="ghost"
           size="icon"
-          className={'h-8 w-8 hover:bg-accent/50 transition-colors ' + (toolbarState.isItalic ? 'bg-accent/50' : '')}
+          className={
+            "h-8 w-8 hover:bg-accent/50 transition-colors " +
+            (toolbarState.isItalic ? "bg-accent/50" : "")
+          }
           title={`Italic (${SHORTCUTS.ITALIC})`}
           aria-label={`Format text as italics. Shortcut: ${SHORTCUTS.ITALIC}`}
         >
@@ -717,11 +784,14 @@ export default function ToolbarPlugin({
         <Button
           disabled={!isEditable}
           onClick={() => {
-            activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
+            activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
           }}
           variant="ghost"
           size="icon"
-          className={'h-8 w-8 hover:bg-accent/50 transition-colors ' + (toolbarState.isUnderline ? 'bg-accent/50' : '')}
+          className={
+            "h-8 w-8 hover:bg-accent/50 transition-colors " +
+            (toolbarState.isUnderline ? "bg-accent/50" : "")
+          }
           title={`Underline (${SHORTCUTS.UNDERLINE})`}
           aria-label={`Format text to underlined. Shortcut: ${SHORTCUTS.UNDERLINE}`}
         >
@@ -743,77 +813,104 @@ export default function ToolbarPlugin({
             <DropdownMenuItem
               className="hover:bg-accent/50 transition-colors cursor-pointer"
               onClick={() => {
-                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'lowercase');
-              }}>
+                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, "lowercase");
+              }}
+            >
               <div className="flex items-center gap-2">
                 <i className="icon lowercase" />
                 <span className="text">Lowercase</span>
               </div>
-              <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.LOWERCASE}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {SHORTCUTS.LOWERCASE}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="hover:bg-accent/50 transition-colors cursor-pointer"
               onClick={() => {
-                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'uppercase');
-              }}>
+                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, "uppercase");
+              }}
+            >
               <div className="flex items-center gap-2">
                 <i className="icon uppercase" />
                 <span className="text">Uppercase</span>
               </div>
-              <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.UPPERCASE}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {SHORTCUTS.UPPERCASE}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="hover:bg-accent/50 transition-colors cursor-pointer"
               onClick={() => {
-                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'capitalize');
-              }}>
+                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, "capitalize");
+              }}
+            >
               <div className="flex items-center gap-2">
                 <i className="icon capitalize" />
                 <span className="text">Capitalize</span>
               </div>
-              <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.CAPITALIZE}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {SHORTCUTS.CAPITALIZE}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="hover:bg-accent/50 transition-colors cursor-pointer"
               onClick={() => {
-                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'strikethrough');
-              }}>
+                activeEditor.dispatchCommand(
+                  FORMAT_TEXT_COMMAND,
+                  "strikethrough"
+                );
+              }}
+            >
               <div className="flex items-center gap-2">
                 <Strikethrough className="h-4 w-4" />
                 <span className="text">Strikethrough</span>
               </div>
-              <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.STRIKETHROUGH}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {SHORTCUTS.STRIKETHROUGH}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="hover:bg-accent/50 transition-colors cursor-pointer"
               onClick={() => {
-                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'subscript');
-              }}>
+                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, "subscript");
+              }}
+            >
               <div className="flex items-center gap-2">
                 <i className="icon subscript" />
                 <span className="text">Subscript</span>
               </div>
-              <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.SUBSCRIPT}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {SHORTCUTS.SUBSCRIPT}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="hover:bg-accent/50 transition-colors cursor-pointer"
               onClick={() => {
-                activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'superscript');
-              }}>
+                activeEditor.dispatchCommand(
+                  FORMAT_TEXT_COMMAND,
+                  "superscript"
+                );
+              }}
+            >
               <div className="flex items-center gap-2">
                 <i className="icon superscript" />
                 <span className="text">Superscript</span>
               </div>
-              <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.SUPERSCRIPT}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {SHORTCUTS.SUPERSCRIPT}
+              </span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="hover:bg-accent/50 transition-colors cursor-pointer"
-              onClick={() => clearFormatting(activeEditor)}>
+              onClick={() => clearFormatting(activeEditor)}
+            >
               <div className="flex items-center gap-2">
                 <i className="icon clear" />
                 <span className="text">Clear Formatting</span>
               </div>
-              <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.CLEAR_FORMATTING}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {SHORTCUTS.CLEAR_FORMATTING}
+              </span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -836,8 +933,12 @@ export default function ToolbarPlugin({
                 <DropdownMenuItem
                   className="hover:bg-accent/50 transition-colors cursor-pointer"
                   onClick={() => {
-                    activeEditor.dispatchCommand(INSERT_HORIZONTAL_RULE_COMMAND, undefined);
-                  }}>
+                    activeEditor.dispatchCommand(
+                      INSERT_HORIZONTAL_RULE_COMMAND,
+                      undefined
+                    );
+                  }}
+                >
                   <div className="flex items-center gap-2">
                     <Minus className="h-4 w-4" />
                     <span className="text">Horizontal Rule</span>
@@ -847,7 +948,8 @@ export default function ToolbarPlugin({
                   className="hover:bg-accent/50 transition-colors cursor-pointer"
                   onClick={() => {
                     activeEditor.dispatchCommand(INSERT_PAGE_BREAK, undefined);
-                  }}>
+                  }}
+                >
                   <div className="flex items-center gap-2">
                     <i className="icon page-break" />
                     <span className="text">Page Break</span>
@@ -864,12 +966,15 @@ export default function ToolbarPlugin({
                         selection.insertNodes([beatNode, paragraphNode]);
                       }
                     });
-                  }}>
+                  }}
+                >
                   <div className="flex items-center gap-2">
                     <Bot className="h-4 w-4" />
                     <span className="text">Scene Beat</span>
                   </div>
-                  <span className="ml-auto text-xs text-muted-foreground">{SHORTCUTS.SCENE_BEAT}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {SHORTCUTS.SCENE_BEAT}
+                  </span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -883,6 +988,11 @@ export default function ToolbarPlugin({
         editor={activeEditor}
         isRTL={toolbarState.isRTL}
       />
+      <div className="ml-auto flex items-center">
+        <span className="text-xs text-muted-foreground px-2">
+          Words: {toolbarState.wordCount}
+        </span>
+      </div>
       {modal}
     </div>
   );

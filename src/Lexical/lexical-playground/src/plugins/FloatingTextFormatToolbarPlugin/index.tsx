@@ -6,12 +6,12 @@
  *
  */
 
-import type { JSX } from 'react';
+import type { JSX } from "react";
 
-import './index.css';
+import "./index.css";
 
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { mergeRegister } from '@lexical/utils';
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { mergeRegister } from "@lexical/utils";
 import {
   $getSelection,
   $isParagraphNode,
@@ -22,27 +22,40 @@ import {
   getDOMSelection,
   LexicalEditor,
   SELECTION_CHANGE_COMMAND,
-} from 'lexical';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+} from "lexical";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Bold, Italic, Underline, Wand2, Loader2, Check, X } from "lucide-react";
+import {
+  Bold,
+  Italic,
+  Underline,
+  Wand2,
+  Loader2,
+  Check,
+  X,
+} from "lucide-react";
 
-import { getDOMRangeRect } from '../../utils/getDOMRangeRect';
-import { getSelectedNode } from '../../utils/getSelectedNode';
-import { setFloatingElemPosition } from '../../utils/setFloatingElemPosition';
-import { usePromptStore } from '@/features/prompts/store/promptStore';
-import { useAIStore } from '@/features/ai/stores/useAIStore';
-import { useStoryContext } from '@/features/stories/context/StoryContext';
-import { createPromptParser } from '@/features/prompts/services/promptParser';
-import { toast } from 'react-toastify';
-import { Prompt, AllowedModel, PromptParserConfig, PromptMessage } from '@/types/story';
-import { PromptSelectMenu } from '@/components/ui/prompt-select-menu';
-import { Separator } from '@/components/ui/separator';
-import { useStoryStore } from '@/features/stories/stores/useStoryStore';
-import { PromptPreviewDialog } from '@/components/ui/prompt-preview-dialog';
-import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
-import { $isSceneBeatNode } from '../../nodes/SceneBeatNode';
+import { getDOMRangeRect } from "../../utils/getDOMRangeRect";
+import { getSelectedNode } from "../../utils/getSelectedNode";
+import { setFloatingElemPosition } from "../../utils/setFloatingElemPosition";
+import { usePromptStore } from "@/features/prompts/store/promptStore";
+import { useAIStore } from "@/features/ai/stores/useAIStore";
+import { useStoryContext } from "@/features/stories/context/StoryContext";
+import { createPromptParser } from "@/features/prompts/services/promptParser";
+import { toast } from "react-toastify";
+import {
+  Prompt,
+  AllowedModel,
+  PromptParserConfig,
+  PromptMessage,
+} from "@/types/story";
+import { PromptSelectMenu } from "@/components/ui/prompt-select-menu";
+import { Separator } from "@/components/ui/separator";
+import { useStoryStore } from "@/features/stories/stores/useStoryStore";
+import { PromptPreviewDialog } from "@/components/ui/prompt-preview-dialog";
+import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
+import { $isSceneBeatNode } from "../../nodes/SceneBeatNode";
 
 function TextFormatFloatingToolbar({
   editor,
@@ -66,7 +79,7 @@ function TextFormatFloatingToolbar({
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt>();
   const [selectedModel, setSelectedModel] = useState<AllowedModel>();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedText, setGeneratedText] = useState('');
+  const [generatedText, setGeneratedText] = useState("");
 
   // Add these states for prompt preview
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
@@ -76,8 +89,8 @@ function TextFormatFloatingToolbar({
 
   // Fetch prompts when the component mounts
   useEffect(() => {
-    fetchPrompts().catch(error => {
-      console.error('Error loading prompts:', error);
+    fetchPrompts().catch((error) => {
+      console.error("Error loading prompts:", error);
     });
   }, [fetchPrompts]);
 
@@ -86,34 +99,34 @@ function TextFormatFloatingToolbar({
       popupCharStylesEditorRef?.current &&
       (e.buttons === 1 || e.buttons === 3)
     ) {
-      if (popupCharStylesEditorRef.current.style.pointerEvents !== 'none') {
+      if (popupCharStylesEditorRef.current.style.pointerEvents !== "none") {
         const x = e.clientX;
         const y = e.clientY;
         const elementUnderMouse = document.elementFromPoint(x, y);
 
         if (!popupCharStylesEditorRef.current.contains(elementUnderMouse)) {
           // Mouse is not over the target element => not a normal click, but probably a drag
-          popupCharStylesEditorRef.current.style.pointerEvents = 'none';
+          popupCharStylesEditorRef.current.style.pointerEvents = "none";
         }
       }
     }
   }
   function mouseUpListener(e: MouseEvent) {
     if (popupCharStylesEditorRef?.current) {
-      if (popupCharStylesEditorRef.current.style.pointerEvents !== 'auto') {
-        popupCharStylesEditorRef.current.style.pointerEvents = 'auto';
+      if (popupCharStylesEditorRef.current.style.pointerEvents !== "auto") {
+        popupCharStylesEditorRef.current.style.pointerEvents = "auto";
       }
     }
   }
 
   useEffect(() => {
     if (popupCharStylesEditorRef?.current) {
-      document.addEventListener('mousemove', mouseMoveListener);
-      document.addEventListener('mouseup', mouseUpListener);
+      document.addEventListener("mousemove", mouseMoveListener);
+      document.addEventListener("mouseup", mouseUpListener);
 
       return () => {
-        document.removeEventListener('mousemove', mouseMoveListener);
-        document.removeEventListener('mouseup', mouseUpListener);
+        document.removeEventListener("mousemove", mouseMoveListener);
+        document.removeEventListener("mouseup", mouseUpListener);
       };
     }
   }, [popupCharStylesEditorRef]);
@@ -138,11 +151,7 @@ function TextFormatFloatingToolbar({
     ) {
       const rangeRect = getDOMRangeRect(nativeSelection, rootElement);
 
-      setFloatingElemPosition(
-        rangeRect,
-        popupCharStylesEditorElem,
-        anchorElem,
-      );
+      setFloatingElemPosition(rangeRect, popupCharStylesEditorElem, anchorElem);
     }
   }, [editor, anchorElem]);
 
@@ -155,15 +164,15 @@ function TextFormatFloatingToolbar({
       });
     };
 
-    window.addEventListener('resize', update);
+    window.addEventListener("resize", update);
     if (scrollerElem) {
-      scrollerElem.addEventListener('scroll', update);
+      scrollerElem.addEventListener("scroll", update);
     }
 
     return () => {
-      window.removeEventListener('resize', update);
+      window.removeEventListener("resize", update);
       if (scrollerElem) {
-        scrollerElem.removeEventListener('scroll', update);
+        scrollerElem.removeEventListener("scroll", update);
       }
     };
   }, [editor, $updateTextFormatFloatingToolbar, anchorElem]);
@@ -185,8 +194,8 @@ function TextFormatFloatingToolbar({
           $updateTextFormatFloatingToolbar();
           return false;
         },
-        COMMAND_PRIORITY_LOW,
-      ),
+        COMMAND_PRIORITY_LOW
+      )
     );
   }, [editor, $updateTextFormatFloatingToolbar]);
 
@@ -197,11 +206,11 @@ function TextFormatFloatingToolbar({
 
   const createPromptConfig = (prompt: Prompt): PromptParserConfig => {
     if (!currentStoryId || !currentChapterId) {
-      throw new Error('No story or chapter context found');
+      throw new Error("No story or chapter context found");
     }
 
-    let selectedText = '';
-    let previousWords = '';
+    let selectedText = "";
+    let previousWords = "";
 
     editor.getEditorState().read(() => {
       const selection = $getSelection();
@@ -254,10 +263,12 @@ function TextFormatFloatingToolbar({
           }
 
           // Traverse children
-          const children = node.getChildren();
-          for (const child of children) {
-            if (traverseNodes(child)) {
-              return true;
+          if (!$isTextNode(node) && typeof node.getChildren === "function") {
+            const children = node.getChildren();
+            for (const child of children) {
+              if (traverseNodes(child)) {
+                return true;
+              }
             }
           }
 
@@ -265,13 +276,13 @@ function TextFormatFloatingToolbar({
         };
 
         // Start traversal from the root node
-        const rootNode = editor.getEditorState()._nodeMap.get('root');
+        const rootNode = editor.getEditorState()._nodeMap.get("root");
         if (rootNode) {
           traverseNodes(rootNode);
         }
 
         // Join all collected text
-        previousWords = textParts.join('');
+        previousWords = textParts.join("");
       }
     });
 
@@ -281,21 +292,21 @@ function TextFormatFloatingToolbar({
       chapterId: currentChapterId,
       previousWords: previousWords,
       additionalContext: {
-        selectedText
+        selectedText,
       },
-      storyLanguage: currentStory?.language || 'English',
-      povType: currentChapter?.povType || 'Third Person Omniscient',
-      povCharacter: currentChapter?.povCharacter || '',
+      storyLanguage: currentStory?.language || "English",
+      povType: currentChapter?.povType || "Third Person Omniscient",
+      povCharacter: currentChapter?.povCharacter || "",
     };
   };
 
   const handleGenerateWithPrompt = async () => {
     if (!selectedPrompt || !selectedModel) {
-      toast.error('Please select a prompt and model first');
+      toast.error("Please select a prompt and model first");
       return;
     }
 
-    let selectedText = '';
+    let selectedText = "";
     let selection: any = null;
 
     editor.getEditorState().read(() => {
@@ -306,18 +317,18 @@ function TextFormatFloatingToolbar({
     });
 
     if (!selectedText) {
-      toast.error('No text selected');
+      toast.error("No text selected");
       return;
     }
 
     setIsGenerating(true);
-    setGeneratedText('');
+    setGeneratedText("");
 
     try {
       const config = createPromptConfig(selectedPrompt);
       const response = await generateWithPrompt(config, selectedModel);
 
-      let fullText = '';
+      let fullText = "";
 
       await processStreamedResponse(
         response,
@@ -330,36 +341,36 @@ function TextFormatFloatingToolbar({
           editor.update(() => {
             const currentSelection = $getSelection();
             if ($isRangeSelection(currentSelection)) {
-              currentSelection.formatText('italic');
+              currentSelection.formatText("italic");
               currentSelection.insertText(fullText);
             }
           });
 
           // Reset state
           setIsGenerating(false);
-          toast.success('Text generated and inserted');
+          toast.success("Text generated and inserted");
         },
         (error) => {
-          console.error('Error streaming response:', error);
-          toast.error('Failed to generate text');
+          console.error("Error streaming response:", error);
+          toast.error("Failed to generate text");
           setIsGenerating(false);
         }
       );
     } catch (error) {
-      console.error('Error generating text:', error);
-      toast.error('Failed to generate text');
+      console.error("Error generating text:", error);
+      toast.error("Failed to generate text");
       setIsGenerating(false);
     }
   };
 
   const resetGenerationState = () => {
-    setGeneratedText('');
+    setGeneratedText("");
     setIsGenerating(false);
   };
 
   const handlePreviewPrompt = async () => {
     if (!selectedPrompt) {
-      toast.error('Please select a prompt first');
+      toast.error("Please select a prompt first");
       return;
     }
 
@@ -378,8 +389,10 @@ function TextFormatFloatingToolbar({
         setPreviewMessages(result.messages);
       }
     } catch (error) {
-      console.error('Error previewing prompt:', error);
-      setPreviewError(error instanceof Error ? error.message : 'Failed to preview prompt');
+      console.error("Error previewing prompt:", error);
+      setPreviewError(
+        error instanceof Error ? error.message : "Failed to preview prompt"
+      );
     } finally {
       setPreviewLoading(false);
       setShowPreviewDialog(true);
@@ -389,7 +402,7 @@ function TextFormatFloatingToolbar({
   return (
     <div
       ref={popupCharStylesEditorRef}
-      className={`floating-text-format-popup ${showPreviewDialog ? 'active' : ''}`}
+      className={`floating-text-format-popup ${showPreviewDialog ? "active" : ""}`}
     >
       {showPreviewDialog && previewMessages && (
         <PromptPreviewDialog
@@ -405,10 +418,10 @@ function TextFormatFloatingToolbar({
         {editor.isEditable() && (
           <div className="toolbar-buttons">
             <Button
-              variant={isBold ? 'default' : 'outline'}
+              variant={isBold ? "default" : "outline"}
               size="sm"
               onClick={() => {
-                editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
               }}
               title="Bold"
               aria-label="Format text as bold"
@@ -416,10 +429,10 @@ function TextFormatFloatingToolbar({
               <Bold className="h-4 w-4" />
             </Button>
             <Button
-              variant={isItalic ? 'default' : 'outline'}
+              variant={isItalic ? "default" : "outline"}
               size="sm"
               onClick={() => {
-                editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
               }}
               title="Italic"
               aria-label="Format text as italics"
@@ -427,10 +440,10 @@ function TextFormatFloatingToolbar({
               <Italic className="h-4 w-4" />
             </Button>
             <Button
-              variant={isUnderline ? 'default' : 'outline'}
+              variant={isUnderline ? "default" : "outline"}
               size="sm"
               onClick={() => {
-                editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
               }}
               title="Underline"
               aria-label="Format text to underlined"
@@ -499,7 +512,7 @@ function TextFormatFloatingToolbar({
 
 function useFloatingTextFormatToolbar(
   editor: LexicalEditor,
-  anchorElem: HTMLElement,
+  anchorElem: HTMLElement
 ): JSX.Element | null {
   const [isText, setIsText] = useState(false);
   const [isBold, setIsBold] = useState(false);
@@ -533,19 +546,19 @@ function useFloatingTextFormatToolbar(
       const node = getSelectedNode(selection);
 
       // Update text format
-      setIsBold(selection.hasFormat('bold'));
-      setIsItalic(selection.hasFormat('italic'));
-      setIsUnderline(selection.hasFormat('underline'));
+      setIsBold(selection.hasFormat("bold"));
+      setIsItalic(selection.hasFormat("italic"));
+      setIsUnderline(selection.hasFormat("underline"));
 
       // Simplified condition - show text formatting toolbar if there's selected text
-      if (selection.getTextContent() !== '') {
+      if (selection.getTextContent() !== "") {
         setIsText($isTextNode(node) || $isParagraphNode(node));
       } else {
         setIsText(false);
       }
 
-      const rawTextContent = selection.getTextContent().replace(/\n/g, '');
-      if (!selection.isCollapsed() && rawTextContent === '') {
+      const rawTextContent = selection.getTextContent().replace(/\n/g, "");
+      if (!selection.isCollapsed() && rawTextContent === "") {
         setIsText(false);
         return;
       }
@@ -553,9 +566,9 @@ function useFloatingTextFormatToolbar(
   }, [editor]);
 
   useEffect(() => {
-    document.addEventListener('selectionchange', updatePopup);
+    document.addEventListener("selectionchange", updatePopup);
     return () => {
-      document.removeEventListener('selectionchange', updatePopup);
+      document.removeEventListener("selectionchange", updatePopup);
     };
   }, [updatePopup]);
 
@@ -568,7 +581,7 @@ function useFloatingTextFormatToolbar(
         if (editor.getRootElement() === null) {
           setIsText(false);
         }
-      }),
+      })
     );
   }, [editor, updatePopup]);
 
@@ -584,7 +597,7 @@ function useFloatingTextFormatToolbar(
       isItalic={isItalic}
       isUnderline={isUnderline}
     />,
-    anchorElem,
+    anchorElem
   );
 }
 

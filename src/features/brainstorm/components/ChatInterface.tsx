@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Send, ChevronDown, ChevronUp, X, Plus } from "lucide-react";
+import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -85,6 +85,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     getAvailableModels,
     generateWithPrompt,
     processStreamedResponse,
+    abortGeneration,
   } = useAIStore();
   const {
     addChat,
@@ -313,42 +314,51 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
     try {
       setIsGenerating(true);
+      setPreviewError(null);
+      clearDraftMessage();
 
-      // Create user message
       const userMessage: ChatMessage = {
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         role: "user",
         content: input.trim(),
         timestamp: new Date(),
       };
 
-      // Add user message to chat
-      const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
+      const newMessages = [...messages, userMessage];
+      setMessages(newMessages);
 
-      // Clear both the input and the draft message
-      setInput("");
-      clearDraftMessage();
+      // Create or update chat
+      let chatId = currentChatId;
+      if (!chatId) {
+        const newTitle = userMessage.content.substring(0, 40) + (userMessage.content.length > 40 ? '...' : '');
+        chatId = await addChat(storyId, newTitle, newMessages);
+        setCurrentChatId(chatId);
+      } else {
+        await updateChat(chatId, { messages: newMessages });
+      }
 
-      // Create assistant message placeholder
-      const assistantMessageId = uuidv4();
+      const config = createPromptConfig(selectedPrompt);
+      const response = await generateWithPrompt(config, selectedModel);
+
+      if (!response.ok && response.status !== 204) {
+        throw new Error("Failed to generate response");
+      }
+
+      if (response.status === 204) { // Handle aborted response
+        console.log('Generation was aborted.');
+        setIsGenerating(false);
+        return;
+      }
+
       const assistantMessage: ChatMessage = {
-        id: assistantMessageId,
+        id: crypto.randomUUID(),
         role: "assistant",
         content: "",
         timestamp: new Date(),
       };
 
-      // Add assistant message to chat
-      setMessages([...updatedMessages, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
 
-      // Create prompt config with latest context settings
-      const config = createPromptConfig(selectedPrompt);
-
-      // Generate response
-      const response = await generateWithPrompt(config, selectedModel);
-
-      // Process streamed response
       let fullResponse = "";
       await processStreamedResponse(
         response,
@@ -356,66 +366,28 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           fullResponse += token;
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessageId
+              msg.id === assistantMessage.id
                 ? { ...msg, content: fullResponse }
                 : msg
             )
           );
         },
         () => {
-          // On complete
-          const finalMessages: ChatMessage[] = [
-            ...updatedMessages,
-            {
-              id: assistantMessageId,
-              role: "assistant",
-              content: fullResponse,
-              timestamp: new Date(),
-            },
-          ];
-
-          // Generate a title from the first user message if this is a new chat
-          let chatTitle = "";
-          if (selectedChat) {
-            // Use existing title for existing chat
-            chatTitle = selectedChat.title;
-          } else {
-            // Generate title from first message for new chat
-            const firstUserMessage = finalMessages.find(
-              (msg) => msg.role === "user"
-            );
-            chatTitle = firstUserMessage
-              ? firstUserMessage.content.substring(0, 30) +
-                (firstUserMessage.content.length > 30 ? "..." : "")
-              : `New Chat ${new Date().toLocaleString()}`;
-          }
-
-          // Save the chat
-          if (selectedChat) {
-            // Update existing chat
-            updateChat(selectedChat.id, {
-              messages: finalMessages,
-              title: chatTitle,
-            });
-          } else {
-            // Create new chat or update current chat
-            addChat(storyId, chatTitle, finalMessages).then((newChatId) => {
-              setCurrentChatId(newChatId);
-            });
-          }
-
-          setMessages(finalMessages);
           setIsGenerating(false);
+          updateChat(chatId, {
+            messages: [...newMessages, { ...assistantMessage, content: fullResponse }],
+          });
         },
         (error) => {
-          // On error
-          toast.error(`Error generating response: ${error.message}`);
+          console.error("Streaming error:", error);
+          setPreviewError("Failed to stream response");
           setIsGenerating(false);
         }
       );
     } catch (error) {
-      toast.error(
-        `Error generating response: ${error instanceof Error ? error.message : String(error)}`
+      console.error("Error during generation:", error);
+      setPreviewError(
+        error instanceof Error ? error.message : "An unknown error occurred"
       );
       setIsGenerating(false);
     }
@@ -865,23 +837,34 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 </Button>
               </>
             )}
-            <Button
-              type="submit"
-              disabled={
-                isGenerating ||
-                !input.trim() ||
-                !selectedPrompt ||
-                !selectedModel
-              }
-              onClick={handleSubmit}
-              className="mb-[3px]"
-            >
+            <div className="flex gap-2">
               {isGenerating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    console.log("Stop button clicked");
+                    abortGeneration();
+                  }}
+                  className="mb-[3px]"
+                >
+                  <Square className="h-4 w-4 mr-2" />
+                  Stop
+                </Button>
               ) : (
-                <Send className="h-4 w-4" />
+                <Button
+                  type="submit"
+                  disabled={
+                    !input.trim() ||
+                    !selectedPrompt ||
+                    !selectedModel
+                  }
+                  onClick={handleSubmit}
+                  className="mb-[3px]"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
               )}
-            </Button>
+            </div>
           </div>
         </div>
       </div>

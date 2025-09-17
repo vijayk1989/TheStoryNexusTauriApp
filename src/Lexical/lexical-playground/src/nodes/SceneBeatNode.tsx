@@ -33,6 +33,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronRightIcon,
+  Square,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Trash2 } from "lucide-react";
@@ -99,7 +100,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
   const [streamComplete, setStreamComplete] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const { prompts, fetchPrompts, isLoading, error } = usePromptStore();
-  const { generateWithPrompt, processStreamedResponse } = useAIStore();
+  const { generateWithPrompt, processStreamedResponse, abortGeneration } = useAIStore();
   const { tagMap, chapterMatchedEntries, entries } = useLorebookStore();
   const [localMatchedEntries, setLocalMatchedEntries] = useState<
     Map<string, LorebookEntry>
@@ -678,6 +679,18 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 
       const response = await generateWithPrompt(config, selectedModel);
 
+      // Handle aborted responses (204) similar to the chat interface
+      if (!response.ok && response.status !== 204) {
+        throw new Error("Failed to generate response");
+      }
+
+      if (response.status === 204) {
+        // Generation was aborted
+        console.log("Generation was aborted.");
+        setStreaming(false);
+        return;
+      }
+
       await processStreamedResponse(
         response,
         (token) => {
@@ -771,6 +784,21 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
           <span className="font-medium">Scene Beat</span>
         </div>
         <div className="flex items-center gap-2">
+          {streaming && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                console.log("Stop button clicked");
+                abortGeneration();
+                setStreaming(false);
+              }}
+              className="h-8"
+            >
+              Stop
+            </Button>
+          )}
+
           <Popover open={showPovPopover} onOpenChange={handleOpenPovPopover}>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8">
@@ -1094,6 +1122,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                   "Generate Prose"
                 )}
               </Button>
+              
             </div>
 
             {streamComplete && (

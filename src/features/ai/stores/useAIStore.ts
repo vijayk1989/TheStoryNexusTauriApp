@@ -51,6 +51,9 @@ interface AIState {
         selectedModel: AllowedModel,
         promptId: string
     ) => Promise<Response>;
+
+    // New method to abort generation
+    abortGeneration: () => void;
 }
 
 export const useAIStore = create<AIState>((set, get) => ({
@@ -245,5 +248,10 @@ export const useAIStore = create<AIState>((set, get) => ({
             default:
                 throw new Error(`Unsupported provider: ${selectedModel.provider}`);
         }
+    },
+
+    abortGeneration: () => {
+        console.log('[useAIStore] Aborting AI generation');
+        aiService.abortStream();
     }
 }));

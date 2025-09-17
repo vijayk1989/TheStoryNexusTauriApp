@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { PromptForm } from './PromptForm';
 import { PromptsList } from './PromptList';
 import { Plus, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Upload, Download } from 'lucide-react';
 import type { Prompt } from '@/types/story';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-toastify';
@@ -15,6 +16,9 @@ export function PromptsManager() {
     const [showMobileForm, setShowMobileForm] = useState(false);
     const [isReseeding, setIsReseeding] = useState(false);
     const { fetchPrompts } = usePromptStore();
+    const { exportPrompts, importPrompts } = usePromptStore();
+    const [isImporting, setIsImporting] = useState(false);
+    const fileInputRef = useState<HTMLInputElement | null>(null);
 
     const handleNewPrompt = () => {
         setSelectedPrompt(undefined);
@@ -76,6 +80,66 @@ export function PromptsManager() {
                             <Plus className="h-4 w-4" />
                             New Prompt
                         </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={async () => {
+                                try {
+                                    await exportPrompts();
+                                    toast.success('Prompts exported');
+                                } catch (error) {
+                                    console.error('Export failed', error);
+                                    toast.error('Failed to export prompts');
+                                }
+                            }}
+                            title="Export prompts"
+                        >
+                            <Upload className="h-4 w-4" />
+                        </Button>
+
+                        <input
+                            type="file"
+                            accept="application/json"
+                            style={{ display: 'none' }}
+                            ref={el => {
+                                // maintain ref in state to avoid using useRef for simplicity
+                                // @ts-ignore
+                                fileInputRef[1](el);
+                            }}
+                            onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setIsImporting(true);
+                                try {
+                                    const text = await file.text();
+                                    await importPrompts(text);
+                                    await fetchPrompts();
+                                    toast.success('Prompts imported successfully');
+                                } catch (error) {
+                                    console.error('Import failed', error);
+                                    toast.error('Failed to import prompts');
+                                } finally {
+                                    setIsImporting(false);
+                                    // clear the input so the same file can be reselected if needed
+                                    // @ts-ignore
+                                    if (fileInputRef[0]) fileInputRef[0].value = '';
+                                }
+                            }}
+                        />
+
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                                // @ts-ignore
+                                if (fileInputRef[0]) fileInputRef[0].click();
+                            }}
+                            disabled={isImporting}
+                            title="Import prompts"
+                        >
+                            <Download className={cn("h-4 w-4", isImporting && "animate-spin")} />
+                        </Button>
+
                         <Button
                             variant="outline"
                             size="icon"

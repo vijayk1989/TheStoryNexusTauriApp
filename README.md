@@ -94,3 +94,21 @@ npm run tauri build
 - `src/lib/` - Utility functions and helpers
 - `src/hooks/` - Custom React hooks
 - `src/pages/` - Application pages
+
+## Prompts export/import
+
+You can export and import prompts from the Prompts Manager UI.
+
+-- Export: Click the export button to download a JSON file containing all non-system prompts (system prompts are excluded). The file format is:
+
+```
+{
+   "version": "1.0",
+   "type": "prompts",
+   "prompts": [ /* array of prompt objects */ ]
+}
+```
+
+-- Import: Click the import button and choose a JSON file in the format above. Imported prompts are validated (messages must be an array of `{role, content}` objects). Imported prompts are always created as non-system prompts (so you can edit or delete them). If a prompt name already exists it will get a unique ` (Imported)` suffix. New IDs and `createdAt` timestamps are generated for imported prompts.
+
+If an imported prompt fails validation it will be skipped and a warning will be logged to the console.

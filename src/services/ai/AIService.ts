@@ -8,6 +8,7 @@ export class AIService {
     private readonly LOCAL_API_URL = 'http://localhost:1234/v1';
     private openRouter: OpenAI | null = null;
     private openAI: OpenAI | null = null;
+    private abortController: AbortController | null = null;
 
     private constructor() { }
 
@@ -275,19 +276,16 @@ export class AIService {
             requestBody.min_p = min_p;
         }
 
-        const response = await fetch(`${this.LOCAL_API_URL}/chat/completions`, {
+        this.abortController = new AbortController();
+
+        return fetch(`${this.settings.localApiUrl}/chat/completions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(requestBody),
+            signal: this.abortController.signal,
         });
-
-        if (!response.ok) {
-            throw new Error('Failed to generate with local model');
-        }
-
-        return response;
     }
 
     async processStreamedResponse(response: Response,
@@ -295,44 +293,52 @@ export class AIService {
         onComplete: () => void,
         onError: (error: Error) => void
     ) {
+        if (!response.body) {
+            return onError(new Error('Response body is null'));
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
         try {
-            const reader = response.body?.getReader();
-            if (!reader) throw new Error('No response body');
-
-            const decoder = new TextDecoder();
-            let buffer = '';
-
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
+                if (done) {
+                    onComplete();
+                    break;
+                }
 
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n').filter(line => line.trim() !== '');
 
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
-                        const data = line.slice(6);
+                        const data = line.substring(6);
                         if (data === '[DONE]') {
                             onComplete();
                             return;
                         }
-
                         try {
                             const json = JSON.parse(data);
-                            const content = json.choices[0]?.delta?.content;
-                            if (content) {
-                                onToken(content);
+                            const text = json.choices[0]?.delta?.content || '';
+                            if (text) {
+                                onToken(text);
                             }
                         } catch (e) {
-                            console.warn('Failed to parse JSON:', e);
+                            // Ignore parsing errors for non-JSON lines
                         }
                     }
                 }
             }
-            onComplete();
         } catch (error) {
-            onError(error as Error);
+            if ((error as Error).name === 'AbortError') {
+                console.log('Stream reading aborted.');
+                onComplete(); // Treat abort as completion of the stream from the client's perspective
+            } else {
+                onError(error as Error);
+            }
+        } finally {
+            this.abortController = null;
         }
     }
 
@@ -347,64 +353,68 @@ export class AIService {
         min_p?: number
     ): Promise<Response> {
         if (!this.settings?.openaiKey) {
-            throw new Error('OpenAI API key not configured');
+            throw new Error('OpenAI API key not set');
         }
-
         if (!this.openAI) {
             this.initializeOpenAI();
         }
-
-        // Create request options with optional parameters
-        const requestOptions: any = {
-            model: modelId,
-            messages,
-            stream: true,
-            temperature,
-            max_tokens: maxTokens,
-        };
-
-        // Only add parameters if they are defined and not 0 (disabled)
-        if (top_p !== undefined && top_p !== 0) {
-            requestOptions.top_p = top_p;
+        if (!this.openAI) {
+            throw new Error('OpenAI client not initialized');
         }
 
-        // Note: OpenAI doesn't support top_k, repetition_penalty and min_p directly
-        // We'll ignore them for OpenAI
+        const body: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
+            model: modelId,
+            messages: messages,
+            temperature: temperature,
+            max_tokens: maxTokens,
+            stream: true,
+        };
 
-        const stream = await this.openAI!.chat.completions.create(requestOptions);
+        // Add optional parameters if they are defined and not 0
+        if (top_p !== undefined && top_p !== 0) { body.top_p = top_p; }
+        // top_k is not directly supported in the same way by OpenAI's API
+        if (repetition_penalty !== undefined && repetition_penalty !== 0) { body.frequency_penalty = repetition_penalty; }
+        // min_p is not a standard OpenAI parameter
 
-        // Convert the stream to a Response object to maintain compatibility
-        const encoder = new TextEncoder();
-        const readable = new ReadableStream({
-            async start(controller) {
-                try {
-                    for await (const chunk of stream as any) {
-                        const text = chunk.choices[0]?.delta?.content || '';
-                        if (text) {
-                            const data = {
-                                choices: [{
-                                    delta: { content: text }
-                                }]
-                            };
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        this.abortController = new AbortController();
+
+        try {
+            const stream = await this.openAI.chat.completions.create(body, { signal: this.abortController.signal });
+
+            const responseStream = new ReadableStream({
+                async start(controller) {
+                    try {
+                        for await (const chunk of stream) {
+                            const content = chunk.choices[0]?.delta?.content || '';
+                            if (content) {
+                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                                controller.enqueue(new TextEncoder().encode(formattedChunk));
+                            }
+                        }
+                        controller.close();
+                    } catch (error) {
+                        if ((error as Error).name === 'AbortError') {
+                            console.log('OpenAI stream aborted');
+                            controller.close();
+                        } else {
+                            controller.error(error);
                         }
                     }
-                    controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                    controller.close();
-                } catch (error) {
-                    console.error('Error processing OpenAI stream:', error);
-                    controller.error(error);
                 }
-            }
-        });
+            });
 
-        return new Response(readable, {
-            headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
+            return new Response(responseStream, {
+                headers: { 'Content-Type': 'text/event-stream' }
+            });
+
+        } catch (error) {
+            if ((error as Error).name === 'AbortError') {
+                console.log('OpenAI generation aborted');
+                return new Response(null, { status: 204 }); // Return an empty response
             }
-        });
+            console.error('Error generating with OpenAI:', error);
+            throw error;
+        }
     }
 
     async generateWithOpenRouter(
@@ -418,74 +428,74 @@ export class AIService {
         min_p?: number
     ): Promise<Response> {
         if (!this.settings?.openrouterKey) {
-            throw new Error('OpenRouter API key not configured');
+            throw new Error('OpenRouter API key not set');
         }
-
         if (!this.openRouter) {
             this.initializeOpenRouter();
         }
+        if (!this.openRouter) {
+            throw new Error('OpenRouter client not initialized');
+        }
 
-        // Create request options with optional parameters
-        const requestOptions: any = {
+        const body: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
             model: modelId,
-            messages,
-            stream: true,
-            temperature,
+            messages: messages,
+            temperature: temperature,
             max_tokens: maxTokens,
+            stream: true,
         };
 
-        // Only add parameters if they are defined and not 0 (disabled)
-        if (top_p !== undefined && top_p !== 0) {
-            requestOptions.top_p = top_p;
-        }
-
+        // Add optional parameters if they are defined and not 0
+        if (top_p !== undefined && top_p !== 0) { body.top_p = top_p; }
+        if (repetition_penalty !== undefined && repetition_penalty !== 0) { body.frequency_penalty = repetition_penalty; }
+        // min_p and top_k are often included in transforms/routing, but we can pass them
         if (top_k !== undefined && top_k !== 0) {
-            requestOptions.top_k = top_k;
+            // This is a common way to pass extra params to OpenRouter
+            Object.assign(body, { top_k });
         }
-
-        if (repetition_penalty !== undefined && repetition_penalty !== 0) {
-            // OpenRouter uses frequency_penalty instead of repetition_penalty
-            requestOptions.frequency_penalty = repetition_penalty - 1.0;
-        }
-
         if (min_p !== undefined && min_p !== 0) {
-            requestOptions.min_p = min_p;
+            Object.assign(body, { min_p });
         }
 
-        const stream = await this.openRouter!.chat.completions.create(requestOptions);
+        this.abortController = new AbortController();
 
-        // Convert the stream to a Response object to maintain compatibility
-        const encoder = new TextEncoder();
-        const readable = new ReadableStream({
-            async start(controller) {
-                try {
-                    for await (const chunk of stream as any) {
-                        const text = chunk.choices[0]?.delta?.content || '';
-                        if (text) {
-                            const data = {
-                                choices: [{
-                                    delta: { content: text }
-                                }]
-                            };
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        try {
+            const stream = await this.openRouter.chat.completions.create(body, { signal: this.abortController.signal });
+
+            const responseStream = new ReadableStream({
+                async start(controller) {
+                    try {
+                        for await (const chunk of stream) {
+                            const content = chunk.choices[0]?.delta?.content || '';
+                            if (content) {
+                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                                controller.enqueue(new TextEncoder().encode(formattedChunk));
+                            }
+                        }
+                        controller.close();
+                    } catch (error) {
+                        if ((error as Error).name === 'AbortError') {
+                            console.log('OpenRouter stream aborted');
+                            controller.close();
+                        } else {
+                            controller.error(error);
                         }
                     }
-                    controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                    controller.close();
-                } catch (error) {
-                    console.error('Error processing OpenRouter stream:', error);
-                    controller.error(error);
                 }
-            }
-        });
+            });
 
-        return new Response(readable, {
-            headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
+            return new Response(responseStream, {
+                headers: { 'Content-Type': 'text/event-stream' }
+            });
+
+        } catch (error) {
+            if ((error as Error).name === 'AbortError') {
+                console.log('OpenRouter generation aborted');
+                return new Response(null, { status: 204 }); // Return an empty response
             }
-        });
+            console.error('Error generating with OpenRouter:', error);
+            throw error;
+        }
     }
 
     // Add getter methods for settings
@@ -498,31 +508,30 @@ export class AIService {
     }
 
     getLocalApiUrl(): string {
-        return this.settings?.localApiUrl || 'http://localhost:1234/v1';
+        return this.settings?.localApiUrl || this.LOCAL_API_URL;
     }
 
     async updateLocalApiUrl(url: string): Promise<void> {
-        if (!this.settings) throw new Error('AIService not initialized');
-
-        console.log(`[AIService] Updating local API URL to: ${url}`);
-
-        // Update the URL in settings
-        await db.aiSettings.update(this.settings.id, { localApiUrl: url });
-        console.log(`[AIService] Local API URL updated in database`);
-
-        // Update the local instance
-        if (this.settings) {
-            this.settings.localApiUrl = url;
-            console.log(`[AIService] Local API URL updated in memory`);
+        if (!this.settings) {
+            throw new Error('Settings not initialized');
         }
+        await db.aiSettings.update(this.settings.id, { localApiUrl: url });
+        this.settings.localApiUrl = url;
 
-        // Refresh local models with the new URL
-        console.log(`[AIService] Fetching local models with new URL: ${url}`);
+        // Re-fetch local models as the URL has changed
         await this.fetchAvailableModels('local');
     }
 
     getSettings(): AISettings | null {
         return this.settings;
+    }
+
+    abortStream(): void {
+        if (this.abortController) {
+            console.log('[AIService] Aborting stream');
+            this.abortController.abort();
+            this.abortController = null;
+        }
     }
 }
 

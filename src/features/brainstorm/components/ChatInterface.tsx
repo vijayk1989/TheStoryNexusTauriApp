@@ -50,6 +50,12 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Keep an initial height (matches the Tailwind min-h-[80px]) so we can
+  // reset to it when the box is cleared.
+  const INITIAL_TEXTAREA_HEIGHT = 80; // px
+  const MAX_TEXTAREA_HEIGHT = 600; // px
+
 
   // State for context selection
   const [includeFullContext, setIncludeFullContext] = useState(false);
@@ -99,6 +105,36 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
   // State for AI
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+
+  // Ensure the textarea starts at the initial height on mount
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta) {
+      const contentHeight = ta.scrollHeight;
+      const newHeight = Math.min(Math.max(contentHeight, INITIAL_TEXTAREA_HEIGHT), MAX_TEXTAREA_HEIGHT);
+      ta.style.height = `${newHeight}px`;
+      ta.style.overflowY = contentHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+    }
+  }, []);
+
+  // Keep local input in sync with the store draftMessage and reset height when cleared
+  useEffect(() => {
+    setInput(draftMessage);
+    const ta = textareaRef.current;
+    if (ta) {
+      if (!draftMessage) {
+        // reset to initial height when cleared
+        ta.style.height = `${INITIAL_TEXTAREA_HEIGHT}px`;
+        ta.style.overflowY = 'hidden';
+      } else {
+        const contentHeight = ta.scrollHeight;
+        const newHeight = Math.min(Math.max(contentHeight, INITIAL_TEXTAREA_HEIGHT), MAX_TEXTAREA_HEIGHT);
+        ta.style.height = 'auto';
+        ta.style.height = `${newHeight}px`;
+        ta.style.overflowY = contentHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+      }
+    }
+  }, [draftMessage]);
   const [selectedModel, setSelectedModel] = useState<AllowedModel | null>(null);
   const [availableModels, setAvailableModels] = useState<AllowedModel[]>([]);
 
@@ -424,6 +460,19 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     const newValue = e.target.value;
     setInput(newValue);
     setDraftMessage(newValue);
+    // Autosize as the user types
+    try {
+      const ta = textareaRef.current;
+      if (ta) {
+        ta.style.height = 'auto';
+        const contentHeight = ta.scrollHeight;
+        const newHeight = Math.min(Math.max(contentHeight, INITIAL_TEXTAREA_HEIGHT), MAX_TEXTAREA_HEIGHT);
+        ta.style.height = `${newHeight}px`;
+        ta.style.overflowY = contentHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+      }
+    } catch (err) {
+      // ignore
+    }
   };
 
   const handleDeleteMessage = (messageId: string) => {
@@ -807,6 +856,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
               placeholder="Type your message..."
               value={input}
               onChange={handleInputChange}
+              ref={(el: HTMLTextAreaElement) => (textareaRef.current = el)}
               className="min-h-[80px]"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { usePromptStore } from '../store/promptStore';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import type { Prompt, PromptMessage, AIModel, AllowedModel } from '@/types/story';
@@ -24,20 +25,13 @@ const PROMPT_TYPES: Array<{ value: PromptType; label: string }> = [
 ] as const;
 
 const MOST_USED_MODELS = [
-    'Cohere: Command A',
-    'TheDrummer: Anubis Pro 105B V1',
-    'LatitudeGames: Wayfarer Large 70B Llama 3.3',
-    'DeepSeek: DeepSeek R1',
-    'Anthropic: Claude 3.7 Sonnet',
-    'Anthropic: Claude 3.5 Sonnet',
-    'xAI: Grok 2 1212',
-    'OpenAI: GPT-4o (2024-11-20)',
-    'OpenAI: GPT-4o',
-    'TheDrummer: Skyfall 36B V2',
-    'Google: Gemini Flash 2.0',
-    'Mistral Large 2411',
-    'Mistral Large 2407',
-    'Mistral: Mistral Small 3.1 24B'
+    'Anthropic: Claude Sonnet 4',
+    'DeepSeek: DeepSeek V3.1',
+    'DeepSeek: DeepSeek V3 0324',
+    'Mistral: Mistral Small 3.2 24B',
+    'MoonshotAI: Kimi K2 0905',
+    'Z.AI: GLM 4.5 Air',
+    'Z.AI: GLM 4.5',
 ];
 
 interface ModelsByProvider {
@@ -107,7 +101,6 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             'Free': [],
             'Other': []
         };
-
         availableModels.forEach(model => {
             if (model.provider === 'local') {
                 groups['Local'].push(model);
@@ -138,6 +131,22 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             Object.entries(groups).filter(([_, models]) => models.length > 0)
         );
     }, [availableModels]);
+
+    // Simple search state for the popover-based selector (placed after modelGroups memo)
+    const [modelSearch, setModelSearch] = useState('');
+
+    const filteredModelGroups = useMemo(() => {
+        if (!modelSearch.trim()) return modelGroups;
+        const q = modelSearch.toLowerCase();
+        const filtered: ModelsByProvider = {};
+        Object.entries(modelGroups).forEach(([provider, models]) => {
+            const matched = models.filter(m =>
+                m.name.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q)
+            );
+            if (matched.length > 0) filtered[provider] = matched;
+        });
+        return filtered;
+    }, [modelGroups, modelSearch]);
 
     const handleModelSelect = (modelId: string) => {
         const selectedModel = availableModels.find(m => m.id === modelId);
@@ -343,7 +352,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                         <Badge
                             key={model.id}
                             variant="secondary"
-                            className="flex items-center gap-1 px-3 py-1"
+                            className="flex items-center gap-1 px-3 py-1" 
                         >
                             {model.name}
                             <button
@@ -357,29 +366,44 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                     ))}
                 </div>
 
-                <Select onValueChange={handleModelSelect}>
-                    <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {Object.entries(modelGroups).map(([provider, models]) => (
-                            <div key={provider}>
-                                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted">
-                                    {provider}
-                                </div>
-                                {models.map((model) => (
-                                    <SelectItem
-                                        key={model.id}
-                                        value={model.id}
-                                        disabled={selectedModels.some(m => m.id === model.id)}
-                                    >
-                                        {model.name}
-                                    </SelectItem>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full text-left">{selectedModels.length ? `${selectedModels.length} selected` : 'Select a model'}</Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-96">
+                        <div className="flex flex-col">
+                            <Input
+                                placeholder="Search models..."
+                                value={modelSearch}
+                                onChange={(e) => setModelSearch(e.target.value)}
+                                className="mb-2"
+                                autoFocus
+                            />
+
+                            <div className="max-h-64 overflow-auto">
+                                {Object.keys(filteredModelGroups).length === 0 && (
+                                    <div className="p-2 text-sm text-muted-foreground">No models found</div>
+                                )}
+                                {Object.entries(filteredModelGroups).map(([provider, models]) => (
+                                    <div key={provider} className="pb-2">
+                                        <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted">
+                                            {provider}
+                                        </div>
+                                        {models.map((model) => (
+                                            <div
+                                                key={model.id}
+                                                className={`px-2 py-1 hover:bg-accent hover:text-accent-foreground cursor-pointer ${selectedModels.some(m => m.id === model.id) ? 'opacity-50 pointer-events-none' : ''}`}
+                                                onClick={() => { handleModelSelect(model.id); }}
+                                            >
+                                                {model.name}
+                                            </div>
+                                        ))}
+                                    </div>
                                 ))}
                             </div>
-                        ))}
-                    </SelectContent>
-                </Select>
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
 
             <div className="border-t border-input pt-6">
@@ -437,7 +461,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 value={[maxTokens]}
                                 onValueChange={(value) => setMaxTokens(value[0])}
                                 min={1}
-                                max={8192}
+                                max={16384}
                                 className="flex-1"
                             />
                             <Input
@@ -449,7 +473,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                     }
 
                                     const value = parseInt(e.target.value);
-                                    if (!isNaN(value) && value >= 1 && value <= 8192) {
+                                    if (!isNaN(value) && value >= 1 && value <= 16384) {
                                         setMaxTokens(value);
                                     }
                                 }}

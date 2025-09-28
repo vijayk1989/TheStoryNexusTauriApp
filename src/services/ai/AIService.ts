@@ -56,7 +56,7 @@ export class AIService {
                 id: `local/${model.id}`,
                 name: model.id, // We could prettify this name if needed
                 provider: 'local' as AIProvider,
-                contextLength: 8192, // Default value since not provided by API
+                contextLength: 16384, // Default value since not provided by API
                 enabled: true
             }));
 
@@ -70,7 +70,7 @@ export class AIService {
                 id: 'local',
                 name: 'Local Model',
                 provider: 'local',
-                contextLength: 8192,
+                contextLength: 16384,
                 enabled: true
             }];
         }
@@ -191,7 +191,7 @@ export class AIService {
                 id: model.id,
                 name: model.id,
                 provider: 'openai' as AIProvider,
-                contextLength: model.context_length || 8192,
+                contextLength: model.context_length || 16384,
                 enabled: true
             }));
     }

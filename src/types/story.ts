@@ -67,6 +67,11 @@ export interface ChatMessage {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
+    // Optional edit metadata
+    originalContent?: string; // the original content before the first edit
+    editedAt?: string; // ISO timestamp when last edited
+    editedBy?: string; // who edited it (e.g., 'user')
+    edited?: boolean; // convenience flag
 }
 
 // Prompt related types

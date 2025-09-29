@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square } from "lucide-react";
+import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -101,10 +101,17 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     setDraftMessage,
     clearDraftMessage,
   } = useBrainstormStore();
+  const { setMessageEdited } = useBrainstormStore();
   const { fetchChapters } = useChapterStore();
 
   // State for AI
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  // Editing state for inline assistant message edits
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState<string>('');
+  const editingTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Track which assistant message is currently streaming (being generated)
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
   // Ensure the textarea starts at the initial height on mount
   useEffect(() => {
@@ -295,7 +302,6 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
       setPreviewMessages(undefined);
 
       const config = createPromptConfig(selectedPrompt);
-
       // Add this log
       console.log("DEBUG: Preview config:", {
         ...config,
@@ -310,7 +316,6 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
       const promptParser = createPromptParser();
       const parsedPrompt = await promptParser.parse(config);
-
       if (parsedPrompt.error) {
         setPreviewError(parsedPrompt.error);
         toast.error(`Error parsing prompt: ${parsedPrompt.error}`);
@@ -394,6 +399,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      // mark this message as currently streaming
+      setStreamingMessageId(assistantMessage.id);
 
       let fullResponse = "";
       await processStreamedResponse(
@@ -410,6 +417,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         },
         () => {
           setIsGenerating(false);
+          setStreamingMessageId(null);
           updateChat(chatId, {
             messages: [...newMessages, { ...assistantMessage, content: fullResponse }],
           });
@@ -418,6 +426,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           console.error("Streaming error:", error);
           setPreviewError("Failed to stream response");
           setIsGenerating(false);
+          setStreamingMessageId(null);
         }
       );
     } catch (error) {
@@ -428,6 +437,50 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
       setIsGenerating(false);
     }
   };
+
+  // Save inline edit
+  const handleSaveEdit = async (messageId: string) => {
+    if (!editingContent.trim()) {
+      toast.error('Edited content cannot be empty');
+      return;
+    }
+
+    try {
+      // Optimistically update local messages
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, content: editingContent, editedAt: new Date().toISOString(), originalContent: m.originalContent ?? m.content } : m));
+
+      if (!selectedChat) throw new Error('No chat selected');
+      await setMessageEdited(selectedChat.id, messageId, editingContent);
+
+      toast.success('Message edited');
+      setEditingMessageId(null);
+      setEditingContent('');
+    } catch (error) {
+      console.error('Failed to save edit', error);
+      toast.error('Failed to save edit');
+      // Reload chat messages from DB to rollback
+      if (selectedChat) {
+        const fresh = await db.aiChats.get(selectedChat.id);
+        if (fresh) setMessages(fresh.messages || []);
+      }
+    }
+  };
+
+  // Autosize the editing textarea when editing starts or content changes
+  useEffect(() => {
+    const ta = editingTextareaRef.current;
+    if (ta) {
+      try {
+        ta.style.height = 'auto';
+        const contentHeight = ta.scrollHeight;
+        const newHeight = Math.min(Math.max(contentHeight, INITIAL_TEXTAREA_HEIGHT), MAX_TEXTAREA_HEIGHT);
+        ta.style.height = `${newHeight}px`;
+        ta.style.overflowY = contentHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+      } catch (err) {
+        // ignore
+      }
+    }
+  }, [editingMessageId, editingContent]);
 
   // Handle chapter summary selection
   const handleSummarySelect = (summaryId: string) => {
@@ -510,11 +563,64 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                         : "bg-muted"
                     }`}
                   >
-                    <MarkdownRenderer
-                      content={message.content}
-                      showDelete={true}
-                      onDelete={() => handleDeleteMessage(message.id)}
-                    />
+                    {editingMessageId === message.id ? (
+                      <div>
+                        <Textarea
+                          ref={(el: HTMLTextAreaElement) => (editingTextareaRef.current = el)}
+                          value={editingContent}
+                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                            const newVal = e.target.value;
+                            setEditingContent(newVal);
+                            // Autosize editor textarea
+                            try {
+                              const ta = editingTextareaRef.current;
+                              if (ta) {
+                                ta.style.height = 'auto';
+                                const contentHeight = ta.scrollHeight;
+                                const newHeight = Math.min(Math.max(contentHeight, INITIAL_TEXTAREA_HEIGHT), MAX_TEXTAREA_HEIGHT);
+                                ta.style.height = `${newHeight}px`;
+                                ta.style.overflowY = contentHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+                              }
+                            } catch (err) {
+                              // ignore
+                            }
+                          }}
+                          className="min-h-[80px] max-h-[330px] md:min-w-[520px]"
+                          onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                              e.preventDefault();
+                              // Save
+                              handleSaveEdit(message.id);
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              setEditingMessageId(null);
+                              setEditingContent('');
+                            }
+                          }}
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <Button size="sm" onClick={() => handleSaveEdit(message.id)}>Save</Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingMessageId(null); setEditingContent(''); }}>Cancel</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <MarkdownRenderer
+                          content={message.content}
+                          showDelete={true}
+                          onDelete={() => handleDeleteMessage(message.id)}
+                          onEdit={() => {
+                            if (streamingMessageId === message.id) {
+                              if (!confirm('This message is still being generated. Stop generation and edit?')) return;
+                              abortGeneration();
+                              setStreamingMessageId(null);
+                            }
+                            setEditingMessageId(message.id);
+                            setEditingContent(message.content);
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

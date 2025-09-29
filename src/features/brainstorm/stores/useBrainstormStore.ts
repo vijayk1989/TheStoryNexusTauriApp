@@ -19,6 +19,9 @@ interface BrainstormState {
     updateChat: (chatId: string, data: Partial<AIChat>) => Promise<void>;
     setDraftMessage: (message: string) => void;
     clearDraftMessage: () => void;
+    // Message-level helpers
+    updateMessage: (chatId: string, messageId: string, updates: Partial<any>) => Promise<void>;
+    setMessageEdited: (chatId: string, messageId: string, editedContent: string) => Promise<void>;
 }
 
 export const useBrainstormStore = create<BrainstormState>((set, get) => ({
@@ -139,6 +142,69 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
                     };
                 });
             }
+        } catch (error) {
+            set({ error: (error as Error).message });
+            throw error;
+        }
+    },
+
+    // Update a single message within a chat (optimistic update)
+    updateMessage: async (chatId: string, messageId: string, updates: Partial<any>) => {
+        try {
+            // Optimistically update in-memory state
+            set(state => {
+                const chats = state.chats.map(chat => {
+                    if (chat.id !== chatId) return chat;
+                    const messages = (chat.messages || []).map(msg =>
+                        msg.id === messageId ? { ...msg, ...updates } : msg
+                    );
+                    return { ...chat, messages, updatedAt: new Date() };
+                });
+
+                const selectedChat = state.selectedChat?.id === chatId
+                    ? chats.find(c => c.id === chatId) || state.selectedChat
+                    : state.selectedChat;
+
+                return { chats, selectedChat };
+            });
+
+            // Persist to DB using existing updateChat path
+            const chat = await db.aiChats.get(chatId);
+            if (!chat) throw new Error('Chat not found');
+
+            const updatedMessages = (chat.messages || []).map((msg: any) =>
+                msg.id === messageId ? { ...msg, ...updates } : msg
+            );
+
+            await db.aiChats.update(chatId, { messages: updatedMessages, updatedAt: new Date() });
+        } catch (error) {
+            // On error, reload the chat list to rollback optimistic change
+            const chats = await db.aiChats.toArray();
+            set({ chats });
+            set({ error: (error as Error).message });
+            throw error;
+        }
+    },
+
+    // Convenience helper to mark a message as edited and persist originalContent
+    setMessageEdited: async (chatId: string, messageId: string, editedContent: string) => {
+        try {
+            const chat = await db.aiChats.get(chatId);
+            if (!chat) throw new Error('Chat not found');
+
+            const existingMsg = (chat.messages || []).find((m: any) => m.id === messageId);
+            if (!existingMsg) throw new Error('Message not found');
+
+            const originalContent = existingMsg.originalContent ?? existingMsg.content;
+            const editedAt = new Date().toISOString();
+
+            // Use updateMessage to apply optimistic update + persist
+            await get().updateMessage(chatId, messageId, {
+                content: editedContent,
+                originalContent,
+                editedAt,
+                editedBy: 'user'
+            });
         } catch (error) {
             set({ error: (error as Error).message });
             throw error;

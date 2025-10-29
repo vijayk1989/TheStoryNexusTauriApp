@@ -30,6 +30,31 @@ npm run tauri build               # Create production release
 ### Code Quality
 The project uses Biome for linting and formatting. TypeScript strict mode is disabled (`strict: false` in tsconfig.json).
 
+#### Error Handling
+
+- Only add error handling where there is likely to be a recoverable error.
+- Unhandled exceptions can fall back to a global error boundary.
+- Where you add error handling, use the functional style incorporating the `@jfdi/attempt` library, e.g.:
+
+```typescript
+import { attempt, attemptPromise } from '@jfdi/attempt';
+
+// Synchronous
+const [error, result] = attempt<TResult>(() => someOperation());
+if (error) return handleError(error);
+
+// Asynchronous
+const [error, result] = await attemptPromise<TResult>(async () => await someAsyncOperation());
+if (error) return handleError(error);
+```
+
+#### Style
+
+- Prefer functional programming patterns.
+- Use `const`, not `let`.
+- Use arrow functions.
+- Use async/await for asynchronous code.
+
 ## Architecture
 
 ### Technology Stack

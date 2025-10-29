@@ -207,3 +207,15 @@ export interface ParsedPrompt {
 }
 
 export type VariableResolver = (context: PromptContext, ...args: string[]) => Promise<string>;
+
+// Story Export/Import types
+export interface StoryExport {
+    version: string;
+    type: 'story';
+    exportDate: string;
+    story: Story;
+    chapters: Chapter[];
+    lorebookEntries: LorebookEntry[];
+    sceneBeats: SceneBeat[];
+    aiChats: AIChat[];
+}

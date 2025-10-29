@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { db } from '@/services/database';
+import { useLorebookDataStore } from './useLorebookDataStore';
+import { LorebookFilterService } from './LorebookFilterService';
+import { LorebookImportExportService } from './LorebookImportExportService';
 import type { LorebookEntry } from '@/types/story';
 
 interface LorebookState {
@@ -28,7 +30,7 @@ interface LorebookState {
     getFilteredEntries: (includeDisabled?: boolean) => LorebookEntry[];
     getFilteredEntriesByIds: (ids: string[], includeDisabled?: boolean) => LorebookEntry[];
 
-    // New Helper Methods
+    // Helper Methods
     getAllCharacters: () => LorebookEntry[];
     getAllLocations: () => LorebookEntry[];
     getAllItems: () => LorebookEntry[];
@@ -50,333 +52,177 @@ interface LorebookState {
 }
 
 export const useLorebookStore = create<LorebookState>((set, get) => ({
-    entries: [],
-    isLoading: false,
-    error: null,
-    tagMap: {},
-    editorContent: '',
-    matchedEntries: new Map(),
-    chapterMatchedEntries: new Map(),
-
-    buildTagMap: () => {
-        const { entries } = get();
-        const newTagMap: Record<string, LorebookEntry> = {};
-
-        entries.forEach(entry => {
-            // Skip disabled entries when building the tag map
-            if (entry.isDisabled) return;
-
-            // Add the entry name as a tag (normalized to lowercase for case-insensitive matching)
-            const normalizedName = entry.name.toLowerCase().trim();
-            newTagMap[normalizedName] = entry;
-
-            // Process the explicit tags
-            entry.tags.forEach(tag => {
-                // Add the full tag
-                const normalizedTag = tag.toLowerCase().trim();
-                newTagMap[normalizedTag] = entry;
-
-                // If this tag is a single word, we're done
-                if (!normalizedTag.includes(' ')) {
-                    return;
-                }
-
-                // For multi-word tags, add individual words only if they're also standalone tags
-                const words = normalizedTag.split(' ');
-                words.forEach(word => {
-                    // Only add individual words if they exist as standalone tags
-                    if (entry.tags.some(t => t.toLowerCase() === word)) {
-                        newTagMap[word] = entry;
-                    }
-                });
-            });
-        });
-
-        set({ tagMap: newTagMap });
+    // Sync state from data store
+    get entries() {
+        return useLorebookDataStore.getState().entries;
+    },
+    get isLoading() {
+        return useLorebookDataStore.getState().isLoading;
+    },
+    get error() {
+        return useLorebookDataStore.getState().error;
+    },
+    get editorContent() {
+        return useLorebookDataStore.getState().editorContent;
+    },
+    get matchedEntries() {
+        return useLorebookDataStore.getState().matchedEntries;
+    },
+    get chapterMatchedEntries() {
+        return useLorebookDataStore.getState().chapterMatchedEntries;
     },
 
+    tagMap: {},
+
+    buildTagMap: () => {
+        const entries = useLorebookDataStore.getState().entries;
+        const tagMap = LorebookFilterService.buildTagMap(entries);
+        set({ tagMap });
+    },
+
+    // Data operations
     loadEntries: async (storyId: string) => {
-        set({ isLoading: true, error: null });
-        try {
-            const entries = await db.getLorebookEntriesByStory(storyId);
-            set({ entries, isLoading: false });
-        } catch (error) {
-            set({ error: (error as Error).message, isLoading: false });
-        }
+        await useLorebookDataStore.getState().loadEntries(storyId);
+        get().buildTagMap();
     },
 
     createEntry: async (entryData) => {
-        try {
-            const id = crypto.randomUUID();
-            const newEntry: LorebookEntry = {
-                ...entryData,
-                id,
-                createdAt: new Date(),
-                isDisabled: false, // Set isDisabled to false by default
-            };
-
-            await db.lorebookEntries.add(newEntry);
-            set(state => ({ entries: [...state.entries, newEntry] }));
-            get().buildTagMap();
-        } catch (error) {
-            set({ error: (error as Error).message });
-            throw error;
-        }
+        await useLorebookDataStore.getState().createEntry(entryData);
+        get().buildTagMap();
     },
 
     updateEntry: async (id, data) => {
-        try {
-            await db.lorebookEntries.update(id, data);
-            set(state => ({
-                entries: state.entries.map(entry =>
-                    entry.id === id ? { ...entry, ...data } : entry
-                ),
-            }));
-            get().buildTagMap();
-        } catch (error) {
-            set({ error: (error as Error).message });
-            throw error;
-        }
+        await useLorebookDataStore.getState().updateEntry(id, data);
+        get().buildTagMap();
     },
 
     deleteEntry: async (id) => {
-        try {
-            await db.lorebookEntries.delete(id);
-            set(state => ({
-                entries: state.entries.filter(entry => entry.id !== id),
-            }));
-            get().buildTagMap();
-        } catch (error) {
-            set({ error: (error as Error).message });
-            throw error;
-        }
+        await useLorebookDataStore.getState().deleteEntry(id);
+        get().buildTagMap();
     },
 
-    getEntriesByTag: (tag: string) => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.tags.some(t => t.toLowerCase() === tag.toLowerCase())
-        );
-    },
-
-    getEntriesByCategory: (category: LorebookEntry['category']) => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === category
-        );
-    },
-
-    setEditorContent: (content: string) => set({ editorContent: content }),
-
-    setMatchedEntries: (entries) => {
-        set({ matchedEntries: entries });
-    },
-
-    setChapterMatchedEntries: (entries) => {
-        set({ chapterMatchedEntries: entries });
-    },
-
-    // New combined action
     updateEntryAndRebuildTags: async (id, data) => {
-        try {
-            await db.lorebookEntries.update(id, data);
-            set(state => ({
-                entries: state.entries.map(entry =>
-                    entry.id === id ? { ...entry, ...data } : entry
-                ),
-            }));
-            // Rebuild tags after updating entry
-            get().buildTagMap();
-        } catch (error) {
-            set({ error: (error as Error).message });
-            throw error;
-        }
+        await useLorebookDataStore.getState().updateEntry(id, data);
+        get().buildTagMap();
     },
 
-    // New Helper Methods
+    setEditorContent: (content: string) => {
+        useLorebookDataStore.getState().setEditorContent(content);
+    },
+
+    setMatchedEntries: (entries: Map<string, LorebookEntry>) => {
+        useLorebookDataStore.getState().setMatchedEntries(entries);
+    },
+
+    setChapterMatchedEntries: (entries: Map<string, LorebookEntry>) => {
+        useLorebookDataStore.getState().setChapterMatchedEntries(entries);
+    },
+
+    // Filter operations - delegate to service
+    getFilteredEntries: (includeDisabled = false) => {
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getFilteredEntries(entries, includeDisabled);
+    },
+
+    getFilteredEntriesByIds: (ids, includeDisabled = false) => {
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getFilteredEntriesByIds(entries, ids, includeDisabled);
+    },
+
+    getEntriesByTag: (tag) => {
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getEntriesByTag(entries, tag);
+    },
+
+    getEntriesByCategory: (category) => {
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getEntriesByCategory(entries, category);
+    },
+
     getAllCharacters: () => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === 'character'
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getAllCharacters(entries);
     },
 
     getAllLocations: () => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === 'location'
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getAllLocations(entries);
     },
 
     getAllItems: () => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === 'item'
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getAllItems(entries);
     },
 
     getAllEvents: () => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === 'event'
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getAllEvents(entries);
     },
 
     getAllNotes: () => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === 'note'
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getAllNotes(entries);
     },
 
     getAllSynopsis: () => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === 'synopsis'
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getAllSynopsis(entries);
     },
 
     getAllStartingScenarios: () => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === 'starting scenario'
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getAllStartingScenarios(entries);
     },
 
     getAllTimelines: () => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === 'timeline'
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getAllTimelines(entries);
     },
 
     getAllEntries: () => {
-        const { entries } = get();
-        return entries.filter(entry => !entry.isDisabled); // Filter out disabled entries
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getAllEntries(entries);
     },
 
     getEntriesByImportance: (importance) => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.metadata?.importance === importance
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getEntriesByImportance(entries, importance);
     },
 
     getEntriesByStatus: (status) => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.metadata?.status === status
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getEntriesByStatus(entries, status);
     },
 
     getEntriesByType: (type) => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.metadata?.type === type
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getEntriesByType(entries, type);
     },
 
     getEntriesByRelationship: (targetId) => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.metadata?.relationships?.some(rel => rel.targetId === targetId)
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getEntriesByRelationship(entries, targetId);
     },
 
     getEntriesByCustomField: (field, value) => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.metadata?.customFields?.[field] === value
-        );
+        const entries = useLorebookDataStore.getState().entries;
+        return LorebookFilterService.getEntriesByCustomField(entries, field, value);
     },
 
-    getFilteredEntries: (includeDisabled = false) => {
-        const { entries } = get();
-        return includeDisabled
-            ? entries
-            : entries.filter(entry => !entry.isDisabled);
+    // Import/Export operations
+    exportEntries: (storyId) => {
+        const entries = useLorebookDataStore.getState().entries;
+        LorebookImportExportService.exportEntries(entries, storyId);
     },
 
-    getFilteredEntriesByIds: (ids: string[], includeDisabled = false) => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            ids.includes(entry.id) && (includeDisabled || !entry.isDisabled)
-        );
-    },
-
-    // Export lorebook entries
-    exportEntries: (storyId: string) => {
-        const { entries } = get();
-        const storyEntries = entries.filter(entry => entry.storyId === storyId);
-
-        // Create a JSON file
-        const dataStr = JSON.stringify({
-            version: "1.0",
-            type: "lorebook",
-            entries: storyEntries
-        }, null, 2);
-
-        // Create and trigger download
-        const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
-        const exportName = `lorebook-export-${new Date().toISOString().slice(0, 10)}.json`;
-
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportName);
-        linkElement.click();
-    },
-
-    // Import lorebook entries
-    importEntries: async (jsonData: string, targetStoryId: string) => {
-        try {
-            const data = JSON.parse(jsonData);
-
-            // Validate the data format
-            if (!data.type || data.type !== "lorebook" || !Array.isArray(data.entries)) {
-                throw new Error("Invalid lorebook data format");
-            }
-
-            // Process each entry
-            for (const entry of data.entries) {
-                // Create a new ID for the entry
-                const newId = crypto.randomUUID();
-
-                // Create a new entry with the target storyId
-                const newEntry: LorebookEntry = {
-                    ...entry,
-                    id: newId,
-                    storyId: targetStoryId,
-                    createdAt: new Date()
-                };
-
-                // Add to database
-                await db.lorebookEntries.add(newEntry);
-            }
-
-            // Reload entries after import
-            await get().loadEntries(targetStoryId);
-
-            // Rebuild tag map
+    importEntries: async (jsonData, targetStoryId) => {
+        await LorebookImportExportService.importEntries(jsonData, targetStoryId, (newEntries) => {
+            const currentEntries = useLorebookDataStore.getState().entries;
+            useLorebookDataStore.setState({ entries: [...currentEntries, ...newEntries] });
             get().buildTagMap();
-
-        } catch (error) {
-            console.error("Import failed:", error);
-            throw error;
-        }
+        });
     },
-})); 
+}));
+
+// Export services for direct access when needed
+export { LorebookFilterService, LorebookImportExportService, useLorebookDataStore };

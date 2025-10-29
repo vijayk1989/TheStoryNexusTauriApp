@@ -28,7 +28,7 @@ npm run tauri build               # Create production release
 ```
 
 ### Code Quality
-The project uses Biome for linting and formatting. TypeScript strict mode is disabled (`strict: false` in tsconfig.json).
+The project uses Biome for linting and formatting. TypeScript strict mode is disabled (`strict: false` in tsconfig.json). TODO: THIS MUST CHANGE SOON.
 
 #### Error Handling
 
@@ -54,6 +54,7 @@ if (error) return handleError(error);
 - Use `const`, not `let`.
 - Use arrow functions.
 - Use async/await for asynchronous code.
+- Avoid explicit `any` type. Type everything properly.
 
 ## Architecture
 
@@ -62,7 +63,7 @@ if (error) return handleError(error);
 - **Frontend**: React 18 + TypeScript + Vite
 - **Routing**: React Router v7
 - **State Management**: Zustand (feature-based stores)
-- **Database**: Dexie.js (IndexedDB wrapper) - all data is local-first
+- **Database**: Dexie.js (IndexedDB wrapper) - all data is local-first. TODO: replace this with a better, portable solution.
 - **Text Editor**: Lexical v0.24.0 (custom implementation in `src/Lexical/`)
 - **UI**: Tailwind CSS + Shadcn UI components
 - **AI Integration**: OpenAI SDK for OpenAI, OpenRouter, and local model providers
@@ -224,7 +225,7 @@ Entities can be marked with `isDemo: true` to identify demonstration content. Th
 Models are stored with provider prefix (e.g., `local/model-name`, `gpt-4`). Prompts can specify `allowedModels` to restrict which models can be used. Models are fetched from provider APIs and cached in `aiSettings.availableModels`.
 
 ### TypeScript Configuration
-The project uses `strict: false` with disabled linting rules (`noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch` all set to false). When making changes, prefer runtime safety checks over relying on strict TypeScript checking.
+The project uses `strict: false` with disabled linting rules (`noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch` all set to false). When making changes, prefer runtime safety checks over relying on strict TypeScript checking. TODO: This must change soon - strict adherence is vital.
 
 ### Tauri Configuration
 The Rust backend is minimal - only a basic `greet` command exists. The frontend runs on port 1420 with HMR on port 1421. The `src-tauri` directory should not be watched by Vite.

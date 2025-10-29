@@ -1,5 +1,9 @@
 import { create } from 'zustand';
+import { attemptPromise } from '@jfdi/attempt';
 import { db } from '@/services/database';
+import { formatError } from '@/utils/errorUtils';
+import { ERROR_MESSAGES } from '@/constants/errorMessages';
+import { generatePromptId } from '@/utils/idGenerator';
 import type { Prompt, PromptMessage } from '@/types/story';
 
 interface PromptStore {
@@ -39,120 +43,164 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
 
     fetchPrompts: async () => {
         set({ isLoading: true });
-        try {
-            const prompts = await db.prompts.toArray();
-            set({ prompts, error: null });
-        } catch (error) {
-            set({ error: (error as Error).message });
-        } finally {
-            set({ isLoading: false });
+
+        const [error, prompts] = await attemptPromise(() => db.prompts.toArray());
+
+        if (error) {
+            set({ error: formatError(error, ERROR_MESSAGES.FETCH_FAILED('prompts')), isLoading: false });
+            return;
         }
+
+        set({ prompts, error: null, isLoading: false });
     },
 
     createPrompt: async (promptData) => {
-        try {
-            if (!get().validatePromptData(promptData.messages)) {
-                throw new Error('Invalid prompt data structure');
-            }
+        if (!get().validatePromptData(promptData.messages)) {
+            throw new Error('Invalid prompt data structure');
+        }
 
-            // Check for duplicate name
-            const existingPrompt = await db.prompts.where('name').equals(promptData.name).first();
-            if (existingPrompt) {
-                throw new Error('A prompt with this name already exists');
-            }
+        // Check for duplicate name
+        const [checkError, existingPrompt] = await attemptPromise(() =>
+            db.prompts.where('name').equals(promptData.name).first()
+        );
 
-            const id = crypto.randomUUID();
-            const prompt: Prompt = {
-                ...promptData,
-                id,
-                createdAt: new Date(),
-                temperature: promptData.temperature || 1.0,
-                maxTokens: promptData.maxTokens || 4096,
-                top_p: promptData.top_p !== undefined ? promptData.top_p : 1.0,
-                top_k: promptData.top_k !== undefined ? promptData.top_k : 50,
-                repetition_penalty: promptData.repetition_penalty !== undefined ? promptData.repetition_penalty : 1.0,
-                min_p: promptData.min_p !== undefined ? promptData.min_p : 0.0
-            };
+        if (checkError) {
+            throw checkError;
+        }
 
-            await db.prompts.add(prompt);
-            const prompts = await db.prompts.toArray();
+        if (existingPrompt) {
+            throw new Error('A prompt with this name already exists');
+        }
+
+        const prompt: Prompt = {
+            ...promptData,
+            id: generatePromptId(),
+            createdAt: new Date(),
+            temperature: promptData.temperature || 1.0,
+            maxTokens: promptData.maxTokens || 4096,
+            top_p: promptData.top_p !== undefined ? promptData.top_p : 1.0,
+            top_k: promptData.top_k !== undefined ? promptData.top_k : 50,
+            repetition_penalty: promptData.repetition_penalty !== undefined ? promptData.repetition_penalty : 1.0,
+            min_p: promptData.min_p !== undefined ? promptData.min_p : 0.0
+        };
+
+        const [addError] = await attemptPromise(() => db.prompts.add(prompt));
+
+        if (addError) {
+            throw addError;
+        }
+
+        const [fetchError, prompts] = await attemptPromise(() => db.prompts.toArray());
+
+        if (fetchError) {
+            console.error(formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), fetchError);
+        } else {
             set({ prompts, error: null });
-        } catch (error) {
-            set({ error: null }); // Don't set error in the store
-            throw error; // Just throw the error to be handled by the form
         }
     },
 
     updatePrompt: async (id, promptData) => {
-        try {
-            if (promptData.messages && !get().validatePromptData(promptData.messages)) {
-                throw new Error('Invalid prompt data structure');
-            }
+        if (promptData.messages && !get().validatePromptData(promptData.messages)) {
+            throw new Error('Invalid prompt data structure');
+        }
 
-            // If name is being updated, check for duplicates
-            if (promptData.name) {
-                const existingPrompt = await db.prompts
+        // If name is being updated, check for duplicates
+        if (promptData.name) {
+            const [checkError, existingPrompt] = await attemptPromise(() =>
+                db.prompts
                     .where('name')
                     .equals(promptData.name)
                     .and(item => item.id !== id)
-                    .first();
+                    .first()
+            );
 
-                if (existingPrompt) {
-                    throw new Error('A prompt with this name already exists');
-                }
+            if (checkError) {
+                throw checkError;
             }
 
-            await db.prompts.update(id, promptData);
-            const prompts = await db.prompts.toArray();
+            if (existingPrompt) {
+                throw new Error('A prompt with this name already exists');
+            }
+        }
+
+        const [updateError] = await attemptPromise(() => db.prompts.update(id, promptData));
+
+        if (updateError) {
+            throw updateError;
+        }
+
+        const [fetchError, prompts] = await attemptPromise(() => db.prompts.toArray());
+
+        if (fetchError) {
+            console.error(formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), fetchError);
+        } else {
             set({ prompts, error: null });
-        } catch (error) {
-            set({ error: null }); // Don't set error in the store
-            throw error; // Just throw the error to be handled by the form
         }
     },
 
     deletePrompt: async (id) => {
-        try {
-            const prompt = await db.prompts.get(id);
-            if (!prompt) {
-                throw new Error('Prompt not found');
-            }
+        const [fetchError, prompt] = await attemptPromise(() => db.prompts.get(id));
 
-            if (prompt.isSystem) {
-                throw new Error('System prompts cannot be deleted');
-            }
+        if (fetchError || !prompt) {
+            const message = formatError(fetchError || new Error('Prompt not found'), ERROR_MESSAGES.NOT_FOUND('prompt'));
+            set({ error: message });
+            throw fetchError || new Error('Prompt not found');
+        }
 
-            await db.prompts.delete(id);
-            const prompts = await db.prompts.toArray();
+        if (prompt.isSystem) {
+            const message = 'System prompts cannot be deleted';
+            set({ error: message });
+            throw new Error(message);
+        }
+
+        const [deleteError] = await attemptPromise(() => db.prompts.delete(id));
+
+        if (deleteError) {
+            const message = formatError(deleteError, ERROR_MESSAGES.DELETE_FAILED('prompt'));
+            set({ error: message });
+            throw deleteError;
+        }
+
+        const [refetchError, prompts] = await attemptPromise(() => db.prompts.toArray());
+
+        if (refetchError) {
+            console.error(formatError(refetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), refetchError);
+        } else {
             set({ prompts, error: null });
-        } catch (error) {
-            set({ error: (error as Error).message });
-            throw error;
         }
     },
 
     clonePrompt: async (id) => {
-        try {
-            const originalPrompt = await db.prompts.get(id);
-            if (!originalPrompt) {
-                throw new Error('Prompt not found');
-            }
+        const [fetchError, originalPrompt] = await attemptPromise(() => db.prompts.get(id));
 
-            const newId = crypto.randomUUID();
-            const clonedPrompt: Prompt = {
-                ...originalPrompt,
-                id: newId,
-                name: `${originalPrompt.name} (Copy)`,
-                createdAt: new Date(),
-                isSystem: false // Always set to false for cloned prompts
-            };
+        if (fetchError || !originalPrompt) {
+            const message = formatError(fetchError || new Error('Prompt not found'), ERROR_MESSAGES.NOT_FOUND('prompt'));
+            set({ error: message });
+            throw fetchError || new Error('Prompt not found');
+        }
 
-            await db.prompts.add(clonedPrompt);
-            const prompts = await db.prompts.toArray();
+        const clonedPrompt: Prompt = {
+            ...originalPrompt,
+            id: generatePromptId(),
+            name: `${originalPrompt.name} (Copy)`,
+            createdAt: new Date(),
+            isSystem: false // Always set to false for cloned prompts
+        };
+
+        const [addError] = await attemptPromise(() => db.prompts.add(clonedPrompt));
+
+        if (addError) {
+            const message = formatError(addError, ERROR_MESSAGES.CREATE_FAILED('cloned prompt'));
+            set({ error: message });
+            throw addError;
+        }
+
+        const [refetchError, prompts] = await attemptPromise(() => db.prompts.toArray());
+
+        if (refetchError) {
+            console.error(formatError(refetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), refetchError);
+        } else {
             set({ prompts, error: null });
-        } catch (error) {
-            set({ error: (error as Error).message });
-            throw error;
         }
     }
 
@@ -160,78 +208,102 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
 
     // Export all prompts as JSON and trigger download
     exportPrompts: async () => {
-        try {
-            // Only export non-system prompts
-            const allPrompts = await db.prompts.toArray();
-            const prompts = allPrompts.filter(p => !p.isSystem);
+        const [error, allPrompts] = await attemptPromise(() => db.prompts.toArray());
 
-            const dataStr = JSON.stringify({
-                version: '1.0',
-                type: 'prompts',
-                prompts
-            }, null, 2);
-
-            const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
-            const exportName = `prompts-export-${new Date().toISOString().slice(0, 10)}.json`;
-
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportName);
-            linkElement.click();
-        } catch (error) {
-            set({ error: (error as Error).message });
+        if (error) {
+            const message = formatError(error, ERROR_MESSAGES.FETCH_FAILED('prompts'));
+            set({ error: message });
             throw error;
         }
+
+        // Only export non-system prompts
+        const prompts = allPrompts.filter(p => !p.isSystem);
+
+        const dataStr = JSON.stringify({
+            version: '1.0',
+            type: 'prompts',
+            prompts
+        }, null, 2);
+
+        const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+        const exportName = `prompts-export-${new Date().toISOString().slice(0, 10)}.json`;
+
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportName);
+        linkElement.click();
     },
 
     // Import prompts from JSON string. Creates new IDs and createdAt. Ensures unique names.
     importPrompts: async (jsonData) => {
-        try {
-            const data = JSON.parse(jsonData);
+        const data = JSON.parse(jsonData);
 
-            if (!data.type || data.type !== 'prompts' || !Array.isArray(data.prompts)) {
-                throw new Error('Invalid prompts data format');
+        if (!data.type || data.type !== 'prompts' || !Array.isArray(data.prompts)) {
+            throw new Error('Invalid prompts data format');
+        }
+
+        const imported: Prompt[] = data.prompts;
+        const MAX_IMPORT_ATTEMPTS = 100;
+
+        for (const p of imported) {
+            // Minimal validation of messages
+            if (!p.messages || !Array.isArray(p.messages) || !get().validatePromptData(p.messages)) {
+                // Skip invalid prompt
+                console.warn('Skipping invalid prompt during import (messages invalid):', p.name);
+                continue;
             }
 
-            const imported: Prompt[] = data.prompts;
+            // Ensure unique name - check DB for existing name and append suffix if needed
+            let newName = p.name || 'Imported Prompt';
+            const attempts = Array.from({ length: MAX_IMPORT_ATTEMPTS }, (_, i) => i);
 
-            for (const p of imported) {
-                // Minimal validation of messages
-                if (!p.messages || !Array.isArray(p.messages) || !get().validatePromptData(p.messages)) {
-                    // Skip invalid prompt
-                    console.warn('Skipping invalid prompt during import (messages invalid):', p.name);
-                    continue;
-                }
-
-                // Ensure unique name - check DB for existing name and append suffix if needed
-                let newName = p.name || 'Imported Prompt';
-                let attempt = 0;
-                // eslint-disable-next-line no-constant-condition
-                while (true) {
-                    const existing = await db.prompts.where('name').equals(newName).first();
-                    if (!existing) break;
-                    attempt += 1;
+            for (const attempt of attempts) {
+                if (attempt > 0) {
                     newName = `${p.name} (Imported${attempt > 1 ? ` ${attempt}` : ''})`;
                 }
 
-                const newPrompt: Prompt = {
-                    ...p,
-                    id: crypto.randomUUID(),
-                    name: newName,
-                    createdAt: new Date(),
-                    // Ensure imported prompts are not treated as system prompts
-                    isSystem: false
-                };
+                const [checkError, existing] = await attemptPromise(() =>
+                    db.prompts.where('name').equals(newName).first()
+                );
 
-                // Add to DB
-                await db.prompts.add(newPrompt);
+                if (checkError) {
+                    console.error('Error checking for existing prompt:', checkError);
+                    throw checkError;
+                }
+
+                if (!existing) break;
+
+                if (attempt === MAX_IMPORT_ATTEMPTS - 1) {
+                    throw new Error(`Failed to generate unique name after ${MAX_IMPORT_ATTEMPTS} attempts`);
+                }
             }
 
-            const prompts = await db.prompts.toArray();
-            set({ prompts, error: null });
-        } catch (error) {
-            set({ error: (error as Error).message });
-            throw error;
+            const newPrompt: Prompt = {
+                ...p,
+                id: generatePromptId(),
+                name: newName,
+                createdAt: new Date(),
+                // Ensure imported prompts are not treated as system prompts
+                isSystem: false
+            };
+
+            // Add to DB
+            const [addError] = await attemptPromise(() => db.prompts.add(newPrompt));
+
+            if (addError) {
+                console.error(`Failed to import prompt "${newName}":`, addError);
+                // Continue with other prompts instead of failing entire import
+            }
         }
+
+        const [fetchError, prompts] = await attemptPromise(() => db.prompts.toArray());
+
+        if (fetchError) {
+            const message = formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('prompts'));
+            set({ error: message });
+            throw fetchError;
+        }
+
+        set({ prompts, error: null });
     }
 }));

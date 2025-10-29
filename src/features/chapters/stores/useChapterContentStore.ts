@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { attemptPromise } from '@jfdi/attempt';
 import { db } from '@/services/database';
 import { $getRoot, LexicalEditor } from 'lexical';
 
@@ -11,37 +12,39 @@ interface ChapterContentState {
 
 export const useChapterContentStore = create<ChapterContentState>(() => ({
     getChapterPlainText: async (id: string) => {
-        try {
-            const chapter = await db.chapters.get(id);
-            if (!chapter || !chapter.content) {
-                console.log('Chapter not found or has no content');
-                return '';
-            }
+        const [error, chapter] = await attemptPromise(() => db.chapters.get(id));
 
-            const plainText = useChapterContentStore.getState().extractPlainTextFromLexicalState(chapter.content);
-            return plainText;
-        } catch (error) {
+        if (error) {
             console.error('Error getting chapter plain text:', error);
             return '';
         }
+
+        if (!chapter || !chapter.content) {
+            console.log('Chapter not found or has no content');
+            return '';
+        }
+
+        const plainText = useChapterContentStore.getState().extractPlainTextFromLexicalState(chapter.content);
+        return plainText;
     },
 
     getChapterPlainTextByChapterOrder: async (chapterOrder: number) => {
-        try {
-            const chapters = await db.chapters.toArray();
-            const chapter = chapters.find(ch => ch.order === chapterOrder);
+        const [error, chapters] = await attemptPromise(() => db.chapters.toArray());
 
-            if (!chapter || !chapter.content) {
-                console.log('Chapter not found or has no content for order:', chapterOrder);
-                return '';
-            }
-
-            const plainText = useChapterContentStore.getState().extractPlainTextFromLexicalState(chapter.content);
-            return plainText;
-        } catch (error) {
+        if (error) {
             console.error('Error getting chapter plain text by order:', error);
             return '';
         }
+
+        const chapter = chapters.find(ch => ch.order === chapterOrder);
+
+        if (!chapter || !chapter.content) {
+            console.log('Chapter not found or has no content for order:', chapterOrder);
+            return '';
+        }
+
+        const plainText = useChapterContentStore.getState().extractPlainTextFromLexicalState(chapter.content);
+        return plainText;
     },
 
     extractPlainTextFromLexicalState: (editorStateJSON: string) => {

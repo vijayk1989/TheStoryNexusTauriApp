@@ -43,26 +43,30 @@ interface ChapterState {
  * Unified facade for chapter operations that delegates to specialized stores.
  * Maintains backward compatibility with the original useChapterStore API.
  */
-export const useChapterStore = create<ChapterState>((set, get) => ({
-    // Proxy state from data store
-    get chapters() {
-        return useChapterDataStore.getState().chapters;
-    },
-    get currentChapter() {
-        return useChapterDataStore.getState().currentChapter;
-    },
-    get loading() {
-        return useChapterDataStore.getState().loading;
-    },
-    get error() {
-        return useChapterDataStore.getState().error;
-    },
-    get lastEditedChapterIds() {
-        return useChapterDataStore.getState().lastEditedChapterIds;
-    },
-    get summariesSoFar() {
-        return useChapterMetadataStore.getState().summariesSoFar;
-    },
+export const useChapterStore = create<ChapterState>((set, get) => {
+    // Subscribe to underlying stores to maintain reactivity
+    useChapterDataStore.subscribe((state) => {
+        set({
+            chapters: state.chapters,
+            currentChapter: state.currentChapter,
+            loading: state.loading,
+            error: state.error,
+            lastEditedChapterIds: state.lastEditedChapterIds
+        });
+    });
+
+    useChapterMetadataStore.subscribe((state) => {
+        set({ summariesSoFar: state.summariesSoFar });
+    });
+
+    return {
+    // Initial state from data store
+    chapters: useChapterDataStore.getState().chapters,
+    currentChapter: useChapterDataStore.getState().currentChapter,
+    loading: useChapterDataStore.getState().loading,
+    error: useChapterDataStore.getState().error,
+    lastEditedChapterIds: useChapterDataStore.getState().lastEditedChapterIds,
+    summariesSoFar: useChapterMetadataStore.getState().summariesSoFar,
 
     // Delegate to data store
     fetchChapters: (storyId) => useChapterDataStore.getState().fetchChapters(storyId),
@@ -93,7 +97,8 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
     getChapterOutline: (id) => useChapterMetadataStore.getState().getChapterOutline(id),
     updateChapterNotes: (id, notes) => useChapterMetadataStore.getState().updateChapterNotes(id, notes),
     getChapterNotes: (id) => useChapterMetadataStore.getState().getChapterNotes(id),
-}));
+};
+});
 
 // Export individual stores for direct access when needed
 export { useChapterDataStore, useChapterContentStore, useChapterMetadataStore };

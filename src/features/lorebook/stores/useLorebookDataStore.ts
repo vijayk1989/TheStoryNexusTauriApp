@@ -1,5 +1,9 @@
 import { create } from 'zustand';
+import { attemptPromise } from '@jfdi/attempt';
 import { db } from '@/services/database';
+import { formatError } from '@/utils/errorUtils';
+import { ERROR_MESSAGES } from '@/constants/errorMessages';
+import { generateLorebookEntryId } from '@/utils/idGenerator';
 import type { LorebookEntry } from '@/types/story';
 
 interface LorebookDataState {
@@ -30,56 +34,67 @@ export const useLorebookDataStore = create<LorebookDataState>((set) => ({
 
     loadEntries: async (storyId: string) => {
         set({ isLoading: true, error: null });
-        try {
-            const entries = await db.getLorebookEntriesByStory(storyId);
-            set({ entries, isLoading: false });
-        } catch (error) {
-            set({ error: (error as Error).message, isLoading: false });
+
+        const [error, entries] = await attemptPromise(() => db.getLorebookEntriesByStory(storyId));
+
+        if (error) {
+            set({
+                error: formatError(error, ERROR_MESSAGES.FETCH_FAILED('lorebook entries')),
+                isLoading: false
+            });
+            return;
         }
+
+        set({ entries, isLoading: false });
     },
 
     createEntry: async (entryData) => {
-        try {
-            const id = crypto.randomUUID();
-            const newEntry: LorebookEntry = {
-                ...entryData,
-                id,
-                createdAt: new Date(),
-                isDisabled: false,
-            };
+        const newEntry: LorebookEntry = {
+            ...entryData,
+            id: generateLorebookEntryId(),
+            createdAt: new Date(),
+            isDisabled: false,
+        };
 
-            await db.lorebookEntries.add(newEntry);
-            set(state => ({ entries: [...state.entries, newEntry] }));
-        } catch (error) {
-            set({ error: (error as Error).message });
+        const [error] = await attemptPromise(() => db.lorebookEntries.add(newEntry));
+
+        if (error) {
+            const message = formatError(error, ERROR_MESSAGES.CREATE_FAILED('lorebook entry'));
+            set({ error: message });
             throw error;
         }
+
+        set(state => ({ entries: [...state.entries, newEntry] }));
     },
 
     updateEntry: async (id, data) => {
-        try {
-            await db.lorebookEntries.update(id, data);
-            set(state => ({
-                entries: state.entries.map(entry =>
-                    entry.id === id ? { ...entry, ...data } : entry
-                ),
-            }));
-        } catch (error) {
-            set({ error: (error as Error).message });
+        const [error] = await attemptPromise(() => db.lorebookEntries.update(id, data));
+
+        if (error) {
+            const message = formatError(error, ERROR_MESSAGES.UPDATE_FAILED('lorebook entry'));
+            set({ error: message });
             throw error;
         }
+
+        set(state => ({
+            entries: state.entries.map(entry =>
+                entry.id === id ? { ...entry, ...data } : entry
+            ),
+        }));
     },
 
     deleteEntry: async (id) => {
-        try {
-            await db.lorebookEntries.delete(id);
-            set(state => ({
-                entries: state.entries.filter(entry => entry.id !== id),
-            }));
-        } catch (error) {
-            set({ error: (error as Error).message });
+        const [error] = await attemptPromise(() => db.lorebookEntries.delete(id));
+
+        if (error) {
+            const message = formatError(error, ERROR_MESSAGES.DELETE_FAILED('lorebook entry'));
+            set({ error: message });
             throw error;
         }
+
+        set(state => ({
+            entries: state.entries.filter(entry => entry.id !== id),
+        }));
     },
 
     setEditorContent: (content: string) => set({ editorContent: content }),

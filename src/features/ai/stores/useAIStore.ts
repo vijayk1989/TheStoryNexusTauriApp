@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { attemptPromise } from '@jfdi/attempt';
 import {
     AIModel,
     AIProvider,
@@ -9,7 +10,10 @@ import {
 } from '@/types/story';
 import { aiService } from '@/services/ai/AIService';
 import { db } from '@/services/database';
+import { formatError } from '@/utils/errorUtils';
+import { ERROR_MESSAGES } from '@/constants/errorMessages';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
+import { generateWithProvider } from '@/features/ai/services/aiGenerationHelper';
 
 interface AIState {
     settings: AISettings | null;
@@ -65,20 +69,32 @@ export const useAIStore = create<AIState>((set, get) => ({
 
     initialize: async () => {
         set({ isLoading: true, error: null });
-        try {
-            await aiService.initialize();
-            const settings = await db.aiSettings.toArray();
+
+        const [initError] = await attemptPromise(() => aiService.initialize());
+
+        if (initError) {
             set({
-                settings: settings[0] || null,
-                isInitialized: true,
+                error: formatError(initError, ERROR_MESSAGES.FETCH_FAILED('AI service')),
                 isLoading: false
             });
-        } catch (error) {
-            set({
-                error: error instanceof Error ? error.message : 'Failed to initialize AI',
-                isLoading: false
-            });
+            return;
         }
+
+        const [fetchError, settings] = await attemptPromise(() => db.aiSettings.toArray());
+
+        if (fetchError) {
+            set({
+                error: formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('AI settings')),
+                isLoading: false
+            });
+            return;
+        }
+
+        set({
+            settings: settings[0] || null,
+            isInitialized: true,
+            isLoading: false
+        });
     },
 
     getAvailableModels: async (provider?: AIProvider, forceRefresh: boolean = false) => {
@@ -90,32 +106,54 @@ export const useAIStore = create<AIState>((set, get) => ({
 
     updateProviderKey: async (provider: AIProvider, key: string) => {
         set({ isLoading: true, error: null });
-        try {
-            await aiService.updateKey(provider, key);
-            const settings = await db.aiSettings.toArray();
-            set({ settings: settings[0], isLoading: false });
-        } catch (error) {
+
+        const [updateError] = await attemptPromise(() => aiService.updateKey(provider, key));
+
+        if (updateError) {
             set({
-                error: error instanceof Error ? error.message : 'Failed to update API key',
+                error: formatError(updateError, ERROR_MESSAGES.UPDATE_FAILED('API key')),
                 isLoading: false
             });
-            throw error;
+            throw updateError;
         }
+
+        const [fetchError, settings] = await attemptPromise(() => db.aiSettings.toArray());
+
+        if (fetchError) {
+            set({
+                error: formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('AI settings')),
+                isLoading: false
+            });
+            throw fetchError;
+        }
+
+        set({ settings: settings[0], isLoading: false });
     },
 
     updateLocalApiUrl: async (url: string) => {
         set({ isLoading: true, error: null });
-        try {
-            await aiService.updateLocalApiUrl(url);
-            const settings = await db.aiSettings.toArray();
-            set({ settings: settings[0], isLoading: false });
-        } catch (error) {
+
+        const [updateError] = await attemptPromise(() => aiService.updateLocalApiUrl(url));
+
+        if (updateError) {
             set({
-                error: error instanceof Error ? error.message : 'Failed to update local API URL',
+                error: formatError(updateError, ERROR_MESSAGES.UPDATE_FAILED('local API URL')),
                 isLoading: false
             });
-            throw error;
+            throw updateError;
         }
+
+        const [fetchError, settings] = await attemptPromise(() => db.aiSettings.toArray());
+
+        if (fetchError) {
+            set({
+                error: formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('AI settings')),
+                isLoading: false
+            });
+            throw fetchError;
+        }
+
+        set({ settings: settings[0], isLoading: false });
     },
 
     generateWithLocalModel: async (messages: PromptMessage[], modelId: string, temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number, min_p?: number) => {
@@ -141,54 +179,21 @@ export const useAIStore = create<AIState>((set, get) => ({
             throw new Error(error || 'Failed to parse prompt');
         }
 
-        // Get the prompt to access temperature and maxTokens
-        const prompt = await db.prompts.get(config.promptId);
-        const temperature = prompt?.temperature ?? 0.7;
-        const maxTokens = prompt?.maxTokens ?? 2048;
+        // Get the prompt to access generation parameters
+        const [fetchError, prompt] = await attemptPromise(() => db.prompts.get(config.promptId));
 
-        // Get the new parameters with their default values if not set
-        const top_p = prompt?.top_p;
-        const top_k = prompt?.top_k;
-        const repetition_penalty = prompt?.repetition_penalty;
-        const min_p = prompt?.min_p;
-
-        switch (selectedModel.provider) {
-            case 'local':
-                return aiService.generateWithLocalModel(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p
-                );
-            case 'openai':
-                return aiService.generateWithOpenAI(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p
-                );
-            case 'openrouter':
-                return aiService.generateWithOpenRouter(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p
-                );
-            default:
-                throw new Error(`Unsupported provider: ${selectedModel.provider}`);
+        if (fetchError) {
+            throw fetchError;
         }
+
+        return generateWithProvider(selectedModel.provider, messages, selectedModel.id, {
+            temperature: prompt?.temperature ?? 0.7,
+            maxTokens: prompt?.maxTokens ?? 2048,
+            top_p: prompt?.top_p,
+            top_k: prompt?.top_k,
+            repetition_penalty: prompt?.repetition_penalty,
+            min_p: prompt?.min_p
+        });
     },
 
     // New method for generating with pre-parsed messages
@@ -201,56 +206,21 @@ export const useAIStore = create<AIState>((set, get) => ({
             throw new Error('No messages provided for generation');
         }
 
-        // Get the prompt to access temperature and maxTokens
-        const prompt = await db.prompts.get(promptId);
-        if (!prompt) {
-            throw new Error(`Prompt with ID ${promptId} not found`);
+        // Get the prompt to access generation parameters
+        const [fetchError, prompt] = await attemptPromise(() => db.prompts.get(promptId));
+
+        if (fetchError || !prompt) {
+            throw fetchError || new Error(ERROR_MESSAGES.NOT_FOUND(`prompt with ID ${promptId}`));
         }
 
-        const temperature = prompt.temperature ?? 0.7;
-        const maxTokens = prompt.maxTokens ?? 2048;
-        const top_p = prompt.top_p;
-        const top_k = prompt.top_k;
-        const repetition_penalty = prompt.repetition_penalty;
-        const min_p = prompt.min_p;
-
-        switch (selectedModel.provider) {
-            case 'local':
-                return aiService.generateWithLocalModel(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p
-                );
-            case 'openai':
-                return aiService.generateWithOpenAI(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p
-                );
-            case 'openrouter':
-                return aiService.generateWithOpenRouter(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p
-                );
-            default:
-                throw new Error(`Unsupported provider: ${selectedModel.provider}`);
-        }
+        return generateWithProvider(selectedModel.provider, messages, selectedModel.id, {
+            temperature: prompt.temperature ?? 0.7,
+            maxTokens: prompt.maxTokens ?? 2048,
+            top_p: prompt.top_p,
+            top_k: prompt.top_k,
+            repetition_penalty: prompt.repetition_penalty,
+            min_p: prompt.min_p
+        });
     },
 
     abortGeneration: () => {

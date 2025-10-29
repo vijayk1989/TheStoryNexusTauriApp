@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import { ThemeProvider } from "./lib/theme-provider";
 import { ToastContainer } from "react-toastify";
 import { StoryProvider } from "@/features/stories/context/StoryContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import App from "./app";
 // Styles
 import "./index.css";
@@ -25,39 +26,41 @@ import NotesPage from "./features/notes/pages/NotesPage";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme="dark" storageKey="app-theme">
-      <BrowserRouter>
-        <StoryProvider>
-          <Routes>
-            {/* Landing page */}
-            <Route path="/" element={<App />} />
+    <ErrorBoundary>
+      <ThemeProvider defaultTheme="dark" storageKey="app-theme">
+        <BrowserRouter>
+          <StoryProvider>
+            <Routes>
+              {/* Landing page */}
+              <Route path="/" element={<App />} />
 
-            {/* Routes with MainLayout */}
-            <Route element={<MainLayout />}>
-              {/* Stories section */}
-              <Route path="/stories" element={<Home />} />
-              {/* AI Settings */}
-              <Route path="/ai-settings" element={<AISettingsPage />} />
-              {/* Guide */}
-              <Route path="/guide" element={<GuidePage />} />
-            </Route>
+              {/* Routes with MainLayout */}
+              <Route element={<MainLayout />}>
+                {/* Stories section */}
+                <Route path="/stories" element={<Home />} />
+                {/* AI Settings */}
+                <Route path="/ai-settings" element={<AISettingsPage />} />
+                {/* Guide */}
+                <Route path="/guide" element={<GuidePage />} />
+              </Route>
 
-            {/* Story Dashboard */}
-            <Route path="/dashboard/:storyId" element={<StoryDashboard />}>
-              <Route path="chapters" element={<Chapters />} />
-              <Route
-                path="chapters/:chapterId"
-                element={<ChapterEditorPage />}
-              />
-              <Route path="prompts" element={<PromptsPage />} />
-              <Route path="lorebook" element={<LorebookPage />} />
-              <Route path="brainstorm" element={<BrainstormPage />} />
-              <Route path="notes" element={<NotesPage />} />
-            </Route>
-          </Routes>
-        </StoryProvider>
-        <ToastContainer />
-      </BrowserRouter>
-    </ThemeProvider>
+              {/* Story Dashboard */}
+              <Route path="/dashboard/:storyId" element={<StoryDashboard />}>
+                <Route path="chapters" element={<Chapters />} />
+                <Route
+                  path="chapters/:chapterId"
+                  element={<ChapterEditorPage />}
+                />
+                <Route path="prompts" element={<PromptsPage />} />
+                <Route path="lorebook" element={<LorebookPage />} />
+                <Route path="brainstorm" element={<BrainstormPage />} />
+                <Route path="notes" element={<NotesPage />} />
+              </Route>
+            </Routes>
+          </StoryProvider>
+          <ToastContainer />
+        </BrowserRouter>
+      </ThemeProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

@@ -121,6 +121,46 @@ export class AIService {
         return result;
     }
 
+    private formatStreamAsSSE(response: Response): Response {
+        const responseStream = new ReadableStream({
+            async start(controller) {
+                if (!response.body) {
+                    controller.close();
+                    return;
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const content = decoder.decode(value, { stream: true });
+                        const formattedChunk = `data: ${JSON.stringify({
+                            choices: [{ delta: { content } }]
+                        })}\n\n`;
+
+                        controller.enqueue(new TextEncoder().encode(formattedChunk));
+                    }
+                    controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+                    controller.close();
+                } catch (error) {
+                    if ((error as Error).name === 'AbortError') {
+                        controller.close();
+                    } else {
+                        controller.error(error);
+                    }
+                }
+            }
+        });
+
+        return new Response(responseStream, {
+            headers: { 'Content-Type': 'text/event-stream' }
+        });
+    }
+
     async generateWithLocalModel(
         messages: PromptMessage[],
         modelId: string,
@@ -173,40 +213,7 @@ export class AIService {
                 this.abortController.signal
             );
 
-            // Wrap response to format as SSE
-            const responseStream = new ReadableStream({
-                async start(controller) {
-                    if (!response.body) {
-                        controller.close();
-                        return;
-                    }
-
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-
-                    try {
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-
-                            const content = decoder.decode(value, { stream: true });
-                            const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
-                            controller.enqueue(new TextEncoder().encode(formattedChunk));
-                        }
-                        controller.close();
-                    } catch (error) {
-                        if ((error as Error).name === 'AbortError') {
-                            controller.close();
-                        } else {
-                            controller.error(error);
-                        }
-                    }
-                }
-            });
-
-            return new Response(responseStream, {
-                headers: { 'Content-Type': 'text/event-stream' }
-            });
+            return this.formatStreamAsSSE(response);
         } catch (error) {
             if ((error as Error).name === 'AbortError') {
                 return new Response(null, { status: 204 });
@@ -245,40 +252,7 @@ export class AIService {
                 this.abortController.signal
             );
 
-            // Wrap response to format as SSE
-            const responseStream = new ReadableStream({
-                async start(controller) {
-                    if (!response.body) {
-                        controller.close();
-                        return;
-                    }
-
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-
-                    try {
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-
-                            const content = decoder.decode(value, { stream: true });
-                            const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
-                            controller.enqueue(new TextEncoder().encode(formattedChunk));
-                        }
-                        controller.close();
-                    } catch (error) {
-                        if ((error as Error).name === 'AbortError') {
-                            controller.close();
-                        } else {
-                            controller.error(error);
-                        }
-                    }
-                }
-            });
-
-            return new Response(responseStream, {
-                headers: { 'Content-Type': 'text/event-stream' }
-            });
+            return this.formatStreamAsSSE(response);
         } catch (error) {
             if ((error as Error).name === 'AbortError') {
                 return new Response(null, { status: 204 });

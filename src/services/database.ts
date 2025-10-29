@@ -35,6 +35,37 @@ export class StoryDatabase extends Dexie {
             notes: 'id, storyId, title, type, createdAt, updatedAt',
         });
 
+        // Version 13: Add default model fields to aiSettings and fix system prompts
+        this.version(13).stores({
+            stories: 'id, title, createdAt, language, isDemo',
+            chapters: 'id, storyId, order, createdAt, isDemo',
+            aiChats: 'id, storyId, createdAt, isDemo',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
+            aiSettings: 'id, lastModelsFetch',
+            lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
+            sceneBeats: 'id, storyId, chapterId',
+            notes: 'id, storyId, title, type, createdAt, updatedAt',
+        }).upgrade(async (tx) => {
+            console.log('Upgraded to v13: Added default model fields to aiSettings');
+
+            // Fix system prompts with placeholder "local" model
+            const systemPrompts = await tx.table('prompts').where('isSystem').equals(true).toArray();
+            for (const prompt of systemPrompts) {
+                // Check if prompt has the old placeholder "local" model
+                const hasPlaceholder = prompt.allowedModels?.some(
+                    (m: any) => m.id === 'local' && m.name === 'local'
+                );
+
+                if (hasPlaceholder || !prompt.allowedModels || prompt.allowedModels.length === 0) {
+                    // Clear the placeholder - users will need to select models
+                    await tx.table('prompts').update(prompt.id, {
+                        allowedModels: []
+                    });
+                    console.log(`Cleared placeholder models from system prompt: ${prompt.name}`);
+                }
+            }
+        });
+
         this.on('populate', async () => {
             console.log('Populating database with initial data...');
 

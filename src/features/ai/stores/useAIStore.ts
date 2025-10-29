@@ -28,6 +28,7 @@ interface AIState {
     // Generation methods
     generateWithLocalModel: (
         messages: PromptMessage[],
+        modelId: string,
         temperature?: number,
         maxTokens?: number,
         top_p?: number,
@@ -117,11 +118,11 @@ export const useAIStore = create<AIState>((set, get) => ({
         }
     },
 
-    generateWithLocalModel: async (messages: PromptMessage[], temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number, min_p?: number) => {
+    generateWithLocalModel: async (messages: PromptMessage[], modelId: string, temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number, min_p?: number) => {
         if (!get().isInitialized) {
             await get().initialize();
         }
-        return aiService.generateWithLocalModel(messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p);
+        return aiService.generateWithLocalModel(messages, modelId, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p);
     },
 
     processStreamedResponse: async (response, onToken, onComplete, onError) => {
@@ -155,6 +156,7 @@ export const useAIStore = create<AIState>((set, get) => ({
             case 'local':
                 return aiService.generateWithLocalModel(
                     messages,
+                    selectedModel.id,
                     temperature,
                     maxTokens,
                     top_p,
@@ -216,6 +218,7 @@ export const useAIStore = create<AIState>((set, get) => ({
             case 'local':
                 return aiService.generateWithLocalModel(
                     messages,
+                    selectedModel.id,
                     temperature,
                     maxTokens,
                     top_p,

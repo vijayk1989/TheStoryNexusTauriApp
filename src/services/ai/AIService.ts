@@ -243,6 +243,7 @@ export class AIService {
 
     async generateWithLocalModel(
         messages: PromptMessage[],
+        modelId: string,
         temperature: number = 1.0,
         maxTokens: number = 2048,
         top_p?: number,
@@ -250,11 +251,14 @@ export class AIService {
         repetition_penalty?: number,
         min_p?: number
     ): Promise<Response> {
+        // Extract model name from modelId (remove 'local/' prefix if present)
+        const modelName = modelId.startsWith('local/') ? modelId.slice(6) : modelId;
+
         // Create request body with optional parameters
         const requestBody: any = {
             messages,
             stream: true,
-            model: 'local/llama-3.2-3b-instruct',
+            model: modelName,
             temperature,
             max_tokens: maxTokens,
         };
@@ -509,6 +513,36 @@ export class AIService {
 
     getLocalApiUrl(): string {
         return this.settings?.localApiUrl || this.LOCAL_API_URL;
+    }
+
+    getDefaultLocalModel(): string | undefined {
+        return this.settings?.defaultLocalModel;
+    }
+
+    getDefaultOpenAIModel(): string | undefined {
+        return this.settings?.defaultOpenAIModel;
+    }
+
+    getDefaultOpenRouterModel(): string | undefined {
+        return this.settings?.defaultOpenRouterModel;
+    }
+
+    async updateDefaultModel(provider: AIProvider, modelId: string | undefined): Promise<void> {
+        if (!this.settings) {
+            throw new Error('AI settings not initialized');
+        }
+
+        // Type-safe update based on provider
+        if (provider === 'local') {
+            await db.aiSettings.update(this.settings.id, { defaultLocalModel: modelId });
+            this.settings.defaultLocalModel = modelId;
+        } else if (provider === 'openai') {
+            await db.aiSettings.update(this.settings.id, { defaultOpenAIModel: modelId });
+            this.settings.defaultOpenAIModel = modelId;
+        } else if (provider === 'openrouter') {
+            await db.aiSettings.update(this.settings.id, { defaultOpenRouterModel: modelId });
+            this.settings.defaultOpenRouterModel = modelId;
+        }
     }
 
     async updateLocalApiUrl(url: string): Promise<void> {

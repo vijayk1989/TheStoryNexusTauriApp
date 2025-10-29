@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { aiService } from '@/services/ai/AIService';
 import { toast } from 'react-toastify';
@@ -18,6 +19,10 @@ export default function AISettingsPage() {
     const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
     const [openrouterModels, setOpenrouterModels] = useState<AIModel[]>([]);
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+    const [defaultLocalModel, setDefaultLocalModel] = useState<string | undefined>();
+    const [defaultOpenAIModel, setDefaultOpenAIModel] = useState<string | undefined>();
+    const [defaultOpenRouterModel, setDefaultOpenRouterModel] = useState<string | undefined>();
+    const [localModels, setLocalModels] = useState<AIModel[]>([]);
 
     useEffect(() => {
         loadInitialData();
@@ -49,8 +54,20 @@ export default function AISettingsPage() {
 
             console.log(`[AISettingsPage] Filtered models - Local: ${localModels.length}, OpenAI: ${openaiModels.length}, OpenRouter: ${openrouterModels.length}`);
 
+            setLocalModels(localModels);
             setOpenaiModels(openaiModels);
             setOpenrouterModels(openrouterModels);
+
+            // Load default models
+            const defaultLocal = aiService.getDefaultLocalModel();
+            const defaultOpenAI = aiService.getDefaultOpenAIModel();
+            const defaultOpenRouter = aiService.getDefaultOpenRouterModel();
+
+            setDefaultLocalModel(defaultLocal);
+            setDefaultOpenAIModel(defaultOpenAI);
+            setDefaultOpenRouterModel(defaultOpenRouter);
+
+            console.log(`[AISettingsPage] Default models - Local: ${defaultLocal}, OpenAI: ${defaultOpenAI}, OpenRouter: ${defaultOpenRouter}`);
         } catch (error) {
             console.error('Error loading AI settings:', error);
             toast.error('Failed to load AI settings');
@@ -76,13 +93,7 @@ export default function AISettingsPage() {
                 setOpenSections(prev => ({ ...prev, openrouter: true }));
             } else if (provider === 'local') {
                 console.log(`[AISettingsPage] Updating local models, received ${models.length} models`);
-                setOpenaiModels(prev => {
-                    const filtered = prev.filter(m => m.provider !== 'local');
-                    console.log(`[AISettingsPage] Filtered out ${prev.length - filtered.length} old local models`);
-                    const newModels = [...filtered, ...models];
-                    console.log(`[AISettingsPage] New models array has ${newModels.length} models`);
-                    return newModels;
-                });
+                setLocalModels(models);
                 setOpenSections(prev => ({ ...prev, local: true }));
             }
 
@@ -113,13 +124,7 @@ export default function AISettingsPage() {
                     break;
                 case 'local':
                     console.log(`[AISettingsPage] Updating local models, received ${models.length} models`);
-                    setOpenaiModels(prev => {
-                        const filtered = prev.filter(m => m.provider !== 'local');
-                        console.log(`[AISettingsPage] Filtered out ${prev.length - filtered.length} old local models`);
-                        const newModels = [...filtered, ...models];
-                        console.log(`[AISettingsPage] New models array has ${newModels.length} models`);
-                        return newModels;
-                    });
+                    setLocalModels(models);
                     setOpenSections(prev => ({ ...prev, local: true }));
                     break;
             }
@@ -145,13 +150,7 @@ export default function AISettingsPage() {
             const models = await aiService.getAvailableModels('local', true);
             console.log(`[AISettingsPage] Received ${models.length} local models`);
 
-            setOpenaiModels(prev => {
-                const filtered = prev.filter(m => m.provider !== 'local');
-                console.log(`[AISettingsPage] Filtered out ${prev.length - filtered.length} old local models`);
-                const newModels = [...filtered, ...models];
-                console.log(`[AISettingsPage] New models array has ${newModels.length} models`);
-                return newModels;
-            });
+            setLocalModels(models);
             setOpenSections(prev => ({ ...prev, local: true }));
 
             toast.success('Local API URL updated successfully');
@@ -165,6 +164,25 @@ export default function AISettingsPage() {
 
     const toggleSection = (section: string) => {
         setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
+
+    const handleDefaultModelChange = async (provider: 'local' | 'openai' | 'openrouter', modelId: string | undefined) => {
+        try {
+            await aiService.updateDefaultModel(provider, modelId);
+
+            if (provider === 'local') {
+                setDefaultLocalModel(modelId);
+            } else if (provider === 'openai') {
+                setDefaultOpenAIModel(modelId);
+            } else if (provider === 'openrouter') {
+                setDefaultOpenRouterModel(modelId);
+            }
+
+            toast.success('Default model updated');
+        } catch (error) {
+            console.error('Error updating default model:', error);
+            toast.error('Failed to update default model');
+        }
     };
 
     return (
@@ -209,25 +227,30 @@ export default function AISettingsPage() {
                             </div>
 
                             {openaiModels.length > 0 && (
-                                <Collapsible
-                                    open={openSections.openai}
-                                    onOpenChange={() => toggleSection('openai')}
-                                >
-                                    <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                                        <ChevronRight className={cn(
-                                            "h-4 w-4 transition-transform",
-                                            openSections.openai && "transform rotate-90"
-                                        )} />
-                                        Available Models
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent className="mt-2 space-y-2">
-                                        {openaiModels.map(model => (
-                                            <div key={model.id} className="text-sm pl-6">
-                                                {model.name}
-                                            </div>
-                                        ))}
-                                    </CollapsibleContent>
-                                </Collapsible>
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="openai-default">Default Model</Label>
+                                        <Select
+                                            value={defaultOpenAIModel || 'none'}
+                                            onValueChange={(value) => handleDefaultModelChange('openai', value === 'none' ? undefined : value)}
+                                        >
+                                            <SelectTrigger id="openai-default">
+                                                <SelectValue placeholder="Select default model" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">None</SelectItem>
+                                                {openaiModels.map(model => (
+                                                    <SelectItem key={model.id} value={model.id}>
+                                                        {model.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">
+                                            Select a default model for OpenAI generation
+                                        </p>
+                                    </div>
+                                </>
                             )}
                         </CardContent>
                     </Card>
@@ -268,25 +291,30 @@ export default function AISettingsPage() {
                             </div>
 
                             {openrouterModels.length > 0 && (
-                                <Collapsible
-                                    open={openSections.openrouter}
-                                    onOpenChange={() => toggleSection('openrouter')}
-                                >
-                                    <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                                        <ChevronRight className={cn(
-                                            "h-4 w-4 transition-transform",
-                                            openSections.openrouter && "transform rotate-90"
-                                        )} />
-                                        Available Models
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent className="mt-2 space-y-2">
-                                        {openrouterModels.map(model => (
-                                            <div key={model.id} className="text-sm pl-6">
-                                                {model.name}
-                                            </div>
-                                        ))}
-                                    </CollapsibleContent>
-                                </Collapsible>
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="openrouter-default">Default Model</Label>
+                                        <Select
+                                            value={defaultOpenRouterModel || 'none'}
+                                            onValueChange={(value) => handleDefaultModelChange('openrouter', value === 'none' ? undefined : value)}
+                                        >
+                                            <SelectTrigger id="openrouter-default">
+                                                <SelectValue placeholder="Select default model" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">None</SelectItem>
+                                                {openrouterModels.map(model => (
+                                                    <SelectItem key={model.id} value={model.id}>
+                                                        {model.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">
+                                            Select a default model for OpenRouter generation
+                                        </p>
+                                    </div>
+                                </>
                             )}
                         </CardContent>
                     </Card>
@@ -355,27 +383,30 @@ export default function AISettingsPage() {
                                 </CollapsibleContent>
                             </Collapsible>
 
-                            <Collapsible
-                                open={openSections.local}
-                                onOpenChange={() => toggleSection('local')}
-                            >
-                                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                                    <ChevronRight className={cn(
-                                        "h-4 w-4 transition-transform",
-                                        openSections.local && "transform rotate-90"
-                                    )} />
-                                    Available Models
-                                </CollapsibleTrigger>
-                                <CollapsibleContent className="mt-2 space-y-2">
-                                    {openaiModels
-                                        .filter(m => m.provider === 'local')
-                                        .map(model => (
-                                            <div key={model.id} className="text-sm pl-6">
-                                                {model.name}
-                                            </div>
-                                        ))}
-                                </CollapsibleContent>
-                            </Collapsible>
+                            {localModels.length > 0 && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="local-default">Default Model</Label>
+                                    <Select
+                                        value={defaultLocalModel || 'none'}
+                                        onValueChange={(value) => handleDefaultModelChange('local', value === 'none' ? undefined : value)}
+                                    >
+                                        <SelectTrigger id="local-default">
+                                            <SelectValue placeholder="Select default model" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">None</SelectItem>
+                                            {localModels.map(model => (
+                                                <SelectItem key={model.id} value={model.id}>
+                                                    {model.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                        Select a default model for local generation
+                                    </p>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

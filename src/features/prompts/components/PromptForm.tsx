@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { usePromptStore } from '../store/promptStore';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
+import { aiService } from '@/services/ai/AIService';
 import type { Prompt, PromptMessage, AIModel, AllowedModel } from '@/types/story';
-import { Plus, ArrowUp, ArrowDown, Trash2, X } from 'lucide-react';
+import { Plus, ArrowUp, ArrowDown, Trash2, X, Wand2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -193,6 +194,62 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         setMessages(newMessages);
     };
 
+    const handleUseDefaultModels = async () => {
+        try {
+            await aiService.initialize();
+            const defaultLocal = aiService.getDefaultLocalModel();
+            const defaultOpenAI = aiService.getDefaultOpenAIModel();
+            const defaultOpenRouter = aiService.getDefaultOpenRouterModel();
+
+            const defaultModels: AllowedModel[] = [];
+
+            if (defaultLocal) {
+                const localModel = availableModels.find(m => m.id === defaultLocal);
+                if (localModel) {
+                    defaultModels.push({
+                        id: localModel.id,
+                        name: localModel.name,
+                        provider: localModel.provider
+                    });
+                }
+            }
+
+            if (defaultOpenAI) {
+                const openaiModel = availableModels.find(m => m.id === defaultOpenAI);
+                if (openaiModel) {
+                    defaultModels.push({
+                        id: openaiModel.id,
+                        name: openaiModel.name,
+                        provider: openaiModel.provider
+                    });
+                }
+            }
+
+            if (defaultOpenRouter) {
+                const openrouterModel = availableModels.find(m => m.id === defaultOpenRouter);
+                if (openrouterModel) {
+                    defaultModels.push({
+                        id: openrouterModel.id,
+                        name: openrouterModel.name,
+                        provider: openrouterModel.provider
+                    });
+                }
+            }
+
+            if (defaultModels.length === 0) {
+                toast.error('No default models configured. Please set default models in AI Settings.');
+                return;
+            }
+
+            // Replace existing models with default models
+            setSelectedModels(defaultModels);
+            toast.success(`Added ${defaultModels.length} default model(s)`);
+        } catch (error) {
+            console.error('Error loading default models:', error);
+            toast.error('Failed to load default models');
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -345,14 +402,26 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             </div>
 
             <div className="border-t border-input pt-6">
-                <h3 className="font-medium mb-4">Available Models</h3>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-medium">Available Models</h3>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUseDefaultModels}
+                        className="flex items-center gap-2"
+                    >
+                        <Wand2 className="h-4 w-4" />
+                        Use Default Models
+                    </Button>
+                </div>
 
                 <div className="flex flex-wrap gap-2 mb-4">
                     {selectedModels.map((model) => (
                         <Badge
                             key={model.id}
                             variant="secondary"
-                            className="flex items-center gap-1 px-3 py-1" 
+                            className="flex items-center gap-1 px-3 py-1"
                         >
                             {model.name}
                             <button

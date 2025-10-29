@@ -25,13 +25,7 @@ const systemPrompts: Partial<Prompt>[] = [
                 content: "Write in {{pov}}\n{{scenebeat}}\nDo not add a conclusion. Do not end a scene with a tidy resolution or moral lesson"
             }
         ],
-        allowedModels: [
-            {
-                id: "local",
-                name: "local",
-                provider: "local" as AIProvider
-            }
-        ],
+        allowedModels: [],
         isSystem: true,
         temperature: 1.0,
         maxTokens: 16384,
@@ -55,13 +49,7 @@ const systemPrompts: Partial<Prompt>[] = [
                 content: "Summarize the following chapter content:\nChapter Content: {{chapter_content}}"
             }
         ],
-        allowedModels: [
-            {
-                id: "local",
-                name: "local",
-                provider: "local" as AIProvider
-            }
-        ],
+        allowedModels: [],
         isSystem: true,
         temperature: 1.0,
         maxTokens: 512,
@@ -85,13 +73,7 @@ const systemPrompts: Partial<Prompt>[] = [
                 content: "Expand the following:\n{{selection}}\nTake into account the POV: {{pov}}"
             }
         ],
-        allowedModels: [
-            {
-                id: "local",
-                name: "local",
-                provider: "local" as AIProvider
-            }
-        ],
+        allowedModels: [],
         isSystem: true,
         temperature: 1.0,
         maxTokens: 512,
@@ -114,13 +96,7 @@ const systemPrompts: Partial<Prompt>[] = [
                 content: "Rewrite the following:\n{{selection}}\nTake into account the POV: {{pov}}"
             }
         ],
-        allowedModels: [
-            {
-                id: "local",
-                name: "local",
-                provider: "local" as AIProvider
-            }
-        ],
+        allowedModels: [],
         isSystem: true,
         temperature: 1.0,
         maxTokens: 512,
@@ -144,13 +120,7 @@ const systemPrompts: Partial<Prompt>[] = [
                 content: "Shorten the following:\n{{selection}}\nTake into account the POV: {{pov}}"
             }
         ],
-        allowedModels: [
-            {
-                id: "local",
-                name: "local",
-                provider: "local" as AIProvider
-            }
-        ],
+        allowedModels: [],
         isSystem: true,
         temperature: 1.0,
         maxTokens: 512,
@@ -178,13 +148,7 @@ const systemPrompts: Partial<Prompt>[] = [
                 content: "{{user_input}}"
             }
         ],
-        allowedModels: [
-            {
-                id: "local",
-                name: "local",
-                provider: "local" as AIProvider
-            }
-        ],
+        allowedModels: [],
         isSystem: true,
         temperature: 1.0,
         maxTokens: 16384,

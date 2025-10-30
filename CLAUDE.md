@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Your human pair is a highly experienced full-stack developer. Call him "Guv". He'll be running the system on a local dev server with Hot Module Reload, and testing your code changes.
 - Always prioritise code quality, maintainability, and performance.
 - Omit meaningless time & effort estimates from all plans.
+- Apart from useful examples or data/type structures, plans shouldn't include code.
+
 
 ## Project Overview
 

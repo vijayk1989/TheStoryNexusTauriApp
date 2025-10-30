@@ -4,6 +4,7 @@ import { useAIStore } from "@/features/ai/stores/useAIStore";
 import { toast } from "react-toastify";
 import { createPromptParser } from "@/features/prompts/services/promptParser";
 import type { PromptParserConfig } from "@/types/story";
+import { attemptPromise } from '@jfdi/attempt';
 
 interface UseSceneBeatGenerationResult {
   streaming: boolean;
@@ -43,11 +44,11 @@ export const useSceneBeatGeneration = (): UseSceneBeatGenerationResult => {
       return;
     }
 
-    try {
-      setStreaming(true);
-      setStreamedText("");
-      setStreamComplete(false);
+    setStreaming(true);
+    setStreamedText("");
+    setStreamComplete(false);
 
+    const [error] = await attemptPromise(async () => {
       const response = await generateWithPrompt(config, model);
 
       // Handle aborted responses (204) similar to the chat interface
@@ -57,7 +58,6 @@ export const useSceneBeatGeneration = (): UseSceneBeatGenerationResult => {
 
       if (response.status === 204) {
         // Generation was aborted
-        setStreaming(false);
         return;
       }
 
@@ -74,38 +74,41 @@ export const useSceneBeatGeneration = (): UseSceneBeatGenerationResult => {
           toast.error("Failed to generate text");
         }
       );
-    } catch (error) {
+    });
+    if (error) {
       console.error("Error generating text:", error);
       toast.error("Failed to generate text");
-    } finally {
-      setStreaming(false);
     }
+    setStreaming(false);
   };
 
   const previewPrompt = async (config: PromptParserConfig): Promise<void> => {
-    try {
-      setPreviewLoading(true);
-      setPreviewError(null);
-      setPreviewMessages(undefined);
+    setPreviewLoading(true);
+    setPreviewError(null);
+    setPreviewMessages(undefined);
 
-      const promptParser = createPromptParser();
-      const parsedPrompt = await promptParser.parse(config);
+    const promptParser = createPromptParser();
 
-      if (parsedPrompt.error) {
-        setPreviewError(parsedPrompt.error);
-        toast.error(`Error parsing prompt: ${parsedPrompt.error}`);
-        return;
-      }
-
-      setPreviewMessages(parsedPrompt.messages);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+    const [error, parsedPrompt] = await attemptPromise(async () =>
+      promptParser.parse(config)
+    );
+    if (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       setPreviewError(errorMessage);
       toast.error(`Error previewing prompt: ${errorMessage}`);
-    } finally {
       setPreviewLoading(false);
+      return;
     }
+
+    if (parsedPrompt.error) {
+      setPreviewError(parsedPrompt.error);
+      toast.error(`Error parsing prompt: ${parsedPrompt.error}`);
+      setPreviewLoading(false);
+      return;
+    }
+
+    setPreviewMessages(parsedPrompt.messages);
+    setPreviewLoading(false);
   };
 
   const stopGeneration = () => {

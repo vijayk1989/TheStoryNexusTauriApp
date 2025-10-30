@@ -8,6 +8,7 @@ import {
 } from "./dropdown-menu";
 import { toast } from "react-toastify";
 import { downloadChapter, downloadStory } from "@/utils/exportUtils";
+import { attemptPromise } from '@jfdi/attempt';
 
 interface DownloadMenuProps {
     type: 'story' | 'chapter';
@@ -30,23 +31,25 @@ export function DownloadMenu({
 }: DownloadMenuProps) {
     const handleDownload = async (format: 'html' | 'text', e: React.MouseEvent) => {
         e.stopPropagation();
-        try {
+        const [error] = await attemptPromise(async () => {
             if (type === 'story') {
                 await downloadStory(id, format);
             } else {
                 await downloadChapter(id, format);
             }
-            toast.success(`${type === 'story' ? 'Story' : 'Chapter'} downloaded as ${format.toUpperCase()}`, {
-                position: "bottom-center",
-                autoClose: 2000,
-            });
-        } catch (error) {
+        });
+        if (error) {
             console.error(`Failed to download ${type}:`, error);
             toast.error(`Failed to download ${type}`, {
                 position: "bottom-center",
                 autoClose: 2000,
             });
+            return;
         }
+        toast.success(`${type === 'story' ? 'Story' : 'Chapter'} downloaded as ${format.toUpperCase()}`, {
+            position: "bottom-center",
+            autoClose: 2000,
+        });
     };
 
     return (

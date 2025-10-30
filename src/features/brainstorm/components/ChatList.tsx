@@ -13,6 +13,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { attemptPromise } from '@jfdi/attempt';
 
 interface ChatListProps {
     storyId: string;
@@ -32,12 +33,12 @@ export default function ChatList({ storyId }: ChatListProps) {
     }, [fetchChats, storyId]);
 
     const handleDeleteChat = async (chatId: string) => {
-        try {
-            await deleteChat(chatId);
-            toast.success('Chat deleted successfully');
-        } catch (error) {
+        const [error] = await attemptPromise(async () => deleteChat(chatId));
+        if (error) {
             toast.error('Failed to delete chat');
+            return;
         }
+        toast.success('Chat deleted successfully');
     };
 
     const handleEditClick = (chat: AIChat, e: React.MouseEvent) => {
@@ -49,15 +50,17 @@ export default function ChatList({ storyId }: ChatListProps) {
 
     const handleSaveTitle = async () => {
         if (editingChat && newTitle.trim()) {
-            try {
-                await updateChat(editingChat.id, { title: newTitle.trim() });
-                toast.success('Chat renamed successfully');
-                setIsEditDialogOpen(false);
-                setEditingChat(null);
-                setNewTitle('');
-            } catch (error) {
+            const [error] = await attemptPromise(async () =>
+                updateChat(editingChat.id, { title: newTitle.trim() })
+            );
+            if (error) {
                 toast.error('Failed to rename chat');
+                return;
             }
+            toast.success('Chat renamed successfully');
+            setIsEditDialogOpen(false);
+            setEditingChat(null);
+            setNewTitle('');
         }
     };
 

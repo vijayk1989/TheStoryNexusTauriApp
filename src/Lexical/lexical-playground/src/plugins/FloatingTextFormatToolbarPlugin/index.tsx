@@ -54,6 +54,7 @@ import { useStoryStore } from "@/features/stories/stores/useStoryStore";
 import { PromptPreviewDialog } from "@/components/ui/prompt-preview-dialog";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { $isSceneBeatNode } from "../../nodes/SceneBeatNode";
+import { attemptPromise } from '@jfdi/attempt';
 
 function TextFormatFloatingToolbar({
   editor,
@@ -321,7 +322,7 @@ function TextFormatFloatingToolbar({
 
     setIsGenerating(true);
 
-    try {
+    const [error] = await attemptPromise(async () => {
       const config = createPromptConfig(selectedPrompt);
       const response = await generateWithPrompt(config, selectedModel);
 
@@ -344,20 +345,19 @@ function TextFormatFloatingToolbar({
           });
 
           // Reset state
-          setIsGenerating(false);
           toast.success("Text generated and inserted");
         },
         (error) => {
           console.error("Error streaming response:", error);
           toast.error("Failed to generate text");
-          setIsGenerating(false);
         }
       );
-    } catch (error) {
+    });
+    if (error) {
       console.error("Error generating text:", error);
       toast.error("Failed to generate text");
-      setIsGenerating(false);
     }
+    setIsGenerating(false);
   };
 
   const handlePreviewPrompt = async () => {
@@ -370,25 +370,24 @@ function TextFormatFloatingToolbar({
     setPreviewError(null);
     setPreviewMessages(undefined);
 
-    try {
-      const promptParser = createPromptParser();
-      const config = createPromptConfig(selectedPrompt);
-      const result = await promptParser.parse(config);
+    const promptParser = createPromptParser();
+    const config = createPromptConfig(selectedPrompt);
 
-      if (result.error) {
-        setPreviewError(result.error);
-      } else {
-        setPreviewMessages(result.messages);
-      }
-    } catch (error) {
+    const [error, result] = await attemptPromise(async () =>
+      promptParser.parse(config)
+    );
+    if (error) {
       console.error("Error previewing prompt:", error);
       setPreviewError(
         error instanceof Error ? error.message : "Failed to preview prompt"
       );
-    } finally {
-      setPreviewLoading(false);
-      setShowPreviewDialog(true);
+    } else if (result.error) {
+      setPreviewError(result.error);
+    } else {
+      setPreviewMessages(result.messages);
     }
+    setPreviewLoading(false);
+    setShowPreviewDialog(true);
   };
 
   return (

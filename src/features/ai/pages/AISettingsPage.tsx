@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { attemptPromise } from '@jfdi/attempt';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import { API_URLS } from '@/constants/urls';
 export default function AISettingsPage() {
     const [openaiKey, setOpenaiKey] = useState('');
     const [openrouterKey, setOpenrouterKey] = useState('');
-    const [localApiUrl, setLocalApiUrl] = useState(API_URLS.LOCAL_AI_DEFAULT);
+    const [localApiUrl, setLocalApiUrl] = useState<string>(API_URLS.LOCAL_AI_DEFAULT);
     const [isLoading, setIsLoading] = useState(false);
     const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
     const [openrouterModels, setOpenrouterModels] = useState<AIModel[]>([]);
@@ -30,7 +31,7 @@ export default function AISettingsPage() {
     }, []);
 
     const loadInitialData = async () => {
-        try {
+        const [error] = await attemptPromise(async () => {
             console.log('[AISettingsPage] Initializing AI service');
             await aiService.initialize();
 
@@ -69,7 +70,9 @@ export default function AISettingsPage() {
             setDefaultOpenRouterModel(defaultOpenRouter);
 
             console.log(`[AISettingsPage] Default models - Local: ${defaultLocal}, OpenAI: ${defaultOpenAI}, OpenRouter: ${defaultOpenRouter}`);
-        } catch (error) {
+        });
+
+        if (error) {
             console.error('Error loading AI settings:', error);
             toast.error('Failed to load AI settings');
         }
@@ -80,7 +83,8 @@ export default function AISettingsPage() {
 
         setIsLoading(true);
         console.log(`[AISettingsPage] Updating key for provider: ${provider}`);
-        try {
+
+        const [error] = await attemptPromise(async () => {
             await aiService.updateKey(provider, key);
             console.log(`[AISettingsPage] Key updated for ${provider}, fetching models`);
             const models = await aiService.getAvailableModels(provider);
@@ -99,17 +103,20 @@ export default function AISettingsPage() {
             }
 
             toast.success(`${provider === 'openai' ? 'OpenAI' : provider === 'openrouter' ? 'OpenRouter' : 'Local'} models updated successfully`);
-        } catch (error) {
+        });
+
+        if (error) {
             toast.error(`Failed to update ${provider} models`);
-        } finally {
-            setIsLoading(false);
         }
+
+        setIsLoading(false);
     };
 
     const handleRefreshModels = async (provider: 'openai' | 'openrouter' | 'local') => {
         setIsLoading(true);
         console.log(`[AISettingsPage] Refreshing models for provider: ${provider}`);
-        try {
+
+        const [error] = await attemptPromise(async () => {
             // Force refresh by passing true as the second parameter
             const models = await aiService.getAvailableModels(provider, true);
             console.log(`[AISettingsPage] Received ${models.length} models for ${provider}`);
@@ -131,12 +138,14 @@ export default function AISettingsPage() {
             }
 
             toast.success(`${provider === 'openai' ? 'OpenAI' : provider === 'openrouter' ? 'OpenRouter' : 'Local'} models refreshed`);
-        } catch (error) {
+        });
+
+        if (error) {
             console.error(`Error refreshing ${provider} models:`, error);
             toast.error(`Failed to refresh ${provider} models`);
-        } finally {
-            setIsLoading(false);
         }
+
+        setIsLoading(false);
     };
 
     const handleLocalApiUrlUpdate = async (url: string) => {
@@ -144,7 +153,8 @@ export default function AISettingsPage() {
 
         setIsLoading(true);
         console.log(`[AISettingsPage] Updating local API URL to: ${url}`);
-        try {
+
+        const [error] = await attemptPromise(async () => {
             await aiService.updateLocalApiUrl(url);
             console.log(`[AISettingsPage] Local API URL updated, fetching models`);
             // Force refresh by passing true as the second parameter
@@ -155,12 +165,14 @@ export default function AISettingsPage() {
             setOpenSections(prev => ({ ...prev, local: true }));
 
             toast.success('Local API URL updated successfully');
-        } catch (error) {
+        });
+
+        if (error) {
             console.error('Error updating local API URL:', error);
             toast.error('Failed to update local API URL');
-        } finally {
-            setIsLoading(false);
         }
+
+        setIsLoading(false);
     };
 
     const toggleSection = (section: string) => {
@@ -168,7 +180,7 @@ export default function AISettingsPage() {
     };
 
     const handleDefaultModelChange = async (provider: 'local' | 'openai' | 'openrouter', modelId: string | undefined) => {
-        try {
+        const [error] = await attemptPromise(async () => {
             await aiService.updateDefaultModel(provider, modelId);
 
             if (provider === 'local') {
@@ -180,7 +192,9 @@ export default function AISettingsPage() {
             }
 
             toast.success('Default model updated');
-        } catch (error) {
+        });
+
+        if (error) {
             console.error('Error updating default model:', error);
             toast.error('Failed to update default model');
         }

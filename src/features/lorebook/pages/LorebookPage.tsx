@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "react-toastify";
+import { attempt, attemptPromise } from '@jfdi/attempt';
 
 export default function LorebookPage() {
     const { storyId } = useParams<{ storyId: string }>();
@@ -44,13 +45,13 @@ export default function LorebookPage() {
     // Handle export functionality
     const handleExport = () => {
         if (storyId) {
-            try {
-                exportEntries(storyId);
-                toast.success("Lorebook entries exported successfully");
-            } catch (error) {
+            const [error] = attempt(() => exportEntries(storyId));
+            if (error) {
                 console.error("Export failed:", error);
                 toast.error("Failed to export lorebook entries");
+                return;
             }
+            toast.success("Lorebook entries exported successfully");
         }
     };
 
@@ -62,17 +63,19 @@ export default function LorebookPage() {
         const reader = new FileReader();
 
         reader.onload = async (e) => {
-            try {
+            const [error] = await attemptPromise(async () => {
                 const content = e.target?.result as string;
                 await importEntries(content, storyId);
                 // Reload entries after import
                 await loadEntries(storyId);
                 buildTagMap();
-                toast.success("Lorebook entries imported successfully");
-            } catch (error) {
+            });
+            if (error) {
                 console.error("Import failed:", error);
                 toast.error("Failed to import lorebook entries");
+                return;
             }
+            toast.success("Lorebook entries imported successfully");
         };
 
         reader.readAsText(file);

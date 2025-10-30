@@ -1,27 +1,29 @@
+import { attempt } from '@jfdi/attempt';
 import { logger } from './logger';
 
 export const storageService = {
   get: <T>(key: string, defaultValue: T): T => {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
-    } catch {
-      return defaultValue;
-    }
+    const [error, item] = attempt(() => {
+      const stored = localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : defaultValue;
+    });
+    return error ? defaultValue : item;
   },
 
   set: <T>(key: string, value: T): void => {
-    try {
+    const [error] = attempt(() => {
       localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
+    });
+    if (error) {
       logger.error(`Failed to save to localStorage: ${key}`, error);
     }
   },
 
   remove: (key: string): void => {
-    try {
+    const [error] = attempt(() => {
       localStorage.removeItem(key);
-    } catch (error) {
+    });
+    if (error) {
       logger.error(`Failed to remove from localStorage: ${key}`, error);
     }
   },

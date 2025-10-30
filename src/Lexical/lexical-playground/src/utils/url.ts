@@ -6,6 +6,8 @@
  *
  */
 
+import { attempt } from '@jfdi/attempt';
+
 const SUPPORTED_URL_PROTOCOLS = new Set([
   'http:',
   'https:',
@@ -15,15 +17,17 @@ const SUPPORTED_URL_PROTOCOLS = new Set([
 ]);
 
 export function sanitizeUrl(url: string): string {
-  try {
-    const parsedUrl = new URL(url);
-    // eslint-disable-next-line no-script-url
-    if (!SUPPORTED_URL_PROTOCOLS.has(parsedUrl.protocol)) {
-      return 'about:blank';
-    }
-  } catch {
+  const [error, parsedUrl] = attempt(() => new URL(url));
+
+  if (error) {
     return url;
   }
+
+  // eslint-disable-next-line no-script-url
+  if (!SUPPORTED_URL_PROTOCOLS.has(parsedUrl.protocol)) {
+    return 'about:blank';
+  }
+
   return url;
 }
 

@@ -8,6 +8,7 @@ import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { Button } from "@/components/ui/button";
 import { Upload } from "lucide-react";
 import { storyExportService } from "@/services/storyExportService";
+import { attemptPromise } from '@jfdi/attempt';
 
 export default function Home() {
     const { stories, fetchStories } = useStoryStore();
@@ -43,13 +44,14 @@ export default function Home() {
         const reader = new FileReader();
 
         reader.onload = async (e) => {
-            try {
+            const [error] = await attemptPromise(async () => {
                 const content = e.target?.result as string;
                 await storyExportService.importStory(content);
 
                 // Just refresh the story list without navigating
                 await fetchStories();
-            } catch (error) {
+            });
+            if (error) {
                 console.error("Import failed:", error);
             }
         };

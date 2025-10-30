@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { debounce } from "lodash";
 import { sceneBeatService } from "@/features/scenebeats/services/sceneBeatService";
 import type { SceneBeat } from "@/types/story";
+import { attemptPromise } from '@jfdi/attempt';
 
 const DEBOUNCE_DELAY_MS = 500;
 
@@ -20,9 +21,10 @@ export const useSceneBeatSync = (sceneBeatId: string) => {
       debounce(async (command: string) => {
         if (!sceneBeatId) return;
 
-        try {
-          await sceneBeatService.updateSceneBeat(sceneBeatId, { command });
-        } catch (error) {
+        const [error] = await attemptPromise(async () =>
+          sceneBeatService.updateSceneBeat(sceneBeatId, { command })
+        );
+        if (error) {
           console.error("Error saving SceneBeat command:", error);
         }
       }, DEBOUNCE_DELAY_MS),
@@ -39,16 +41,17 @@ export const useSceneBeatSync = (sceneBeatId: string) => {
         ) => {
           if (!sceneBeatId) return;
 
-          try {
-            const updatedSceneBeat: Partial<SceneBeat> = {
-              metadata: {
-                useMatchedChapter,
-                useMatchedSceneBeat,
-                useCustomContext,
-              },
-            };
-            await sceneBeatService.updateSceneBeat(sceneBeatId, updatedSceneBeat);
-          } catch (error) {
+          const updatedSceneBeat: Partial<SceneBeat> = {
+            metadata: {
+              useMatchedChapter,
+              useMatchedSceneBeat,
+              useCustomContext,
+            },
+          };
+          const [error] = await attemptPromise(async () =>
+            sceneBeatService.updateSceneBeat(sceneBeatId, updatedSceneBeat)
+          );
+          if (error) {
             console.error("Error updating scene beat toggle states:", error);
           }
         },
@@ -67,12 +70,13 @@ export const useSceneBeatSync = (sceneBeatId: string) => {
   ) => {
     if (!sceneBeatId) return;
 
-    try {
-      await sceneBeatService.updateSceneBeat(sceneBeatId, {
+    const [error] = await attemptPromise(async () =>
+      sceneBeatService.updateSceneBeat(sceneBeatId, {
         povType,
         povCharacter,
-      });
-    } catch (error) {
+      })
+    );
+    if (error) {
       console.error("Error saving POV settings:", error);
     }
   };
@@ -83,12 +87,13 @@ export const useSceneBeatSync = (sceneBeatId: string) => {
   ) => {
     if (!sceneBeatId) return;
 
-    try {
-      await sceneBeatService.updateSceneBeat(sceneBeatId, {
+    const [error] = await attemptPromise(async () =>
+      sceneBeatService.updateSceneBeat(sceneBeatId, {
         generatedContent,
         accepted,
-      });
-    } catch (error) {
+      })
+    );
+    if (error) {
       console.error("Error saving generated content:", error);
     }
   };
@@ -96,9 +101,10 @@ export const useSceneBeatSync = (sceneBeatId: string) => {
   const saveAccepted = async (accepted: boolean) => {
     if (!sceneBeatId) return;
 
-    try {
-      await sceneBeatService.updateSceneBeat(sceneBeatId, { accepted });
-    } catch (error) {
+    const [error] = await attemptPromise(async () =>
+      sceneBeatService.updateSceneBeat(sceneBeatId, { accepted })
+    );
+    if (error) {
       console.error("Error updating accepted status:", error);
     }
   };

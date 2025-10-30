@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import { attemptPromise } from "@jfdi/attempt";
 import { Button } from "../../../components/ui/button";
 import {
   Pencil,
@@ -144,61 +145,74 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
   }, [povType, form]);
 
   const handleDelete = async () => {
-    try {
-      await deleteChapter(chapter.id);
-      setShowDeleteDialog(false);
-      toast.success(`Chapter ${chapter.order}: ${chapter.title} deleted`);
-    } catch (error) {
+    const [error] = await attemptPromise(async () =>
+      deleteChapter(chapter.id)
+    );
+
+    if (error) {
       console.error("Failed to delete chapter:", error);
       toast.error("Failed to delete chapter");
+      return;
     }
+
+    setShowDeleteDialog(false);
+    toast.success(`Chapter ${chapter.order}: ${chapter.title} deleted`);
   };
 
   const handleEdit = async (data: EditChapterForm) => {
-    try {
-      // Only include povCharacter if not omniscient
-      const povCharacter =
-        data.povType !== "Third Person Omniscient"
-          ? data.povCharacter
-          : undefined;
+    // Only include povCharacter if not omniscient
+    const povCharacter =
+      data.povType !== "Third Person Omniscient"
+        ? data.povCharacter
+        : undefined;
 
-      await updateChapter(chapter.id, {
+    const [error] = await attemptPromise(async () =>
+      updateChapter(chapter.id, {
         ...data,
         povCharacter,
-      });
-      setShowEditDialog(false);
-      toast.success("Chapter updated successfully", {
-        position: "bottom-center",
-        autoClose: 1000,
-        closeOnClick: true,
-      });
-    } catch (error) {
+      })
+    );
+
+    if (error) {
       console.error("Failed to update chapter:", error);
       toast.error("Failed to update chapter");
+      return;
     }
+
+    setShowEditDialog(false);
+    toast.success("Chapter updated successfully", {
+      position: "bottom-center",
+      autoClose: 1000,
+      closeOnClick: true,
+    });
   };
 
   const handleSaveSummary = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (summary !== chapter.summary) {
-      try {
-        await updateChapterSummaryOptimistic(chapter.id, summary);
-        toast.success("Summary saved successfully", {
-          position: "bottom-center",
-          autoClose: 1000,
-          closeOnClick: true,
-        });
-      } catch (error) {
+      const [error] = await attemptPromise(async () =>
+        updateChapterSummaryOptimistic(chapter.id, summary)
+      );
+
+      if (error) {
         console.error("Failed to save summary:", error);
         toast.error("Failed to save summary");
+        return;
       }
+
+      toast.success("Summary saved successfully", {
+        position: "bottom-center",
+        autoClose: 1000,
+        closeOnClick: true,
+      });
     }
   };
 
   const handleGenerateSummary = async (prompt: Prompt, model: AllowedModel) => {
-    try {
-      setIsGenerating(true);
+    setIsGenerating(true);
+
+    const [error] = await attemptPromise(async () => {
       const plainTextContent = await getChapterPlainText(chapter.id);
 
       const config: PromptParserConfig = {
@@ -227,12 +241,14 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
 
       await updateChapterSummaryOptimistic(chapter.id, text);
       toast.success("Summary generated successfully");
-    } catch (error) {
+    });
+
+    if (error) {
       console.error("Failed to generate summary:", error);
       toast.error("Failed to generate summary");
-    } finally {
-      setIsGenerating(false);
     }
+
+    setIsGenerating(false);
   };
 
   const toggleExpanded = (e: React.MouseEvent) => {

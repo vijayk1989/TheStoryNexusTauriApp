@@ -3,6 +3,7 @@ import type { LexicalEditor, NodeKey } from "lexical";
 import { $getNodeByKey } from "lexical";
 import { sceneBeatService } from "@/features/scenebeats/services/sceneBeatService";
 import type { POVType } from "../components/POVSettingsPopover";
+import { attemptPromise } from '@jfdi/attempt';
 
 // Type guard for SceneBeatNode (duck typing to avoid circular dependency)
 interface SceneBeatNodeType {
@@ -85,43 +86,46 @@ export const useSceneBeatData = ({
 
       if (nodeSceneBeatId) {
         // Step 2: Load existing SceneBeat
-        try {
-          const data = await sceneBeatService.getSceneBeat(nodeSceneBeatId);
-          if (data) {
-            setInitialCommand(data.command || "");
-            setInitialPovType(data.povType || defaultPovType);
-            setInitialPovCharacter(data.povCharacter || defaultPovCharacter);
+        const [loadError, data] = await attemptPromise(async () =>
+          sceneBeatService.getSceneBeat(nodeSceneBeatId)
+        );
+        if (loadError) {
+          console.error("Error loading SceneBeat:", loadError);
+        } else if (data) {
+          setInitialCommand(data.command || "");
+          setInitialPovType(data.povType || defaultPovType);
+          setInitialPovCharacter(data.povCharacter || defaultPovCharacter);
 
-            // Load toggle states from metadata
-            if (data.metadata) {
-              if (typeof data.metadata.useMatchedChapter === "boolean") {
-                setUseMatchedChapter(data.metadata.useMatchedChapter);
-              }
-              if (typeof data.metadata.useMatchedSceneBeat === "boolean") {
-                setUseMatchedSceneBeat(data.metadata.useMatchedSceneBeat);
-              }
-              if (typeof data.metadata.useCustomContext === "boolean") {
-                setUseCustomContext(data.metadata.useCustomContext);
-              }
+          // Load toggle states from metadata
+          if (data.metadata) {
+            if (typeof data.metadata.useMatchedChapter === "boolean") {
+              setUseMatchedChapter(data.metadata.useMatchedChapter);
             }
-
-            setSceneBeatId(nodeSceneBeatId);
-            setIsLoaded(true);
+            if (typeof data.metadata.useMatchedSceneBeat === "boolean") {
+              setUseMatchedSceneBeat(data.metadata.useMatchedSceneBeat);
+            }
+            if (typeof data.metadata.useCustomContext === "boolean") {
+              setUseCustomContext(data.metadata.useCustomContext);
+            }
           }
-        } catch (error) {
-          console.error("Error loading SceneBeat:", error);
+
+          setSceneBeatId(nodeSceneBeatId);
+          setIsLoaded(true);
         }
       } else if (currentStoryId && currentChapterId) {
         // Step 3: Create new SceneBeat
-        try {
-          const newId = await sceneBeatService.createSceneBeat({
+        const [createError, newId] = await attemptPromise(async () =>
+          sceneBeatService.createSceneBeat({
             storyId: currentStoryId,
             chapterId: currentChapterId,
             command: "",
             povType: defaultPovType,
             povCharacter: defaultPovCharacter,
-          });
-
+          })
+        );
+        if (createError) {
+          console.error("Error creating SceneBeat:", createError);
+        } else {
           // Update the node with the new ID
           editor.update(() => {
             const node = $getNodeByKey(nodeKey);
@@ -135,8 +139,6 @@ export const useSceneBeatData = ({
           setInitialPovType(defaultPovType);
           setInitialPovCharacter(defaultPovCharacter);
           setIsLoaded(true);
-        } catch (error) {
-          console.error("Error creating SceneBeat:", error);
         }
       }
     };

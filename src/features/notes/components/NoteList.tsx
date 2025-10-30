@@ -13,6 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { attemptPromise } from '@jfdi/attempt';
 
 interface NoteListProps {
     storyId: string;
@@ -34,11 +35,8 @@ export default function NoteList({ storyId }: NoteListProps) {
     }, [fetchNotes, storyId]);
 
     const handleDeleteNote = async (noteId: string) => {
-        try {
-            await deleteNote(noteId);
-        } catch (error) {
-            // Error is already handled in the store
-        }
+        await attemptPromise(async () => deleteNote(noteId));
+        // Error is already handled in the store
     };
 
     const handleEditClick = (note: Note, e: React.MouseEvent) => {
@@ -51,30 +49,34 @@ export default function NoteList({ storyId }: NoteListProps) {
 
     const handleCreateNote = async () => {
         if (newTitle.trim()) {
-            try {
-                await createNote(storyId, newTitle.trim(), '', noteType);
-                setIsNewNoteDialogOpen(false);
-                setNewTitle('');
-                setNoteType('idea');
-            } catch (error) {
+            const [error] = await attemptPromise(async () =>
+                createNote(storyId, newTitle.trim(), '', noteType)
+            );
+            if (error) {
                 // Error is already handled in the store
+                return;
             }
+            setIsNewNoteDialogOpen(false);
+            setNewTitle('');
+            setNoteType('idea');
         }
     };
 
     const handleSaveEdit = async () => {
         if (editingNote && newTitle.trim()) {
-            try {
-                await updateNote(editingNote.id, {
+            const [error] = await attemptPromise(async () =>
+                updateNote(editingNote.id, {
                     title: newTitle.trim(),
                     type: noteType
-                });
-                setIsEditDialogOpen(false);
-                setEditingNote(null);
-                setNewTitle('');
-            } catch (error) {
+                })
+            );
+            if (error) {
                 // Error is already handled in the store
+                return;
             }
+            setIsEditDialogOpen(false);
+            setEditingNote(null);
+            setNewTitle('');
         }
     };
 

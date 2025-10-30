@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'react-toastify';
 import { dbSeeder } from '@/services/dbSeed';
 import { usePromptStore } from '../store/promptStore';
+import { attemptPromise } from '@jfdi/attempt';
 
 export function PromptsManager() {
     const [selectedPrompt, setSelectedPrompt] = useState<Prompt | undefined>(undefined);
@@ -45,17 +46,18 @@ export function PromptsManager() {
     };
 
     const handleReseedSystemPrompts = async () => {
-        try {
-            setIsReseeding(true);
+        setIsReseeding(true);
+        const [error] = await attemptPromise(async () => {
             await dbSeeder.forceReseedSystemPrompts();
             await fetchPrompts();
-            toast.success('System prompts reseeded successfully');
-        } catch (error) {
+        });
+        if (error) {
             toast.error('Failed to reseed system prompts');
             console.error('Error reseeding system prompts:', error);
-        } finally {
-            setIsReseeding(false);
+        } else {
+            toast.success('System prompts reseeded successfully');
         }
+        setIsReseeding(false);
     };
 
     return (
@@ -78,12 +80,12 @@ export function PromptsManager() {
                             variant="outline"
                             size="icon"
                             onClick={async () => {
-                                try {
-                                    await exportPrompts();
-                                    toast.success('Prompts exported');
-                                } catch (error) {
+                                const [error] = await attemptPromise(async () => exportPrompts());
+                                if (error) {
                                     console.error('Export failed', error);
                                     toast.error('Failed to export prompts');
+                                } else {
+                                    toast.success('Prompts exported');
                                 }
                             }}
                             title="Export prompts"
@@ -100,19 +102,20 @@ export function PromptsManager() {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
                                 setIsImporting(true);
-                                try {
+                                const [error] = await attemptPromise(async () => {
                                     const text = await file.text();
                                     await importPrompts(text);
                                     await fetchPrompts();
-                                    toast.success('Prompts imported successfully');
-                                } catch (error) {
+                                });
+                                if (error) {
                                     console.error('Import failed', error);
                                     toast.error('Failed to import prompts');
-                                } finally {
-                                    setIsImporting(false);
-                                    // clear the input so the same file can be reselected if needed
-                                    if (fileInputRef.current) fileInputRef.current.value = '';
+                                } else {
+                                    toast.success('Prompts imported successfully');
                                 }
+                                setIsImporting(false);
+                                // clear the input so the same file can be reselected if needed
+                                if (fileInputRef.current) fileInputRef.current.value = '';
                             }}
                         />
 

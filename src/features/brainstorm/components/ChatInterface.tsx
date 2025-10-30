@@ -18,6 +18,7 @@ import { ChatMessageList } from "./ChatMessageList";
 import { ContextSelector } from "./ContextSelector";
 import { MessageInputArea } from "./MessageInputArea";
 import { PromptControls } from "./PromptControls";
+import { attemptPromise } from '@jfdi/attempt';
 
 interface ChatInterfaceProps {
     storyId: string;
@@ -151,32 +152,34 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     const handlePreviewPrompt = async () => {
         if (!state.selectedPrompt) return;
 
-        try {
-            dispatch({ type: "START_PREVIEW" });
+        dispatch({ type: "START_PREVIEW" });
 
-            const config = createPromptConfig(state.selectedPrompt);
-            const promptParser = createPromptParser();
-            const parsedPrompt = await promptParser.parse(config);
+        const config = createPromptConfig(state.selectedPrompt);
+        const promptParser = createPromptParser();
 
-            if (parsedPrompt.error) {
-                dispatch({
-                    type: "PREVIEW_ERROR",
-                    payload: parsedPrompt.error,
-                });
-                toast.error(`Error parsing prompt: ${parsedPrompt.error}`);
-                return;
-            }
-
-            dispatch({
-                type: "PREVIEW_SUCCESS",
-                payload: parsedPrompt.messages,
-            });
-        } catch (error) {
-            const errorMessage =
-                error instanceof Error ? error.message : String(error);
+        const [error, parsedPrompt] = await attemptPromise(async () =>
+            promptParser.parse(config)
+        );
+        if (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
             dispatch({ type: "PREVIEW_ERROR", payload: errorMessage });
             toast.error(`Error previewing prompt: ${errorMessage}`);
+            return;
         }
+
+        if (parsedPrompt.error) {
+            dispatch({
+                type: "PREVIEW_ERROR",
+                payload: parsedPrompt.error,
+            });
+            toast.error(`Error parsing prompt: ${parsedPrompt.error}`);
+            return;
+        }
+
+        dispatch({
+            type: "PREVIEW_SUCCESS",
+            payload: parsedPrompt.messages,
+        });
     };
 
     const handleSubmit = async () => {
@@ -188,7 +191,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         )
             return;
 
-        try {
+        const [error] = await attemptPromise(async () => {
             clearDraftMessage();
 
             const userMessage: ChatMessage = {
@@ -266,7 +269,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                     dispatch({ type: "ABORT_GENERATION" });
                 }
             );
-        } catch (error) {
+        });
+        if (error) {
             console.error("Error during generation:", error);
             dispatch({
                 type: "SET_PREVIEW_ERROR",
@@ -312,7 +316,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             return;
         }
 
-        try {
+        const [error] = await attemptPromise(async () => {
             dispatch({
                 type: "UPDATE_EDITED_MESSAGE",
                 payload: {
@@ -328,10 +332,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 messageId,
                 state.editingContent
             );
-
-            toast.success("Message edited");
-            dispatch({ type: "CANCEL_EDIT" });
-        } catch (error) {
+        });
+        if (error) {
             console.error("Failed to save edit", error);
             toast.error("Failed to save edit");
 
@@ -343,7 +345,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                         payload: fresh.messages || [],
                     });
             }
+            return;
         }
+
+        toast.success("Message edited");
+        dispatch({ type: "CANCEL_EDIT" });
     };
 
     const handleCancelEdit = () => {

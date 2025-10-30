@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { attemptPromise } from '@jfdi/attempt';
 
 
 
@@ -43,17 +44,19 @@ export function EditStoryDialog({ story, open, onOpenChange }: EditStoryDialogPr
         e.preventDefault();
         if (!story) return;
 
-        try {
-            await updateStory(story.id, {
+        const [error] = await attemptPromise(async () =>
+            updateStory(story.id, {
                 title,
                 author,
                 language,
                 synopsis,
-            });
-            onOpenChange(false);
-        } catch (error) {
+            })
+        );
+        if (error) {
             console.error("Failed to update story:", error);
+            return;
         }
+        onOpenChange(false);
     };
 
     return (

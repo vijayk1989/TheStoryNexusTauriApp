@@ -4,6 +4,7 @@ import Editor from 'react-simple-wysiwyg';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { attemptPromise } from '@jfdi/attempt';
 
 interface NoteEditorProps {
     storyId: string;
@@ -25,12 +26,9 @@ export default function NoteEditor({ storyId: _storyId }: NoteEditorProps) {
     const handleSave = async () => {
         if (!selectedNote) return;
 
-        try {
-            setIsSaving(true);
-            await updateNote(selectedNote.id, { content });
-        } finally {
-            setIsSaving(false);
-        }
+        setIsSaving(true);
+        await attemptPromise(async () => updateNote(selectedNote.id, { content }));
+        setIsSaving(false);
     };
 
     if (!selectedNote) {

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { attemptPromise } from '@jfdi/attempt';
 import { useChapterStore } from '../stores/useChapterStore';
 import Editor from 'react-simple-wysiwyg';
 import { cn } from '@/lib/utils';
@@ -19,16 +20,21 @@ export function ChapterNotesEditor({ onClose: _onClose }: ChapterNotesEditorProp
         debounce(async (newContent: string) => {
             if (!currentChapter) return;
 
-            try {
-                const notes: ChapterNotes = {
-                    content: newContent,
-                    lastUpdated: new Date()
-                };
-                await updateChapterNotes(currentChapter.id, notes);
-                setLastSavedContent(newContent);
-            } catch (error) {
+            const notes: ChapterNotes = {
+                content: newContent,
+                lastUpdated: new Date()
+            };
+
+            const [error] = await attemptPromise(async () =>
+                updateChapterNotes(currentChapter.id, notes)
+            );
+
+            if (error) {
                 console.error('Failed to save notes:', error);
+                return;
             }
+
+            setLastSavedContent(newContent);
         }, 1000),
         [currentChapter]
     );

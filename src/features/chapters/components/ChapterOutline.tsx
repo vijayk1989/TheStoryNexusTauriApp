@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { attemptPromise } from "@jfdi/attempt";
 import { Button } from "../../../components/ui/button";
 import { Textarea } from "../../../components/ui/textarea";
 import { useChapterStore } from "../stores/useChapterStore";
@@ -22,16 +23,19 @@ export function ChapterOutline() {
         if (!currentChapter) return;
 
         setIsSaving(true);
-        try {
-            await updateChapterOutline(currentChapter.id, {
+
+        const [error] = await attemptPromise(async () =>
+            updateChapterOutline(currentChapter.id, {
                 content: outlineContent,
                 lastUpdated: new Date()
-            });
-        } catch (error) {
+            })
+        );
+
+        if (error) {
             console.error("Failed to save outline:", error);
-        } finally {
-            setIsSaving(false);
         }
+
+        setIsSaving(false);
     };
 
     return (

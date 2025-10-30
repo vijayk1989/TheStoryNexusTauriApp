@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
+import { attemptPromise } from "@jfdi/attempt";
 import { useChapterStore } from "../stores/useChapterStore";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
@@ -59,26 +60,29 @@ export function ChapterPOVEditor({ onClose }: ChapterPOVEditorProps) {
     const handleSubmit = async (data: POVForm) => {
         if (!currentChapter) return;
 
-        try {
-            // Only include povCharacter if not omniscient
-            const povCharacter = data.povType !== 'Third Person Omniscient' ? data.povCharacter : undefined;
+        // Only include povCharacter if not omniscient
+        const povCharacter = data.povType !== 'Third Person Omniscient' ? data.povCharacter : undefined;
 
-            await updateChapter(currentChapter.id, {
+        const [error] = await attemptPromise(async () =>
+            updateChapter(currentChapter.id, {
                 povType: data.povType,
                 povCharacter
-            });
+            })
+        );
 
-            toast.success('Chapter POV updated successfully', {
-                position: "bottom-center",
-                autoClose: 1000,
-                closeOnClick: true,
-            });
-
-            if (onClose) onClose();
-        } catch (error) {
+        if (error) {
             console.error('Failed to update chapter POV:', error);
             toast.error('Failed to update chapter POV');
+            return;
         }
+
+        toast.success('Chapter POV updated successfully', {
+            position: "bottom-center",
+            autoClose: 1000,
+            closeOnClick: true,
+        });
+
+        if (onClose) onClose();
     };
 
     if (!currentChapter) {

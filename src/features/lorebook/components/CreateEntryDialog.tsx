@@ -27,6 +27,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
+import { attemptPromise } from '@jfdi/attempt';
 
 interface CreateEntryDialogProps {
   open: boolean;
@@ -105,7 +106,7 @@ export function CreateEntryDialog({
     e.stopPropagation();
     setIsSubmitting(true);
 
-    try {
+    const [error] = await attemptPromise(async () => {
       const processedTags = tagInput
         .split(",")
         .map((tag) => tag.trim())
@@ -128,11 +129,11 @@ export function CreateEntryDialog({
         resetForm();
       }
       onOpenChange(false);
-    } catch (error) {
+    });
+    if (error) {
       toast.error(entry ? "Failed to update entry" : "Failed to create entry");
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   };
 
   return (

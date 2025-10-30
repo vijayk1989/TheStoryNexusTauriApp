@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { attemptPromise } from "@jfdi/attempt";
 import { useParams } from "react-router";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -103,19 +104,19 @@ export default function Chapters() {
   const handleCreateChapter = async (data: CreateChapterForm) => {
     if (!storyId) return;
 
-    try {
-      const nextOrder =
-        chapters.length === 0
-          ? 1
-          : Math.max(...chapters.map((chapter) => chapter.order ?? 0)) + 1;
+    const nextOrder =
+      chapters.length === 0
+        ? 1
+        : Math.max(...chapters.map((chapter) => chapter.order ?? 0)) + 1;
 
-      // Only include povCharacter if not omniscient
-      const povCharacter =
-        data.povType !== "Third Person Omniscient"
-          ? data.povCharacter
-          : undefined;
+    // Only include povCharacter if not omniscient
+    const povCharacter =
+      data.povType !== "Third Person Omniscient"
+        ? data.povCharacter
+        : undefined;
 
-      await createChapter({
+    const [error] = await attemptPromise(async () =>
+      createChapter({
         storyId,
         title: data.title,
         content: "",
@@ -123,18 +124,22 @@ export default function Chapters() {
         povType: data.povType,
         order: nextOrder,
         outline: { content: "", lastUpdated: new Date() },
-      });
-      setIsCreateDialogOpen(false);
-      form.reset({
-        title: "",
-        povType: "Third Person Omniscient",
-        povCharacter: undefined,
-      });
-      toast.success("Chapter created successfully");
-    } catch (error) {
+      })
+    );
+
+    if (error) {
       console.error("Failed to create chapter:", error);
       toast.error("Failed to create chapter");
+      return;
     }
+
+    setIsCreateDialogOpen(false);
+    form.reset({
+      title: "",
+      povType: "Third Person Omniscient",
+      povCharacter: undefined,
+    });
+    toast.success("Chapter created successfully");
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -150,19 +155,18 @@ export default function Chapters() {
 
     if (oldIndex === -1 || newIndex === -1) return;
 
-    try {
-      const updatedChapters = arrayMove(chapters, oldIndex, newIndex);
+    const updatedChapters = arrayMove(chapters, oldIndex, newIndex);
 
-      // Use the new bulk update method
-      await updateChapterOrders(
+    const [error] = await attemptPromise(async () =>
+      updateChapterOrders(
         updatedChapters.map((chapter: Chapter, index) => ({
           id: chapter.id,
           order: index + 1,
         }))
-      );
+      )
+    );
 
-      toast.success("Chapter order updated successfully");
-    } catch (error) {
+    if (error) {
       console.error("Failed to update chapter order:", error);
       toast.error("Failed to update chapter order");
       // Refetch to ensure UI is in sync with database

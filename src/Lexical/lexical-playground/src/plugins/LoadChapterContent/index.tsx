@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
+import { attempt } from '@jfdi/attempt';
 
 export function LoadChapterContentPlugin(): null {
     const [editor] = useLexicalComposerContext();
@@ -22,19 +23,21 @@ export function LoadChapterContentPlugin(): null {
         if (!hasLoaded && currentChapter?.content && currentChapter.id === currentChapterId) {
             // Defer to microtask to avoid flushSync warning
             queueMicrotask(() => {
-                try {
+                const [error] = attempt(() => {
                     // Parse and set the editor state
                     const parsedState = editor.parseEditorState(currentChapter.content);
                     editor.setEditorState(parsedState);
                     setHasLoaded(true);
-                } catch (error) {
+                });
+                if (error) {
                     console.error('LoadChapterContent - Failed to load content:', error);
 
                     // Only in case of error, try to create an empty editor state
-                    try {
+                    const [recoveryError] = attempt(() => {
                         editor.setEditorState(editor.parseEditorState('{"root":{"children":[{"children":[],"direction":"ltr","format":"","indent":0,"type":"paragraph","version":1}],"direction":"ltr","format":"","indent":0,"type":"root","version":1}}'));
                         setHasLoaded(true);
-                    } catch (recoveryError) {
+                    });
+                    if (recoveryError) {
                         console.error('LoadChapterContent - Recovery failed:', recoveryError);
                     }
                 }

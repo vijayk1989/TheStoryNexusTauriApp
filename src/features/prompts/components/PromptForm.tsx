@@ -13,6 +13,7 @@ import { toast } from 'react-toastify';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { attemptPromise } from '@jfdi/attempt';
 
 type PromptType = Prompt['promptType'];
 
@@ -85,16 +86,18 @@ export function PromptForm({ prompt, onSave, onCancel, fixedType }: PromptFormPr
     }, []);
 
     const loadAvailableModels = async () => {
-        try {
+        const [error, models] = await attemptPromise(async () => {
             if (!isInitialized) {
                 await initialize();
             }
-            const models = await getAvailableModels();
-            setAvailableModels(models);
-        } catch (error) {
+            return await getAvailableModels();
+        });
+        if (error) {
             console.error('Error loading AI models:', error);
             toast.error('Failed to load AI models');
+            return;
         }
+        setAvailableModels(models);
     };
 
     const modelGroups = useMemo(() => {
@@ -200,7 +203,7 @@ export function PromptForm({ prompt, onSave, onCancel, fixedType }: PromptFormPr
     };
 
     const handleUseDefaultModels = async () => {
-        try {
+        const [error] = await attemptPromise(async () => {
             await aiService.initialize();
             const defaultLocal = aiService.getDefaultLocalModel();
             const defaultOpenAI = aiService.getDefaultOpenAIModel();
@@ -249,7 +252,8 @@ export function PromptForm({ prompt, onSave, onCancel, fixedType }: PromptFormPr
             // Replace existing models with default models
             setSelectedModels(defaultModels);
             toast.success(`Added ${defaultModels.length} default model(s)`);
-        } catch (error) {
+        });
+        if (error) {
             console.error('Error loading default models:', error);
             toast.error('Failed to load default models');
         }
@@ -273,20 +277,20 @@ export function PromptForm({ prompt, onSave, onCancel, fixedType }: PromptFormPr
             return;
         }
 
-        try {
-            const promptData = {
-                name,
-                messages: messages.map(({ _id, ...msg }) => msg),
-                promptType,
-                allowedModels: selectedModels,
-                temperature,
-                maxTokens,
-                top_p: topP,
-                top_k: topK,
-                repetition_penalty: repetitionPenalty,
-                min_p: minP
-            };
+        const promptData = {
+            name,
+            messages: messages.map(({ _id, ...msg }) => msg),
+            promptType,
+            allowedModels: selectedModels,
+            temperature,
+            maxTokens,
+            top_p: topP,
+            top_k: topK,
+            repetition_penalty: repetitionPenalty,
+            min_p: minP
+        };
 
+        const [error] = await attemptPromise(async () => {
             if (prompt?.id) {
                 await updatePrompt(prompt.id, promptData);
                 toast.success('Prompt updated successfully');
@@ -295,7 +299,8 @@ export function PromptForm({ prompt, onSave, onCancel, fixedType }: PromptFormPr
                 toast.success('Prompt created successfully');
             }
             onSave?.();
-        } catch (error) {
+        });
+        if (error) {
             toast.error((error as Error).message || 'Failed to save prompt');
         }
     };

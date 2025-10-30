@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle } from "lucide-react";
+import { attemptPromise } from '@jfdi/attempt';
 
 
 export function CreateStoryDialog() {
@@ -26,22 +27,24 @@ export function CreateStoryDialog() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        try {
-            await createStory({
+        const [error] = await attemptPromise(async () =>
+            createStory({
                 title,
                 author,
                 language,
                 synopsis,
-            });
-            setOpen(false);
-            // Reset form
-            setTitle("");
-            setAuthor("");
-            setLanguage("English");
-            setSynopsis("");
-        } catch (error) {
+            })
+        );
+        if (error) {
             console.error("Failed to create story:", error);
+            return;
         }
+        setOpen(false);
+        // Reset form
+        setTitle("");
+        setAuthor("");
+        setLanguage("English");
+        setSynopsis("");
     };
 
     return (

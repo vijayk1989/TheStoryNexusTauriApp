@@ -5,6 +5,7 @@ import { Trash2, Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { Prompt } from '@/types/story';
 import { cn } from '@/lib/utils';
+import { attemptPromise } from '@jfdi/attempt';
 
 interface PromptsListProps {
     onPromptSelect: (prompt: Prompt) => void;
@@ -62,25 +63,27 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete, 
 
     const handleDelete = async (e: React.MouseEvent, promptId: string) => {
         e.stopPropagation();
-        try {
+        const [error] = await attemptPromise(async () => {
             await deletePrompt(promptId);
             onPromptDelete(promptId);
-            toast.success('Prompt deleted successfully');
-        } catch (error) {
+        });
+        if (error) {
             toast.error('Failed to delete prompt');
             console.error('Error deleting prompt:', error);
+            return;
         }
+        toast.success('Prompt deleted successfully');
     };
 
     const handleClone = async (e: React.MouseEvent, promptId: string) => {
         e.stopPropagation();
-        try {
-            await clonePrompt(promptId);
-            toast.success('Prompt cloned successfully');
-        } catch (error) {
+        const [error] = await attemptPromise(async () => clonePrompt(promptId));
+        if (error) {
             toast.error('Failed to clone prompt');
             console.error('Error cloning prompt:', error);
+            return;
         }
+        toast.success('Prompt cloned successfully');
     };
 
     if (error) {

@@ -187,9 +187,11 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
   // Event handlers
   const handleDelete = async () => {
     if (sceneBeatId) {
-      try {
-        await sceneBeatService.deleteSceneBeat(sceneBeatId);
-      } catch (error) {
+      const { attemptPromise } = await import('@jfdi/attempt');
+      const [error] = await attemptPromise(async () =>
+        sceneBeatService.deleteSceneBeat(sceneBeatId)
+      );
+      if (error) {
         console.error("Error deleting SceneBeat from database:", error);
         toast.error("Failed to delete scene beat from database");
       }

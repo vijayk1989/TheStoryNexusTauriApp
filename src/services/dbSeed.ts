@@ -1,3 +1,4 @@
+import { attemptPromise } from "@jfdi/attempt";
 import { db } from "./database";
 import { Prompt } from "../types/story";
 import systemPrompts from "../data/systemPrompts";
@@ -28,7 +29,7 @@ export class DatabaseSeeder {
       return;
     }
 
-    try {
+    const [error] = await attemptPromise(async () => {
       console.log("Initializing database with seed data...");
 
       // Check if we need to seed
@@ -44,7 +45,9 @@ export class DatabaseSeeder {
       }
 
       DatabaseSeeder.isInitialized = true;
-    } catch (error) {
+    });
+
+    if (error) {
       console.error("Error initializing database:", error);
       throw error;
     }

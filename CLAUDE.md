@@ -53,10 +53,11 @@ if (error) return handleError(error);
 #### Style
 
 - Prefer functional programming patterns.
-- Use `const`, not `let`.
+- Use `const`, not `let`. `let` and mutation is a code smell.
 - Use arrow functions.
 - Use async/await for asynchronous code.
 - Avoid explicit `any` type. Type everything properly.
+- Avoid all React antipatterns, particularly around abuse of `useEffect` to handle derived or computed state. Fix these wherever found.
 
 #### Architectural Exceptions to Functional Programming
 

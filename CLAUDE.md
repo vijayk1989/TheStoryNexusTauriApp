@@ -61,6 +61,7 @@ if (error) return handleError(error);
 - Use async/await for asynchronous code.
 - Avoid explicit `any` type. Type everything properly.
 - Avoid all React antipatterns, particularly around abuse of `useEffect` to handle derived or computed state. Fix these wherever found.
+- Prefer custom React hooks over complex, multi-hook, in-component logic.
 - Modules should be small and focused on a single responsibility.
 
 #### Architectural Exceptions to Functional Programming

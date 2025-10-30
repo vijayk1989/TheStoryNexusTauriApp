@@ -77,7 +77,7 @@ export function PromptForm({ prompt, onSave, onCancel, fixedType }: PromptFormPr
         initialize,
         getAvailableModels,
         isInitialized,
-        isLoading: isAILoading
+        isLoading: _isAILoading
     } = useAIStore();
 
     useEffect(() => {
@@ -173,11 +173,6 @@ export function PromptForm({ prompt, onSave, onCancel, fixedType }: PromptFormPr
 
     const removeModel = (modelId: string) => {
         setSelectedModels(selectedModels.filter(m => m.id !== modelId));
-    };
-
-    const getModelDisplayName = (modelId: string): string => {
-        const model = availableModels.find(m => m.id === modelId);
-        return model?.name || modelId;
     };
 
     const handleAddMessage = (role: 'system' | 'user' | 'assistant') => {

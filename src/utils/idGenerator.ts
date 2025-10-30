@@ -1,4 +1,4 @@
-export const generateId = (): string => crypto.randomUUID();
+const generateId = (): string => crypto.randomUUID();
 
 export const generateStoryId = (): string => generateId();
 export const generateChapterId = (): string => generateId();

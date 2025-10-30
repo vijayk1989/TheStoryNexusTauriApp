@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AllowedModel, Prompt, PromptMessage } from "@/types/story";
+import type { AllowedModel, PromptMessage } from "@/types/story";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
 import { toast } from "react-toastify";
 import { createPromptParser } from "@/features/prompts/services/promptParser";

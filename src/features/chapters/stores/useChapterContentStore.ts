@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { attemptPromise, attempt } from '@jfdi/attempt';
 import { db } from '@/services/database';
-import { $getRoot, LexicalEditor } from 'lexical';
 
 interface ChapterContentState {
     // Content processing operations
@@ -11,7 +10,7 @@ interface ChapterContentState {
 }
 
 export const useChapterContentStore = create<ChapterContentState>(() => ({
-    getChapterPlainText: async (id: string) => {
+    getChapterPlainText: async (id: string): Promise<string> => {
         const [error, chapter] = await attemptPromise(() => db.chapters.get(id));
 
         if (error) {
@@ -24,7 +23,7 @@ export const useChapterContentStore = create<ChapterContentState>(() => ({
             return '';
         }
 
-        const plainText = useChapterContentStore.getState().extractPlainTextFromLexicalState(chapter.content);
+        const plainText: string = useChapterContentStore.getState().extractPlainTextFromLexicalState(chapter.content);
         return plainText;
     },
 
@@ -43,7 +42,7 @@ export const useChapterContentStore = create<ChapterContentState>(() => ({
             return '';
         }
 
-        const plainText = useChapterContentStore.getState().extractPlainTextFromLexicalState(chapter.content);
+        const plainText: string = useChapterContentStore.getState().extractPlainTextFromLexicalState(chapter.content);
         return plainText;
     },
 

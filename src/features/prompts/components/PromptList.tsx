@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePromptStore } from '../store/promptStore';
 import { Button } from "@/components/ui/button";
-import { Trash2, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { Prompt } from '@/types/story';
 import { cn } from '@/lib/utils';

@@ -3,7 +3,6 @@ import { useNotesStore } from '../stores/useNotesStore';
 import { cn } from '@/lib/utils';
 import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'react-toastify';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Note } from '@/types/story';

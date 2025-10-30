@@ -20,7 +20,7 @@ import { useLorebookStore } from "../stores/useLorebookStore";
 import { toast } from "react-toastify";
 import type { LorebookEntry } from "@/types/story";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,

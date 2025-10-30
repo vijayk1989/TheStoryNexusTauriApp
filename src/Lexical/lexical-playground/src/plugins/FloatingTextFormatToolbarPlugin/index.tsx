@@ -32,8 +32,6 @@ import {
   Underline,
   Wand2,
   Loader2,
-  Check,
-  X,
 } from "lucide-react";
 
 import { getDOMRangeRect } from "../../utils/getDOMRangeRect";
@@ -79,7 +77,6 @@ function TextFormatFloatingToolbar({
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt>();
   const [selectedModel, setSelectedModel] = useState<AllowedModel>();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedText, setGeneratedText] = useState("");
 
   // Add these states for prompt preview
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
@@ -111,7 +108,7 @@ function TextFormatFloatingToolbar({
       }
     }
   }
-  function mouseUpListener(e: MouseEvent) {
+  function mouseUpListener(_e: MouseEvent) {
     if (popupCharStylesEditorRef?.current) {
       if (popupCharStylesEditorRef.current.style.pointerEvents !== "auto") {
         popupCharStylesEditorRef.current.style.pointerEvents = "auto";
@@ -129,6 +126,7 @@ function TextFormatFloatingToolbar({
         document.removeEventListener("mouseup", mouseUpListener);
       };
     }
+    return undefined;
   }, [popupCharStylesEditorRef]);
 
   const $updateTextFormatFloatingToolbar = useCallback(() => {
@@ -322,7 +320,6 @@ function TextFormatFloatingToolbar({
     }
 
     setIsGenerating(true);
-    setGeneratedText("");
 
     try {
       const config = createPromptConfig(selectedPrompt);
@@ -361,11 +358,6 @@ function TextFormatFloatingToolbar({
       toast.error("Failed to generate text");
       setIsGenerating(false);
     }
-  };
-
-  const resetGenerationState = () => {
-    setGeneratedText("");
-    setIsGenerating(false);
   };
 
   const handlePreviewPrompt = async () => {

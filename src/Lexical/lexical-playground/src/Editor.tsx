@@ -24,7 +24,6 @@ import { useEffect, useState } from "react";
 import { CAN_USE_DOM } from "shared/canUseDOM";
 import { useSettings } from "./context/SettingsContext";
 import { useSharedHistoryContext } from "./context/SharedHistoryContext";
-import AutoEmbedPlugin from "./plugins/AutoEmbedPlugin";
 import AutoLinkPlugin from "./plugins/AutoLinkPlugin";
 import CollapsiblePlugin from "./plugins/CollapsiblePlugin";
 import ContextMenuPlugin from "./plugins/ContextMenuPlugin";
@@ -117,7 +116,6 @@ export default function Editor(): JSX.Element {
         <DragDropPaste />
         <AutoFocusPlugin />
         {selectionAlwaysOnDisplay && <SelectionAlwaysOnDisplay />}
-        <AutoEmbedPlugin />
         <HashtagPlugin />
         <SpeechToTextPlugin />
         <AutoLinkPlugin />

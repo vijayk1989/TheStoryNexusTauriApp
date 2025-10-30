@@ -91,10 +91,11 @@ export class StoryDatabase extends Dexie {
                 const storyId = storyData.id || crypto.randomUUID();
 
                 // Create the story
+                const { id: _id, ...storyDataWithoutId } = storyData;
                 await this.stories.add({
                     id: storyId,
                     createdAt: new Date(),
-                    ...storyData
+                    ...storyDataWithoutId
                 });
 
                 return storyId;

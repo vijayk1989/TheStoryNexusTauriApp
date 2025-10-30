@@ -50,23 +50,18 @@ import {
   SELECTION_CHANGE_COMMAND,
   TextNode,
 } from 'lexical';
-import * as React from 'react';
 import {Suspense, useCallback, useEffect, useRef, useState} from 'react';
 
 import {createWebsocketProvider} from '../collaboration';
 import {useSettings} from '../context/SettingsContext';
 import {useSharedHistoryContext} from '../context/SharedHistoryContext';
 import brokenImage from '../images/image-broken.svg';
-import EmojisPlugin from '../plugins/EmojisPlugin';
-import KeywordsPlugin from '../plugins/KeywordsPlugin';
 import LinkPlugin from '../plugins/LinkPlugin';
 import MentionsPlugin from '../plugins/MentionsPlugin';
 import TreeViewPlugin from '../plugins/TreeViewPlugin';
 import ContentEditable from '../ui/ContentEditable';
 import ImageResizer from '../ui/ImageResizer';
-import {EmojiNode} from './EmojiNode';
 import {$isImageNode} from './ImageNode';
-import {KeywordNode} from './KeywordNode';
 
 const imageCache = new Set();
 
@@ -434,16 +429,12 @@ export default function ImageComponent({
                 LineBreakNode,
                 ParagraphNode,
                 LinkNode,
-                EmojiNode,
                 HashtagNode,
-                KeywordNode,
               ]}>
               <AutoFocusPlugin />
               <MentionsPlugin />
               <LinkPlugin />
-              <EmojisPlugin />
               <HashtagPlugin />
-              <KeywordsPlugin />
               {isCollabActive ? (
                 <CollaborationPlugin
                   id={caption.getKey()}

@@ -1,6 +1,6 @@
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
-import { useEffect, ReactNode } from 'react';
+import { ReactNode } from 'react';
 import PlaygroundApp from './App' // using the lexical playground App component
 import './index.css' // Ensure the CSS is imported
 

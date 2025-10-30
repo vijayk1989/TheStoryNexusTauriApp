@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AIModel, Prompt, AllowedModel } from "@/types/story";
+import { Prompt, AllowedModel } from "@/types/story";
 import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarSub, MenubarSubContent, MenubarSubTrigger, MenubarTrigger } from "./menubar";
 import { ChevronDown } from "lucide-react";
 import { PromptConfigDialog } from "./prompt-config-dialog";

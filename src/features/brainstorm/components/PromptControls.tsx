@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from '@/components/ui/button';
 import { PromptSelectMenu } from '@/components/ui/prompt-select-menu';
 import { PromptPreviewDialog } from '@/components/ui/prompt-preview-dialog';
@@ -27,7 +26,7 @@ export function PromptControls({
     promptsError,
     selectedPrompt,
     selectedModel,
-    availableModels,
+    availableModels: _availableModels,
     showPreview,
     previewMessages,
     previewLoading,
@@ -36,7 +35,6 @@ export function PromptControls({
     onPreviewPrompt,
     onClosePreview
 }: PromptControlsProps) {
-    const brainstormPrompts = prompts.filter((p) => p.promptType === 'brainstorm');
 
     return (
         <div className="space-y-4 mb-4">
@@ -44,8 +42,8 @@ export function PromptControls({
                 <PromptSelectMenu
                     prompts={prompts}
                     promptType="brainstorm"
-                    selectedPrompt={selectedPrompt}
-                    selectedModel={selectedModel}
+                    selectedPrompt={selectedPrompt || undefined}
+                    selectedModel={selectedModel || undefined}
                     onSelect={onPromptSelect}
                     isLoading={promptsLoading}
                     error={promptsError}

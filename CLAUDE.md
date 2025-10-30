@@ -93,8 +93,17 @@ All other services should use functional patterns if practical.
 ### Path Aliases
 The project uses TypeScript path aliases configured in both `tsconfig.json` and `vite.config.ts`:
 - `@/*` → `./src/*`
-- `@lexical-playground/*` → `src/Lexical/lexical-playground/src/*`
 - `shared/*` → `src/Lexical/shared/src/*`
+
+### Lexical Dependencies
+The following Lexical packages are available as transitive dependencies of `@lexical/react` and DO NOT need to be added to package.json:
+- `@lexical/mark` - Provided by @lexical/react
+- `@lexical/yjs` - Provided by @lexical/react
+- `@lexical/utils` - Provided by @lexical/code, @lexical/hashtag, @lexical/link, @lexical/list, @lexical/markdown, @lexical/react
+- `@lexical/selection` - Provided by @lexical/code and @lexical/react (via @lexical/clipboard)
+- `yjs` - Provided by y-websocket and @lexical/react
+
+Never add these to package.json. They install automatically.
 
 ### Core Architecture Patterns
 

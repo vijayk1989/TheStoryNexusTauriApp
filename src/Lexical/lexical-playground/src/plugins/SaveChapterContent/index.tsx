@@ -25,7 +25,7 @@ export function SaveChapterContentPlugin(): null {
 
     // Register update listener
     useEffect(() => {
-        if (!currentChapterId) return;
+        if (!currentChapterId) return undefined;
 
         const saveContent = saveContentRef.current;
 

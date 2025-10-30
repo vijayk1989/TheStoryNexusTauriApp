@@ -31,3 +31,6 @@ dist-ssr
 
 .cursorrules
 .cursor/
+
+# Windows reserved device names
+NUL

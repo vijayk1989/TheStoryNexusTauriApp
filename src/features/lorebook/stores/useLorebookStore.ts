@@ -223,6 +223,3 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         });
     },
 }));
-
-// Export services for direct access when needed
-export { LorebookFilterService, LorebookImportExportService, useLorebookDataStore };

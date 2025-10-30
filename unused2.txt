@@ -1,0 +1,191 @@
+
+> thestorynexus@0.1.2 knip
+> knip
+
+[93m[4mUnused files[24m[39m (10)
+src/constants/apiConfig.ts                                      
+src/constants/databaseTables.ts                                 
+src/constants/lorebookCategories.ts                             
+src/constants/routes.ts                                         
+src/Lexical/shared/src/useLayoutEffect.ts                       
+src/Lexical/lexical-playground/src/themes/StickyEditorTheme.ts  
+src/Lexical/lexical-playground/src/ui/EquationEditor.tsx        
+src/Lexical/lexical-playground/src/ui/KatexRenderer.tsx         
+src/Lexical/lexical-playground/src/utils/emoji-list.ts          
+src/Lexical/lexical-playground/src/utils/swipe.ts               
+[93m[4mUnused dependencies[24m[39m (1)
+katex  package.json:49:6
+[93m[4mUnused devDependencies[24m[39m (1)
+@biomejs/biome  package.json:73:6
+[93m[4mUnlisted dependencies[24m[39m (25)
+@testing-library/jest-dom  src/test.d.ts:1:8                                                                         
+@lexical/mark              src/Lexical/lexical-playground/src/nodes/PlaygroundNodes.ts:15:11                         
+@lexical/yjs               src/Lexical/lexical-playground/src/collaboration.ts:9:10                                  
+yjs                        src/Lexical/lexical-playground/src/collaboration.ts:11:10                                 
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/CollapsiblePlugin/index.ts:13:4                
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/DragDropPastePlugin/index.ts:11:10             
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/FloatingLinkEditorPlugin/index.tsx:19:11       
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/FloatingTextFormatToolbarPlugin/index.tsx:14:11
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/ImagesPlugin/index.tsx:12:10                   
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/InlineImagePlugin/index.tsx:14:10              
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/LayoutPlugin/LayoutPlugin.tsx:13:4             
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/PageBreakPlugin/index.tsx:12:10                
+@lexical/selection         src/Lexical/lexical-playground/src/plugins/ToolbarPlugin/index.tsx:14:4                   
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/ToolbarPlugin/index.tsx:20:4                   
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/SlashCommandPlugin/index.tsx:17:11             
+@lexical/utils             src/Lexical/lexical-playground/src/ui/ImageResizer.tsx:12:10                              
+@lexical/utils             src/Lexical/lexical-playground/src/nodes/ImageComponent.tsx:32:10                         
+@lexical/utils             src/Lexical/lexical-playground/src/nodes/LayoutContainerNode.ts:21:10                     
+@lexical/utils             src/Lexical/lexical-playground/src/nodes/LayoutItemNode.ts:17:10                          
+@lexical/utils             src/Lexical/lexical-playground/src/nodes/PageBreakNode/index.tsx:15:10                    
+@lexical/utils             src/Lexical/lexical-playground/src/nodes/SpecialTextNode.tsx:11:10                        
+@lexical/selection         src/Lexical/lexical-playground/src/utils/getSelectedNode.ts:8:10                          
+@lexical/utils             src/Lexical/lexical-playground/src/nodes/InlineImageNode/InlineImageComponent.tsx:21:10   
+@lexical/selection         src/Lexical/lexical-playground/src/plugins/ToolbarPlugin/utils.ts:22:10                   
+@lexical/utils             src/Lexical/lexical-playground/src/plugins/ToolbarPlugin/utils.ts:24:10                   
+[93m[4mUnused exports[24m[39m (121)
+SSE_FORMAT                               src/constants/aiConstants.ts:5:14                                              
+StoryExportService                       src/services/storyExportService.ts:60:9                                        
+StoryImportService                       src/services/storyExportService.ts:60:29                                       
+FileDownloadUtil                         src/services/storyExportService.ts:60:49                                       
+MenubarLabel                             src/components/ui/menubar.tsx:243:20                                           
+MenubarCheckboxItem                      src/components/ui/menubar.tsx:244:16                                           
+MenubarRadioGroup                        src/components/ui/menubar.tsx:245:23                                           
+MenubarRadioItem                         src/components/ui/menubar.tsx:246:21                                           
+MenubarPortal                            src/components/ui/menubar.tsx:247:20                                           
+MenubarGroup                             src/components/ui/menubar.tsx:250:21                                           
+MenubarShortcut                          src/components/ui/menubar.tsx:252:14                                           
+AlertDialogPortal                        src/components/ui/alert-dialog.tsx:128:15                                      
+AlertDialogOverlay                       src/components/ui/alert-dialog.tsx:129:21                                      
+AlertDialogTrigger                       src/components/ui/alert-dialog.tsx:130:22                                      
+badgeVariants                            src/components/ui/badge.tsx:36:16                                              
+DialogPortal                             src/components/ui/dialog.tsx:110:10                                            
+DialogOverlay                            src/components/ui/dialog.tsx:111:16                                            
+DialogClose                              src/components/ui/dialog.tsx:113:17                                            
+DropdownMenuCheckboxItem                 src/components/ui/dropdown-menu.tsx:187:20                                     
+DropdownMenuRadioItem                    src/components/ui/dropdown-menu.tsx:188:28                                     
+DropdownMenuLabel                        src/components/ui/dropdown-menu.tsx:189:25                                     
+DropdownMenuShortcut                     src/components/ui/dropdown-menu.tsx:191:25                                     
+DropdownMenuGroup                        src/components/ui/dropdown-menu.tsx:192:24                                     
+DropdownMenuPortal                       src/components/ui/dropdown-menu.tsx:193:21                                     
+DropdownMenuSub                          src/components/ui/dropdown-menu.tsx:194:22                                     
+DropdownMenuSubContent                   src/components/ui/dropdown-menu.tsx:195:19                                     
+DropdownMenuSubTrigger                   src/components/ui/dropdown-menu.tsx:196:26                                     
+DropdownMenuRadioGroup                   src/components/ui/dropdown-menu.tsx:197:26                                     
+convertLexicalToHtml           function  src/utils/exportUtils.ts:58:23                                                 
+downloadAsFile                 function  src/utils/exportUtils.ts:97:17                                                 
+DrawerPortal                             src/components/ui/drawer.tsx:106:10                                            
+DrawerOverlay                            src/components/ui/drawer.tsx:107:16                                            
+DrawerTrigger                            src/components/ui/drawer.tsx:108:17                                            
+useFormField                             src/components/ui/form.tsx:167:9                                               
+FormDescription                          src/components/ui/form.tsx:172:15                                              
+PopoverAnchor                            src/components/ui/popover.tsx:31:50                                            
+ScrollBar                                src/components/ui/scroll-area.tsx:46:21                                        
+SelectGroup                              src/components/ui/select.tsx:147:10                                            
+SelectLabel                              src/components/ui/select.tsx:151:17                                            
+SelectSeparator                          src/components/ui/select.tsx:153:14                                            
+SelectScrollUpButton                     src/components/ui/select.tsx:154:19                                            
+SelectScrollDownButton                   src/components/ui/select.tsx:155:24                                            
+SheetPortal                              src/components/ui/sheet.tsx:130:9                                              
+SheetOverlay                             src/components/ui/sheet.tsx:131:15                                             
+SheetTrigger                             src/components/ui/sheet.tsx:132:16                                             
+SheetClose                               src/components/ui/sheet.tsx:133:16                                             
+SheetFooter                              src/components/ui/sheet.tsx:136:15                                             
+SheetDescription                         src/components/ui/sheet.tsx:138:14                                             
+isError                                  src/utils/errorUtils.ts:4:14                                                   
+getErrorMessage                          src/utils/errorUtils.ts:6:14                                                   
+generateId                               src/utils/idGenerator.ts:1:14                                                  
+PromptParser                   class     src/features/prompts/services/promptParser.ts:41:14                            
+useChapterDataStore                      src/features/chapters/stores/useChapterStore.ts:99:9                           
+useChapterContentStore                   src/features/chapters/stores/useChapterStore.ts:99:30                          
+useChapterMetadataStore                  src/features/chapters/stores/useChapterStore.ts:99:54                          
+LorebookFilterService                    src/features/lorebook/stores/useLorebookStore.ts:228:9                         
+LorebookImportExportService              src/features/lorebook/stores/useLorebookStore.ts:228:32                        
+useLorebookDataStore                     src/features/lorebook/stores/useLorebookStore.ts:228:61                        
+useFlashMessageContext                   src/Lexical/lexical-playground/src/context/FlashMessageContext.tsx:65:14       
+CellContext                              src/Lexical/lexical-playground/src/plugins/TablePlugin.tsx:49:14               
+InsertTableDialog              function  src/Lexical/lexical-playground/src/plugins/TablePlugin.tsx:82:17               
+TablePlugin                    function  src/Lexical/lexical-playground/src/plugins/TablePlugin.tsx:139:17              
+isDevPlayground                          src/Lexical/lexical-playground/src/appSettings.ts:10:14                        
+INSERT_COLLAPSIBLE_COMMAND               src/Lexical/lexical-playground/src/plugins/CollapsiblePlugin/index.ts:50:14    
+InsertImageUriDialogBody       function  src/Lexical/lexical-playground/src/plugins/ImagesPlugin/index.tsx:54:17        
+InsertImageUploadedDialogBody  function  src/Lexical/lexical-playground/src/plugins/ImagesPlugin/index.tsx:92:17        
+InsertImageDialog              function  src/Lexical/lexical-playground/src/plugins/ImagesPlugin/index.tsx:142:17       
+INSERT_INLINE_IMAGE_COMMAND              src/Lexical/lexical-playground/src/plugins/InlineImagePlugin/index.tsx:52:14   
+InsertInlineImageDialog        function  src/Lexical/lexical-playground/src/plugins/InlineImagePlugin/index.tsx:55:17   
+INSERT_LAYOUT_COMMAND                    src/Lexical/lexical-playground/src/plugins/LayoutPlugin/LayoutPlugin.tsx:43:14 
+UPDATE_LAYOUT_COMMAND                    src/Lexical/lexical-playground/src/plugins/LayoutPlugin/LayoutPlugin.tsx:46:14 
+SPEECH_TO_TEXT_COMMAND                   src/Lexical/lexical-playground/src/plugins/SpeechToTextPlugin/index.ts:24:14   
+SUPPORT_SPEECH_RECOGNITION               src/Lexical/lexical-playground/src/plugins/SpeechToTextPlugin/index.ts:45:14   
+IS_FIREFOX                               src/Lexical/shared/src/environment.ts:27:14                                    
+CAN_USE_BEFORE_INPUT                     src/Lexical/shared/src/environment.ts:30:14                                    
+IS_SAFARI                                src/Lexical/shared/src/environment.ts:35:14                                    
+IS_IOS                                   src/Lexical/shared/src/environment.ts:38:14                                    
+IS_ANDROID                               src/Lexical/shared/src/environment.ts:43:14                                    
+IS_ANDROID_CHROME                        src/Lexical/shared/src/environment.ts:52:14                                    
+IS_APPLE_WEBKIT                          src/Lexical/shared/src/environment.ts:55:14                                    
+RIGHT_CLICK_IMAGE_COMMAND                src/Lexical/lexical-playground/src/nodes/ImageComponent.tsx:68:14              
+$isMentionNode                 function  src/Lexical/lexical-playground/src/nodes/MentionNode.ts:131:17                 
+$convertDetailsElement         function  ÔÇªcal-playground/src/plugins/CollapsiblePlugin/CollapsibleContainerNode.ts:34:17
+$convertCollapsibleContentElÔÇª  function  ÔÇªxical-playground/src/plugins/CollapsiblePlugin/CollapsibleContentNode.ts:27:17
+$convertSummaryElement         function  ÔÇªlexical-playground/src/plugins/CollapsiblePlugin/CollapsibleTitleNode.ts:29:17
+$isPageBreakNode               function  src/Lexical/lexical-playground/src/nodes/PageBreakNode/index.tsx:159:17        
+$createSpecialTextNode         function  src/Lexical/lexical-playground/src/nodes/SpecialTextNode.tsx:59:17             
+$isSpecialTextNode             function  src/Lexical/lexical-playground/src/nodes/SpecialTextNode.tsx:68:17             
+UpdateInlineImageDialog        function  ÔÇªal/lexical-playground/src/nodes/InlineImageNode/InlineImageComponent.tsx:98:17
+HR                                       src/Lexical/lexical-playground/src/plugins/MarkdownTransformers/index.ts:46:14 
+IMAGE                                    src/Lexical/lexical-playground/src/plugins/MarkdownTransformers/index.ts:67:14 
+TABLE                                    src/Lexical/lexical-playground/src/plugins/MarkdownTransformers/index.ts:96:14 
+controlOrMeta                  function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:53:17  
+isFormatParagraph              function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:57:17  
+isFormatHeading                function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:68:17  
+isFormatBulletList             function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:80:17  
+isFormatNumberedList           function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:90:17  
+isFormatCheckList              function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:100:17 
+isFormatCode                   function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:110:17 
+isFormatQuote                  function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:117:17 
+isLowercase                    function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:124:17 
+isUppercase                    function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:134:17 
+isCapitalize                   function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:144:17 
+isStrikeThrough                function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:154:17 
+isIndent                       function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:161:17 
+isOutdent                      function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:171:17 
+isCenterAlign                  function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:181:17 
+isLeftAlign                    function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:188:17 
+isRightAlign                   function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:195:17 
+isJustifyAlign                 function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:202:17 
+isSubscript                    function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:209:17 
+isSuperscript                  function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:216:17 
+isInsertCodeBlock              function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:223:17 
+isIncreaseFontSize             function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:230:17 
+isDecreaseFontSize             function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:237:17 
+isClearFormatting              function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:244:17 
+isInsertLink                   function  src/Lexical/lexical-playground/src/plugins/ShortcutsPlugin/shortcuts.ts:264:17 
+calculateNextFontSize                    src/Lexical/lexical-playground/src/plugins/ToolbarPlugin/utils.ts:51:14        
+updateFontSize                           src/Lexical/lexical-playground/src/plugins/ToolbarPlugin/utils.ts:145:14       
+formatCode                               src/Lexical/lexical-playground/src/plugins/ToolbarPlugin/utils.ts:216:14       
+parseAllowedFontSize           function  src/Lexical/lexical-playground/src/plugins/ToolbarPlugin/fontSize.tsx:23:17    
+[93m[4mUnused exported types[24m[39m (23)
+ButtonProps                  interface  src/components/ui/button.tsx:37:18                                              
+VariableResolver             type       src/types/story.ts:209:13                                                       
+BadgeProps                   interface  src/components/ui/badge.tsx:26:18                                               
+ChatState                    interface  src/features/brainstorm/reducers/chatReducer.ts:3:18                            
+ChatAction                   type       src/features/brainstorm/reducers/chatReducer.ts:33:13                           
+ShowFlashMessage             type       src/Lexical/lexical-playground/src/context/FlashMessageContext.tsx:22:13        
+InsertTableCommandPayload    type       src/Lexical/lexical-playground/src/plugins/TablePlugin.tsx:26:13                
+CellContextShape             type       src/Lexical/lexical-playground/src/plugins/TablePlugin.tsx:32:13                
+CellEditorConfig             type       src/Lexical/lexical-playground/src/plugins/TablePlugin.tsx:41:13                
+Settings                     type       src/Lexical/lexical-playground/src/appSettings.ts:44:13                         
+InsertImagePayload           type       src/Lexical/lexical-playground/src/plugins/ImagesPlugin/index.tsx:49:13         
+InsertInlineImagePayload     type       src/Lexical/lexical-playground/src/plugins/InlineImagePlugin/index.tsx:50:13    
+FlashMessageProps            interface  src/Lexical/lexical-playground/src/ui/FlashMessage.tsx:16:18                    
+SerializedImageNode          type       src/Lexical/lexical-playground/src/nodes/ImageNode.tsx:61:13                    
+SerializedLayoutContainerNÔÇª  type       src/Lexical/lexical-playground/src/nodes/LayoutContainerNode.ts:24:13           
+SerializedLayoutItemNode     type       src/Lexical/lexical-playground/src/nodes/LayoutItemNode.ts:20:13                
+SerializedMentionNode        type       src/Lexical/lexical-playground/src/nodes/MentionNode.ts:22:13                   
+UpdateInlineImagePayload     interface  ÔÇª/Lexical/lexical-playground/src/nodes/InlineImageNode/InlineImageNode.tsx:48:18
+SerializedInlineImageNode    type       ÔÇª/Lexical/lexical-playground/src/nodes/InlineImageNode/InlineImageNode.tsx:63:13
+SerializedPageBreakNode      type       src/Lexical/lexical-playground/src/nodes/PageBreakNode/index.tsx:33:13          
+SerializedSceneBeatNode      type       src/Lexical/lexical-playground/src/nodes/SceneBeatNode.tsx:60:13                
+SceneBeatContext             interface  ÔÇªlexical-playground/src/nodes/scene-beat/services/sceneBeatPromptService.ts:9:18
+UpdateFontSizeType           enum       src/Lexical/lexical-playground/src/plugins/ToolbarPlugin/utils.ts:40:13         

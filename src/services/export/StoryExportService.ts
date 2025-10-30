@@ -1,5 +1,5 @@
 import { db } from '../database';
-import type { Story, StoryExport } from '@/types/story';
+import type { StoryExport } from '@/types/story';
 
 export class StoryExportService {
     async exportStory(storyId: string): Promise<StoryExport> {

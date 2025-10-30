@@ -36,20 +36,12 @@ import {
   TableRowNode,
 } from '@lexical/table';
 import {
-  $createTextNode,
   $isParagraphNode,
   $isTextNode,
   LexicalNode,
 } from 'lexical';
 
-import {
-  $createEquationNode,
-  $isEquationNode,
-  EquationNode,
-} from '../../nodes/EquationNode';
 import { $createImageNode, $isImageNode, ImageNode } from '../../nodes/ImageNode';
-import { $createTweetNode, $isTweetNode, TweetNode } from '../../nodes/TweetNode';
-import emojiList from '../../utils/emoji-list';
 
 export const HR: ElementTransformer = {
   dependencies: [HorizontalRuleNode],
@@ -96,58 +88,6 @@ export const IMAGE: TextMatchTransformer = {
   type: 'text-match',
 };
 
-export const EMOJI: TextMatchTransformer = {
-  dependencies: [],
-  export: () => null,
-  importRegExp: /:([a-z0-9_]+):/,
-  regExp: /:([a-z0-9_]+):$/,
-  replace: (textNode, [, name]) => {
-    const emoji = emojiList.find((e) => e.aliases.includes(name))?.emoji;
-    if (emoji) {
-      textNode.replace($createTextNode(emoji));
-    }
-  },
-  trigger: ':',
-  type: 'text-match',
-};
-
-export const EQUATION: TextMatchTransformer = {
-  dependencies: [EquationNode],
-  export: (node) => {
-    if (!$isEquationNode(node)) {
-      return null;
-    }
-
-    return `$${node.getEquation()}$`;
-  },
-  importRegExp: /\$([^$]+?)\$/,
-  regExp: /\$([^$]+?)\$$/,
-  replace: (textNode, match) => {
-    const [, equation] = match;
-    const equationNode = $createEquationNode(equation, true);
-    textNode.replace(equationNode);
-  },
-  trigger: '$',
-  type: 'text-match',
-};
-
-export const TWEET: ElementTransformer = {
-  dependencies: [TweetNode],
-  export: (node) => {
-    if (!$isTweetNode(node)) {
-      return null;
-    }
-
-    return `<tweet id="${node.getId()}" />`;
-  },
-  regExp: /<tweet id="([^"]+?)"\s?\/>\s?$/,
-  replace: (textNode, _1, match) => {
-    const [, id] = match;
-    const tweetNode = $createTweetNode(id);
-    textNode.replace(tweetNode);
-  },
-  type: 'element',
-};
 
 // Very primitive table setup
 const TABLE_ROW_REG_EXP = /^(?:\|)(.+)(?:\|)\s?$/;
@@ -312,9 +252,6 @@ export const PLAYGROUND_TRANSFORMERS: Array<Transformer> = [
   TABLE,
   HR,
   IMAGE,
-  EMOJI,
-  EQUATION,
-  TWEET,
   CHECK_LIST,
   ...ELEMENT_TRANSFORMERS,
   ...MULTILINE_ELEMENT_TRANSFORMERS,

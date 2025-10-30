@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useChapterStore } from "../stores/useChapterStore";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
@@ -32,7 +32,7 @@ interface POVForm {
 }
 
 export function ChapterPOVEditor({ onClose }: ChapterPOVEditorProps) {
-    const { currentChapterId } = useStoryContext();
+    const { currentChapterId: _currentChapterId } = useStoryContext();
     const { currentChapter, updateChapter } = useChapterStore();
     const { entries } = useLorebookStore();
 

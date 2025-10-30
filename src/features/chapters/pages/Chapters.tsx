@@ -60,7 +60,7 @@ export default function Chapters() {
     error,
     fetchChapters,
     createChapter,
-    updateChapter,
+    updateChapter: _updateChapter,
     updateChapterOrders,
   } = useChapterStore();
   const { fetchPrompts } = usePromptStore();
@@ -166,7 +166,9 @@ export default function Chapters() {
       console.error("Failed to update chapter order:", error);
       toast.error("Failed to update chapter order");
       // Refetch to ensure UI is in sync with database
-      await fetchChapters(storyId);
+      if (storyId) {
+        await fetchChapters(storyId);
+      }
     }
   };
 

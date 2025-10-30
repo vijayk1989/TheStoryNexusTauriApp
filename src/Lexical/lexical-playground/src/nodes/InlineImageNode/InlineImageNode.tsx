@@ -128,7 +128,7 @@ export class InlineImageNode extends DecoratorNode<JSX.Element> {
 
   static importDOM(): DOMConversionMap | null {
     return {
-      img: (node: Node) => ({
+      img: (_node: Node) => ({
         conversion: $convertInlineImageElement,
         priority: 0,
       }),

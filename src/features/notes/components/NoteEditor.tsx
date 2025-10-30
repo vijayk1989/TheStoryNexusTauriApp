@@ -9,7 +9,7 @@ interface NoteEditorProps {
     storyId: string;
 }
 
-export default function NoteEditor({ storyId }: NoteEditorProps) {
+export default function NoteEditor({ storyId: _storyId }: NoteEditorProps) {
     const { selectedNote, updateNote } = useNotesStore();
     const [content, setContent] = useState('');
     const [isSaving, setIsSaving] = useState(false);

@@ -9,12 +9,10 @@ import {
     KEY_ENTER_COMMAND,
     KEY_ARROW_DOWN_COMMAND,
     KEY_ARROW_UP_COMMAND,
-    TextNode,
     $getSelection,
     $isRangeSelection,
     $createParagraphNode,
     LexicalEditor,
-    $createTextNode,
 } from 'lexical';
 import { mergeRegister } from '@lexical/utils';
 import { $createSceneBeatNode } from '../../nodes/SceneBeatNode';
@@ -168,6 +166,7 @@ export default function SlashCommandPlugin({
                 document.removeEventListener('mousedown', handleClickOutside);
             };
         }
+        return undefined;
     }, [showMenu, resetMenu]);
 
     // Register command listeners

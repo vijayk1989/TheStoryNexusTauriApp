@@ -1,7 +1,6 @@
 import { AIModel, AIProvider, AISettings, PromptMessage } from '@/types/story';
 import { db } from '../database';
 import { AIProviderFactory } from './AIProviderFactory';
-import { StreamProcessor } from './StreamProcessor';
 import { attemptPromise } from '@jfdi/attempt';
 import { formatSSEChunk, formatSSEDone } from '@/constants/aiConstants';
 
@@ -169,10 +168,10 @@ export class AIService {
         modelId: string,
         temperature: number = 1.0,
         maxTokens: number = 2048,
-        top_p?: number,
-        top_k?: number,
-        repetition_penalty?: number,
-        min_p?: number
+        _top_p?: number,
+        _top_k?: number,
+        _repetition_penalty?: number,
+        _min_p?: number
     ): Promise<Response> {
         this.abortController = new AbortController();
 
@@ -191,10 +190,10 @@ export class AIService {
         modelId: string,
         temperature: number = 1.0,
         maxTokens: number = 2048,
-        top_p?: number,
-        top_k?: number,
-        repetition_penalty?: number,
-        min_p?: number
+        _top_p?: number,
+        _top_k?: number,
+        _repetition_penalty?: number,
+        _min_p?: number
     ): Promise<Response> {
         if (!this.settings?.openaiKey) {
             throw new Error('OpenAI API key not set');
@@ -213,7 +212,7 @@ export class AIService {
                 modelId,
                 temperature,
                 maxTokens,
-                this.abortController.signal
+                this.abortController!.signal
             )
         );
 
@@ -224,6 +223,10 @@ export class AIService {
             throw error;
         }
 
+        if (!response) {
+            throw new Error('No response from provider');
+        }
+
         return this.formatStreamAsSSE(response);
     }
 
@@ -232,10 +235,10 @@ export class AIService {
         modelId: string,
         temperature: number = 1.0,
         maxTokens: number = 2048,
-        top_p?: number,
-        top_k?: number,
-        repetition_penalty?: number,
-        min_p?: number
+        _top_p?: number,
+        _top_k?: number,
+        _repetition_penalty?: number,
+        _min_p?: number
     ): Promise<Response> {
         if (!this.settings?.openrouterKey) {
             throw new Error('OpenRouter API key not set');
@@ -254,7 +257,7 @@ export class AIService {
                 modelId,
                 temperature,
                 maxTokens,
-                this.abortController.signal
+                this.abortController!.signal
             )
         );
 
@@ -263,6 +266,10 @@ export class AIService {
                 return new Response(null, { status: 204 });
             }
             throw error;
+        }
+
+        if (!response) {
+            throw new Error('No response from provider');
         }
 
         return this.formatStreamAsSSE(response);

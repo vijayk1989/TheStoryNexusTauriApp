@@ -2,7 +2,7 @@ import { useEffect, useCallback } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { debounce } from "lodash";
 import { useToolbarState } from "../../context/ToolbarContext";
-import { $isElementNode } from "lexical";
+import { $isElementNode, type LexicalNode } from "lexical";
 
 export function WordCountPlugin() {
   const [editor] = useLexicalComposerContext();
@@ -14,7 +14,7 @@ export function WordCountPlugin() {
       editor.getEditorState().read(() => {
         const root = editor._editorState._nodeMap.get("root");
         if (root && $isElementNode(root)) {
-          function traverse(node) {
+          function traverse(node: LexicalNode) {
             if ($isElementNode(node)) {
               const children = node.getChildren();
               if (children.length === 0 && node.getTextContent) {

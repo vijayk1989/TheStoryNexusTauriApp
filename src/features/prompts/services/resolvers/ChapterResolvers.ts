@@ -1,6 +1,6 @@
 import { PromptContext } from '@/types/story';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
-import { IVariableResolver, ILorebookFormatter } from './types';
+import { IVariableResolver } from './types';
 import { attemptPromise } from '@jfdi/attempt';
 
 export class ChapterSummariesResolver implements IVariableResolver {
@@ -140,7 +140,7 @@ export class ChapterOutlineResolver implements IVariableResolver {
 }
 
 export class ChapterDataResolver implements IVariableResolver {
-    async resolve(context: PromptContext, args: string): Promise<string> {
+    async resolve(_context: PromptContext, args: string): Promise<string> {
         const chapterOrder = parseInt(args);
         const { getChapterPlainTextByChapterOrder } = useChapterStore.getState();
         const data = await getChapterPlainTextByChapterOrder(chapterOrder);

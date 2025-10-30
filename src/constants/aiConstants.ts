@@ -2,7 +2,7 @@
  * AI service constants including SSE formatting
  */
 
-export const SSE_FORMAT = {
+const SSE_FORMAT = {
   DATA_PREFIX: 'data: ',
   DONE_MESSAGE: 'data: [DONE]\n\n',
   NEWLINE: '\n\n',

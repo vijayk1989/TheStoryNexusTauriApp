@@ -9,7 +9,7 @@ interface ChapterNotesEditorProps {
     onClose: () => void;
 }
 
-export function ChapterNotesEditor({ onClose }: ChapterNotesEditorProps) {
+export function ChapterNotesEditor({ onClose: _onClose }: ChapterNotesEditorProps) {
     const { currentChapter, updateChapterNotes } = useChapterStore();
     const [content, setContent] = useState('');
     const [lastSavedContent, setLastSavedContent] = useState('');

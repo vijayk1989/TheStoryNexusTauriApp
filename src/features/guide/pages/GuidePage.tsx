@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import BasicsGuide from "../components/BasicsGuide";
 import AdvancedGuide from "../components/AdvancedGuide";
 import LorebookGuide from "../components/LorebookGuide";

@@ -19,7 +19,7 @@ interface NotesState {
     selectNote: (note: Note | null) => void;
 }
 
-export const useNotesStore = create<NotesState>((set, get) => ({
+export const useNotesStore = create<NotesState>((set, _get) => ({
     notes: [],
     selectedNote: null,
     isLoading: false,

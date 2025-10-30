@@ -42,7 +42,7 @@ interface ChapterState {
  * Unified facade for chapter operations that delegates to specialized stores.
  * Maintains backward compatibility with the original useChapterStore API.
  */
-export const useChapterStore = create<ChapterState>((set, get) => {
+export const useChapterStore = create<ChapterState>((set, _get) => {
     // Subscribe to underlying stores to maintain reactivity
     useChapterDataStore.subscribe((state) => {
         set({
@@ -94,6 +94,3 @@ export const useChapterStore = create<ChapterState>((set, get) => {
     getChapterNotes: (id) => useChapterMetadataStore.getState().getChapterNotes(id),
 };
 });
-
-// Export individual stores for direct access when needed
-export { useChapterDataStore, useChapterContentStore, useChapterMetadataStore };

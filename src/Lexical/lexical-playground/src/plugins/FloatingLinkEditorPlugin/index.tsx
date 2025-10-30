@@ -93,7 +93,7 @@ function FloatingLinkEditor({
     const activeElement = document.activeElement;
 
     if (editorElem === null) {
-      return;
+      return true;
     }
 
     const rootElement = editor.getRootElement();

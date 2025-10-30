@@ -1,6 +1,3 @@
-import { $generateHtmlFromNodes } from '@lexical/html';
-import { LexicalEditor } from 'lexical';
-import { Story, Chapter } from '@/types/story';
 import { db } from '@/services/database';
 
 interface SerializedLexicalNode {
@@ -58,7 +55,7 @@ const extractPlainTextFromLexical = (jsonContent: string): string => {
  * @param jsonContent The Lexical JSON content string
  * @returns HTML string representation of the content
  */
-export async function convertLexicalToHtml(jsonContent: string): Promise<string> {
+async function convertLexicalToHtml(jsonContent: string): Promise<string> {
     const editorState: LexicalEditorState = JSON.parse(jsonContent);
     const container = document.createElement('div');
 
@@ -97,7 +94,7 @@ export async function convertLexicalToHtml(jsonContent: string): Promise<string>
  * @param filename The name of the file
  * @param contentType The MIME type of the content
  */
-export function downloadAsFile(content: string, filename: string, contentType: string) {
+function downloadAsFile(content: string, filename: string, contentType: string) {
     const blob = new Blob([content], { type: contentType });
     const url = URL.createObjectURL(blob);
 

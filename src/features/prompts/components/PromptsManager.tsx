@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { PromptForm } from './PromptForm';
 import { PromptsList } from './PromptList';
-import { Plus, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import { Upload, Download } from 'lucide-react';
 import type { Prompt } from '@/types/story';
 import { cn } from '@/lib/utils';
@@ -32,12 +32,6 @@ export function PromptsManager() {
         setShowMobileForm(true);
     };
 
-    const handleBack = () => {
-        setShowMobileForm(false);
-        if (!selectedPrompt) {
-            setIsCreating(false);
-        }
-    };
 
     const handleSave = () => {
         setShowMobileForm(false);

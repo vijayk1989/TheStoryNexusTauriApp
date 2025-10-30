@@ -44,9 +44,8 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardFooter,
 } from "../../../components/ui/card";
-import { Bounce, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
 import { usePromptStore } from "@/features/prompts/store/promptStore";
@@ -239,7 +238,7 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
   const toggleExpanded = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsExpanded((prev) => !prev);
+    setIsExpanded((prev: boolean) => !prev);
   };
 
   const handleWriteClick = () => {

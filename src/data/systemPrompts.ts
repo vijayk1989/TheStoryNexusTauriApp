@@ -1,4 +1,4 @@
-import { AIProvider, Prompt } from '../types/story';
+import { Prompt } from '../types/story';
 
 // Define system prompts directly as JavaScript objects
 const systemPrompts: Partial<Prompt>[] = [

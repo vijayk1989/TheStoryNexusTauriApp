@@ -17,9 +17,7 @@ import {
 } from '../../context/ToolbarContext';
 import { SHORTCUTS } from '../ShortcutsPlugin/shortcuts';
 import {
-  updateFontSize,
   updateFontSizeInSelection,
-  UpdateFontSizeType,
 } from './utils';
 
 export function parseAllowedFontSize(input: string): string {

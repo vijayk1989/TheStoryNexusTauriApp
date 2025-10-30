@@ -1,10 +1,9 @@
-import React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import {
     Select,
     SelectContent,
@@ -39,7 +38,7 @@ export function ContextSelector({
     selectedItems,
     selectedChapterContent,
     chapters,
-    lorebookEntries,
+    lorebookEntries: _lorebookEntries,
     onToggleFullContext,
     onToggleContextOpen,
     onToggleSummary,

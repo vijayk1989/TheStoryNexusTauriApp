@@ -121,9 +121,9 @@ export class MentionNode extends TextNode {
 
 export function $createMentionNode(
   mentionName: string,
-  textContent?: string,
+  _textContent?: string,
 ): MentionNode {
-  const mentionNode = new MentionNode(mentionName, (textContent = mentionName));
+  const mentionNode = new MentionNode(mentionName, mentionName);
   mentionNode.setMode('segmented').toggleDirectionless();
   return $applyNodeReplacement(mentionNode);
 }

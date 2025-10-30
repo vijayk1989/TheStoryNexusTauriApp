@@ -1,8 +1,6 @@
 import { Link, Outlet, useParams } from "react-router";
 import {
-    Settings,
     Home,
-    Bot,
     Sparkles,
     Sliders,
     BookOpen,
@@ -19,7 +17,6 @@ import { useStoryStore } from "@/features/stories/stores/useStoryStore";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "react-router";
-import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 
 export default function StoryDashboard() {

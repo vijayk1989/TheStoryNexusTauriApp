@@ -24,8 +24,6 @@ import {
 } from "@lexical/utils";
 import {
   $createParagraphNode,
-  $getNodeByKey,
-  $getRoot,
   $getSelection,
   $isElementNode,
   $isRangeSelection,
@@ -38,7 +36,6 @@ import {
   FORMAT_TEXT_COMMAND,
   INDENT_CONTENT_COMMAND,
   LexicalEditor,
-  NodeKey,
   OUTDENT_CONTENT_COMMAND,
   REDO_COMMAND,
   SELECTION_CHANGE_COMMAND,
@@ -51,9 +48,7 @@ import {
   blockTypeToBlockName,
   useToolbarState,
 } from "../../context/ToolbarContext";
-import useModal from "../../hooks/useModal";
 import { getSelectedNode } from "../../utils/getSelectedNode";
-import { InsertImageDialog } from "../ImagesPlugin";
 
 import { INSERT_PAGE_BREAK } from "../PageBreakPlugin";
 import { SHORTCUTS } from "../ShortcutsPlugin/shortcuts";
@@ -67,7 +62,6 @@ import {
   formatParagraph,
   formatQuote,
 } from "./utils";
-import { $createHelloWorldNode } from "../../nodes/HelloWorldNode";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,36 +76,11 @@ import {
   Bold,
   Italic,
   Underline,
-  Link,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  CheckSquare,
-  Quote,
-  Code,
   Minus,
-  SeparatorHorizontal,
-  Image,
-  Bot,
-  Type,
-  Superscript,
-  Subscript,
   Strikethrough,
-  X,
+  Bot,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { $createSceneBeatNode } from "../../nodes/SceneBeatNode";
-
-const rootTypeToRootName = {
-  root: "Root",
-  table: "Table",
-};
 
 const FONT_FAMILY_OPTIONS: [string, string][] = [
   ["Arial", "Arial"],
@@ -175,18 +144,9 @@ const ELEMENT_FORMAT_OPTIONS: {
   },
 };
 
-function dropDownActiveClass(active: boolean) {
-  if (active) {
-    return "active dropdown-item-active";
-  } else {
-    return "";
-  }
-}
-
 function BlockFormatDropDown({
   editor,
   blockType,
-  rootType,
   disabled,
 }: {
   blockType: keyof typeof blockTypeToBlockName;
@@ -500,17 +460,12 @@ export default function ToolbarPlugin({
   editor,
   activeEditor,
   setActiveEditor,
-  setIsLinkEditMode,
 }: {
   editor: LexicalEditor;
   activeEditor: LexicalEditor;
   setActiveEditor: Dispatch<LexicalEditor>;
   setIsLinkEditMode: Dispatch<boolean>;
 }): JSX.Element {
-  const [selectedElementKey, setSelectedElementKey] = useState<NodeKey | null>(
-    null
-  );
-  const [modal, showModal] = useModal();
   const [isEditable, setIsEditable] = useState(() => editor.isEditable());
   const { toolbarState, updateToolbarState } = useToolbarState();
 
@@ -559,7 +514,7 @@ export default function ToolbarPlugin({
       }
 
       if (elementDOM !== null) {
-        setSelectedElementKey(elementKey);
+        // setSelectedElementKey(elementKey); // Unused variable
         if ($isListNode(element)) {
           const parentList = $getNearestNodeOfType<ListNode>(
             anchorNode,
@@ -599,7 +554,10 @@ export default function ToolbarPlugin({
         "fontFamily",
         $getSelectionStyleValueForProperty(selection, "font-family", "Arial")
       );
-      let matchingParent;
+      const matchingParent = $findMatchingParent(
+        node,
+        (parentNode) => $isElementNode(parentNode) && !parentNode.isInline(),
+      );
 
       // If matchingParent is a valid node, pass it's format type
       updateToolbarState(
@@ -678,21 +636,6 @@ export default function ToolbarPlugin({
       )
     );
   }, [$updateToolbar, activeEditor, editor, updateToolbarState]);
-
-  const applyStyleText = useCallback(
-    (styles: Record<string, string>, skipHistoryStack?: boolean) => {
-      activeEditor.update(
-        () => {
-          const selection = $getSelection();
-          if (selection !== null) {
-            $patchStyleText(selection, styles);
-          }
-        },
-        skipHistoryStack ? { tag: "historic" } : {}
-      );
-    },
-    [activeEditor]
-  );
 
   const canViewerSeeInsertDropdown = !toolbarState.isImageCaption;
 
@@ -993,7 +936,6 @@ export default function ToolbarPlugin({
           Words: {toolbarState.wordCount}
         </span>
       </div>
-      {modal}
     </div>
   );
 }

@@ -111,7 +111,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
             const [checkError, existingPrompt] = await attemptPromise(() =>
                 db.prompts
                     .where('name')
-                    .equals(promptData.name)
+                    .equals(promptData.name || '')
                     .and(item => item.id !== id)
                     .first()
             );

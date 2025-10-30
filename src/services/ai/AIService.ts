@@ -2,6 +2,8 @@ import { AIModel, AIProvider, AISettings, PromptMessage } from '@/types/story';
 import { db } from '../database';
 import { AIProviderFactory } from './AIProviderFactory';
 import { StreamProcessor } from './StreamProcessor';
+import { attemptPromise } from '@jfdi/attempt';
+import { formatSSEChunk, formatSSEDone } from '@/constants/aiConstants';
 
 export class AIService {
     private static instance: AIService;
@@ -77,27 +79,27 @@ export class AIService {
 
         console.log(`[AIService] Fetching available models for provider: ${provider}`);
 
-        try {
-            const aiProvider = this.providerFactory.getProvider(provider);
-            const models = await aiProvider.fetchModels();
+        const aiProvider = this.providerFactory.getProvider(provider);
+        const [error, models] = await attemptPromise(() => aiProvider.fetchModels());
 
-            console.log(`[AIService] Fetched ${models.length} models for ${provider}`);
-
-            // Update only models from this provider, keep others
-            const existingModels = this.settings.availableModels.filter(m => m.provider !== provider);
-            const updatedModels = [...existingModels, ...models];
-
-            await db.aiSettings.update(this.settings.id, {
-                availableModels: updatedModels,
-                lastModelsFetch: new Date()
-            });
-
-            this.settings.availableModels = updatedModels;
-            this.settings.lastModelsFetch = new Date();
-        } catch (error) {
+        if (error) {
             console.error('Error fetching models:', error);
             throw error;
         }
+
+        console.log(`[AIService] Fetched ${models.length} models for ${provider}`);
+
+        // Update only models from this provider, keep others
+        const existingModels = this.settings.availableModels.filter(m => m.provider !== provider);
+        const updatedModels = [...existingModels, ...models];
+
+        await db.aiSettings.update(this.settings.id, {
+            availableModels: updatedModels,
+            lastModelsFetch: new Date()
+        });
+
+        this.settings.availableModels = updatedModels;
+        this.settings.lastModelsFetch = new Date();
     }
 
     async getAvailableModels(provider?: AIProvider, forceRefresh: boolean = true): Promise<AIModel[]> {
@@ -132,26 +134,27 @@ export class AIService {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
 
-                try {
+                const [error] = await attemptPromise(async () => {
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
 
                         const content = decoder.decode(value, { stream: true });
-                        const formattedChunk = `data: ${JSON.stringify({
-                            choices: [{ delta: { content } }]
-                        })}\n\n`;
+                        const formattedChunk = formatSSEChunk(content);
 
                         controller.enqueue(new TextEncoder().encode(formattedChunk));
                     }
-                    controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-                    controller.close();
-                } catch (error) {
+                    controller.enqueue(new TextEncoder().encode(formatSSEDone()));
+                });
+
+                if (error) {
                     if ((error as Error).name === 'AbortError') {
                         controller.close();
                     } else {
                         controller.error(error);
                     }
+                } else {
+                    controller.close();
                 }
             }
         });
@@ -204,22 +207,24 @@ export class AIService {
 
         this.abortController = new AbortController();
 
-        try {
-            const response = await provider.generate(
+        const [error, response] = await attemptPromise(() =>
+            provider.generate(
                 messages,
                 modelId,
                 temperature,
                 maxTokens,
                 this.abortController.signal
-            );
+            )
+        );
 
-            return this.formatStreamAsSSE(response);
-        } catch (error) {
+        if (error) {
             if ((error as Error).name === 'AbortError') {
                 return new Response(null, { status: 204 });
             }
             throw error;
         }
+
+        return this.formatStreamAsSSE(response);
     }
 
     async generateWithOpenRouter(
@@ -243,22 +248,24 @@ export class AIService {
 
         this.abortController = new AbortController();
 
-        try {
-            const response = await provider.generate(
+        const [error, response] = await attemptPromise(() =>
+            provider.generate(
                 messages,
                 modelId,
                 temperature,
                 maxTokens,
                 this.abortController.signal
-            );
+            )
+        );
 
-            return this.formatStreamAsSSE(response);
-        } catch (error) {
+        if (error) {
             if ((error as Error).name === 'AbortError') {
                 return new Response(null, { status: 204 });
             }
             throw error;
         }
+
+        return this.formatStreamAsSSE(response);
     }
 
     async processStreamedResponse(
@@ -274,7 +281,7 @@ export class AIService {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
-        try {
+        const [error] = await attemptPromise(async () => {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
@@ -292,28 +299,28 @@ export class AIService {
                             onComplete();
                             return;
                         }
-                        try {
-                            const json = JSON.parse(data);
+                        const [parseError, json] = await attemptPromise(() => Promise.resolve(JSON.parse(data)));
+                        if (!parseError && json) {
                             const text = json.choices[0]?.delta?.content || '';
                             if (text) {
                                 onToken(text);
                             }
-                        } catch (e) {
-                            // Ignore parsing errors for non-JSON lines
                         }
                     }
                 }
             }
-        } catch (error) {
+        });
+
+        if (error) {
             if ((error as Error).name === 'AbortError') {
                 console.log('Stream reading aborted.');
                 onComplete();
             } else {
                 onError(error as Error);
             }
-        } finally {
-            this.abortController = null;
         }
+
+        this.abortController = null;
     }
 
     // Getter methods

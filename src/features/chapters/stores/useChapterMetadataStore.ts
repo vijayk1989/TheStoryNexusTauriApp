@@ -6,8 +6,6 @@ import { ERROR_MESSAGES } from '@/constants/errorMessages';
 import type { ChapterOutline, ChapterNotes } from '@/types/story';
 
 interface ChapterMetadataState {
-    summariesSoFar: string;
-
     // Summary operations
     updateChapterSummary: (id: string, summary: string) => Promise<void>;
     updateChapterSummaryOptimistic: (id: string, summary: string) => Promise<void>;
@@ -26,8 +24,6 @@ interface ChapterMetadataState {
 }
 
 export const useChapterMetadataStore = create<ChapterMetadataState>((set) => ({
-    summariesSoFar: '',
-
     updateChapterSummary: async (id: string, summary: string) => {
         const [error] = await attemptPromise(() => db.chapters.update(id, { summary }));
         if (error) {

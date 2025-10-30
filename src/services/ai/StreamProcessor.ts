@@ -1,3 +1,5 @@
+import { attemptPromise } from '@jfdi/attempt';
+
 export class StreamProcessor {
     static async processStream(
         response: Response,
@@ -13,7 +15,7 @@ export class StreamProcessor {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
-        try {
+        const [error] = await attemptPromise(async () => {
             while (true) {
                 const { done, value } = await reader.read();
 
@@ -25,15 +27,17 @@ export class StreamProcessor {
                 const chunk = decoder.decode(value, { stream: true });
                 onToken(chunk);
             }
-        } catch (error) {
+        });
+
+        reader.releaseLock();
+
+        if (error) {
             if (error instanceof Error && error.name === 'AbortError') {
                 console.log('Stream was aborted');
                 onComplete();
             } else {
                 onError(error instanceof Error ? error : new Error(String(error)));
             }
-        } finally {
-            reader.releaseLock();
         }
     }
 }

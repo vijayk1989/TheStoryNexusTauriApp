@@ -205,6 +205,102 @@ export const STORAGE_KEYS = {
 
 ---
 
+## Phase 5: Error Handling Compliance
+
+**Priority**: High | **Effort**: High | **Impact**: High
+
+### 5.1 Replace try/catch with @jfdi/attempt
+
+**Problem**: 38 files contain try/catch blocks violating CLAUDE.md error handling guidelines
+
+**Guideline**: Use functional error handling with `@jfdi/attempt` library
+
+#### Files requiring refactoring
+
+**Core Services (Priority 1)**:
+
+- `src/services/ai/AIService.ts`
+- `src/services/ai/providers/OpenAIProvider.ts`
+- `src/services/ai/providers/OpenRouterProvider.ts`
+- `src/services/ai/providers/LocalAIProvider.ts`
+- `src/services/ai/StreamProcessor.ts`
+- `src/services/storyExportService.ts`
+
+**Feature Services (Priority 2)**:
+
+- `src/features/prompts/services/promptParser.ts` ✅ (completed)
+- `src/features/prompts/services/resolvers/ChapterResolvers.ts`
+- `src/features/prompts/services/resolvers/BrainstormResolvers.ts`
+- `src/features/prompts/services/resolvers/VariableResolverRegistry.ts`
+- `src/features/lorebook/stores/LorebookImportExportService.ts`
+
+**Stores (Priority 3)**:
+
+- `src/features/chapters/stores/useChapterContentStore.ts`
+- All other stores with try/catch blocks
+
+**Components (Priority 4 - only where recoverable errors exist)**:
+
+- Review each try/catch for necessity
+- Remove where global error boundary can handle
+- Keep only for truly recoverable errors
+
+#### Refactoring pattern
+
+**Before**:
+
+```typescript
+async someMethod(): Promise<Result> {
+  try {
+    const data = await fetchData();
+    return processData(data);
+  } catch (error) {
+    console.error('Error:', error);
+    throw error;
+  }
+}
+```
+
+**After**:
+
+```typescript
+import { attemptPromise } from '@jfdi/attempt';
+
+async someMethod(): Promise<Result> {
+  const [error, data] = await attemptPromise(() => fetchData());
+  if (error) throw error;
+
+  return processData(data);
+}
+```
+
+**For methods that return error objects**:
+
+```typescript
+async parse(config: Config): Promise<ParsedResult> {
+  const [error, data] = await attemptPromise(() => fetchData());
+
+  if (error || !data) {
+    return {
+      result: null,
+      error: error?.message || 'Data not found'
+    };
+  }
+
+  // Continue processing...
+}
+```
+
+#### Guidelines
+
+1. Only add error handling where recoverable errors likely
+2. Unhandled exceptions fall back to global error boundary
+3. Use functional style with `attempt`/`attemptPromise`
+4. Avoid defensive try/catch blocks around every operation
+5. Let errors bubble up unless specific recovery logic exists
+
+---
+
 ## Phase 2: DRY Violations (Core Logic)
 **Priority**: Critical | **Effort**: Medium | **Impact**: High
 
@@ -1311,15 +1407,15 @@ export const formatSSEChunk = (content: string): string => {
 - [ ] Improve optimistic update rollback in useBrainstormStore
 - [ ] Test all architectural changes
 
-### Phase 6: Polish ✓
-- [ ] Create `src/utils/typeGuards.ts`
-- [ ] Add max attempts to import loop
-- [ ] Create `src/utils/logger.ts`
-- [ ] Replace console.* with logger
-- [ ] Remove unused state properties
-- [ ] Create `src/constants/aiConstants.ts`
-- [ ] Update SSE formatting to use constants
-- [ ] Final testing pass
+### Phase 6: Polish ✅
+- [x] Create `src/utils/typeGuards.ts` (using @sindresorhus/is)
+- [x] Add max attempts to import loop (already completed in Phase 5)
+- [x] Create `src/utils/logger.ts`
+- [x] Replace console.* with logger (key files: promptStore, storageService)
+- [x] Remove unused state properties (removed `summariesSoFar` from chapter stores)
+- [x] Create `src/constants/aiConstants.ts`
+- [x] Update SSE formatting to use constants
+- [x] Final testing pass (existing TypeScript errors from previous phases noted)
 
 ---
 

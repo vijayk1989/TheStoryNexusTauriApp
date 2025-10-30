@@ -1,5 +1,6 @@
 import { db } from '@/services/database';
 import type { LorebookEntry } from '@/types/story';
+import { attemptPromise, attempt } from '@jfdi/attempt';
 
 export class LorebookImportExportService {
     static exportEntries(entries: LorebookEntry[], storyId: string): void {
@@ -28,34 +29,43 @@ export class LorebookImportExportService {
         targetStoryId: string,
         onEntriesAdded: (entries: LorebookEntry[]) => void
     ): Promise<void> {
-        try {
-            const data = JSON.parse(jsonData);
+        const [parseError, data] = attempt(() => JSON.parse(jsonData));
 
-            if (data.type !== 'lorebook') {
-                throw new Error('Invalid lorebook export file');
-            }
-
-            if (!Array.isArray(data.entries)) {
-                throw new Error('Invalid lorebook entries data');
-            }
-
-            const newEntries: LorebookEntry[] = [];
-
-            for (const entry of data.entries) {
-                const newEntry: LorebookEntry = {
-                    ...entry,
-                    id: crypto.randomUUID(),
-                    storyId: targetStoryId,
-                    createdAt: new Date(),
-                };
-                await db.lorebookEntries.add(newEntry);
-                newEntries.push(newEntry);
-            }
-
-            onEntriesAdded(newEntries);
-        } catch (error) {
-            console.error('Error importing lorebook entries:', error);
-            throw error;
+        if (parseError) {
+            console.error('Error parsing lorebook entries:', parseError);
+            throw parseError;
         }
+
+        if (data.type !== 'lorebook') {
+            throw new Error('Invalid lorebook export file');
+        }
+
+        if (!Array.isArray(data.entries)) {
+            throw new Error('Invalid lorebook entries data');
+        }
+
+        const newEntries: LorebookEntry[] = [];
+
+        for (const entry of data.entries) {
+            const newEntry: LorebookEntry = {
+                ...entry,
+                id: crypto.randomUUID(),
+                storyId: targetStoryId,
+                createdAt: new Date(),
+            };
+
+            const [addError] = await attemptPromise(() =>
+                db.lorebookEntries.add(newEntry)
+            );
+
+            if (addError) {
+                console.error('Error adding lorebook entry:', addError);
+                throw addError;
+            }
+
+            newEntries.push(newEntry);
+        }
+
+        onEntriesAdded(newEntries);
     }
 }

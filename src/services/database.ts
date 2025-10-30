@@ -53,7 +53,7 @@ export class StoryDatabase extends Dexie {
             for (const prompt of systemPrompts) {
                 // Check if prompt has the old placeholder "local" model
                 const hasPlaceholder = prompt.allowedModels?.some(
-                    (m: any) => m.id === 'local' && m.name === 'local'
+                    (m: AllowedModel) => m.id === 'local' && m.name === 'local'
                 );
 
                 if (hasPlaceholder || !prompt.allowedModels || prompt.allowedModels.length === 0) {

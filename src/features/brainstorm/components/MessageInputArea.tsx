@@ -2,11 +2,12 @@ import React, { useRef, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Send, Square, Loader2 } from 'lucide-react';
+import type { Prompt } from '@/types/story';
 
 interface MessageInputAreaProps {
     input: string;
     isGenerating: boolean;
-    selectedPrompt: any;
+    selectedPrompt: Prompt | null;
     onInputChange: (value: string) => void;
     onSend: () => void;
     onStop: () => void;

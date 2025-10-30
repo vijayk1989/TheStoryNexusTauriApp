@@ -3,53 +3,92 @@ import { LexicalEditor } from 'lexical';
 import { Story, Chapter } from '@/types/story';
 import { db } from '@/services/database';
 
+interface SerializedLexicalNode {
+    type: string;
+    text?: string;
+    children?: SerializedLexicalNode[];
+    tag?: string;
+    version?: number;
+}
+
+interface LexicalEditorState {
+    root?: {
+        children?: SerializedLexicalNode[];
+    };
+}
+
+/**
+ * Extracts plain text from a Lexical node recursively
+ * @param node The Lexical node to extract text from
+ * @returns Plain text content
+ */
+const extractTextFromNode = (node: SerializedLexicalNode): string => {
+    if (node.type === 'text' && node.text) {
+        return node.text;
+    }
+
+    const childrenText = node.children
+        ? node.children.map(extractTextFromNode).join('')
+        : '';
+
+    const lineBreak = node.type === 'paragraph' ? '\n\n' : '';
+
+    return childrenText + lineBreak;
+};
+
+/**
+ * Extracts plain text from Lexical JSON content
+ * @param jsonContent The Lexical JSON content string
+ * @returns Plain text representation of the content
+ */
+const extractPlainTextFromLexical = (jsonContent: string): string => {
+    const editorState: LexicalEditorState = JSON.parse(jsonContent);
+
+    if (!editorState.root?.children) {
+        return '';
+    }
+
+    return editorState.root.children
+        .map(extractTextFromNode)
+        .join('');
+};
+
 /**
  * Converts Lexical JSON content to HTML
  * @param jsonContent The Lexical JSON content string
  * @returns HTML string representation of the content
  */
 export async function convertLexicalToHtml(jsonContent: string): Promise<string> {
-    try {
-        // Parse the Lexical state
-        const editorState = JSON.parse(jsonContent);
+    const editorState: LexicalEditorState = JSON.parse(jsonContent);
+    const container = document.createElement('div');
 
-        // Create a temporary DOM element to hold the HTML
-        const container = document.createElement('div');
-
-        // Process nodes recursively
-        const processNode = (node: any, parentElement: HTMLElement) => {
-            if (node.type === 'text') {
-                const textNode = document.createTextNode(node.text);
-                parentElement.appendChild(textNode);
-            } else if (node.type === 'paragraph') {
-                const p = document.createElement('p');
-                if (node.children) {
-                    node.children.forEach((child: any) => processNode(child, p));
-                }
-                parentElement.appendChild(p);
-            } else if (node.type === 'heading') {
-                const headingTag = `h${node.tag}`;
-                const heading = document.createElement(headingTag);
-                if (node.children) {
-                    node.children.forEach((child: any) => processNode(child, heading));
-                }
-                parentElement.appendChild(heading);
-            } else if (node.children) {
-                // For other node types with children, process the children
-                node.children.forEach((child: any) => processNode(child, parentElement));
+    const processNode = (node: SerializedLexicalNode, parentElement: HTMLElement): void => {
+        if (node.type === 'text' && node.text) {
+            const textNode = document.createTextNode(node.text);
+            parentElement.appendChild(textNode);
+        } else if (node.type === 'paragraph') {
+            const p = document.createElement('p');
+            if (node.children) {
+                node.children.forEach((child) => processNode(child, p));
             }
-        };
-
-        // Process the root node
-        if (editorState.root?.children) {
-            editorState.root.children.forEach((node: any) => processNode(node, container));
+            parentElement.appendChild(p);
+        } else if (node.type === 'heading' && node.tag) {
+            const headingTag = `h${node.tag}`;
+            const heading = document.createElement(headingTag);
+            if (node.children) {
+                node.children.forEach((child) => processNode(child, heading));
+            }
+            parentElement.appendChild(heading);
+        } else if (node.children) {
+            node.children.forEach((child) => processNode(child, parentElement));
         }
+    };
 
-        return container.innerHTML;
-    } catch (error) {
-        console.error('Failed to convert Lexical to HTML:', error);
-        return '';
+    if (editorState.root?.children) {
+        editorState.root.children.forEach((node) => processNode(node, container));
     }
+
+    return container.innerHTML;
 }
 
 /**
@@ -77,22 +116,28 @@ export function downloadAsFile(content: string, filename: string, contentType: s
  * @param format The format to download ('html' or 'text')
  */
 export async function downloadStory(storyId: string, format: 'html' | 'text') {
-    try {
-        // Get the story
-        const story = await db.stories.get(storyId);
-        if (!story) {
-            throw new Error('Story not found');
-        }
+    const story = await db.stories.get(storyId);
+    if (!story) {
+        throw new Error('Story not found');
+    }
 
-        // Get all chapters for the story
-        const chapters = await db.chapters
-            .where('storyId')
-            .equals(storyId)
-            .sortBy('order');
+    const chapters = await db.chapters
+        .where('storyId')
+        .equals(storyId)
+        .sortBy('order');
 
-        if (format === 'html') {
-            // Create HTML content
-            let htmlContent = `<!DOCTYPE html>
+    if (format === 'html') {
+        const chapterHtmlParts = await Promise.all(
+            chapters.map(async (chapter) => {
+                const chapterHtml = await convertLexicalToHtml(chapter.content);
+                return `<div class="chapter">
+    <h2 class="chapter-title">Chapter ${chapter.order}: ${chapter.title}</h2>
+    <div class="chapter-content">${chapterHtml}</div>
+  </div>`;
+            })
+        );
+
+        const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -111,70 +156,25 @@ export async function downloadStory(storyId: string, format: 'html' | 'text') {
   <div class="meta">
     <p>Author: ${story.author}</p>
     ${story.synopsis ? `<p>Synopsis: ${story.synopsis}</p>` : ''}
-  </div>`;
-
-            // Add each chapter
-            for (const chapter of chapters) {
-                htmlContent += `<div class="chapter">
-    <h2 class="chapter-title">Chapter ${chapter.order}: ${chapter.title}</h2>`;
-
-                // Convert chapter content to HTML
-                const chapterHtml = await convertLexicalToHtml(chapter.content);
-                htmlContent += `<div class="chapter-content">${chapterHtml}</div>
-  </div>`;
-            }
-
-            htmlContent += `</body>
+  </div>
+  ${chapterHtmlParts.join('\n')}
+</body>
 </html>`;
 
-            // Download the HTML file
-            downloadAsFile(htmlContent, `${story.title}.html`, 'text/html');
-        } else {
-            // Create plain text content
-            let textContent = `${story.title}\n`;
-            textContent += `Author: ${story.author}\n`;
-            if (story.synopsis) {
-                textContent += `Synopsis: ${story.synopsis}\n`;
-            }
-            textContent += '\n\n';
+        downloadAsFile(htmlContent, `${story.title}.html`, 'text/html');
+    } else {
+        const chapterTextParts = await Promise.all(
+            chapters.map(async (chapter) => {
+                const chapterPlainText = extractPlainTextFromLexical(chapter.content);
+                return `Chapter ${chapter.order}: ${chapter.title}\n\n${chapterPlainText.trim()}`;
+            })
+        );
 
-            // Add each chapter
-            for (const chapter of chapters) {
-                textContent += `Chapter ${chapter.order}: ${chapter.title}\n\n`;
+        const synopsisPart = story.synopsis ? `Synopsis: ${story.synopsis}\n` : '';
+        const headerPart = `${story.title}\nAuthor: ${story.author}\n${synopsisPart}\n\n`;
+        const textContent = headerPart + chapterTextParts.join('\n\n');
 
-                // Get chapter plain text
-                try {
-                    // Parse the Lexical state
-                    const editorState = JSON.parse(chapter.content);
-                    let plainText = '';
-
-                    const processNode = (node: any) => {
-                        if (node.type === 'text') {
-                            plainText += node.text;
-                        } else if (node.children) {
-                            node.children.forEach(processNode);
-                        }
-                        if (node.type === 'paragraph') {
-                            plainText += '\n\n';
-                        }
-                    };
-
-                    if (editorState.root?.children) {
-                        editorState.root.children.forEach(processNode);
-                    }
-
-                    textContent += plainText.trim() + '\n\n';
-                } catch (error) {
-                    console.error('Failed to parse chapter content:', error);
-                }
-            }
-
-            // Download the text file
-            downloadAsFile(textContent, `${story.title}.txt`, 'text/plain');
-        }
-    } catch (error) {
-        console.error('Failed to download story:', error);
-        throw error;
+        downloadAsFile(textContent, `${story.title}.txt`, 'text/plain');
     }
 }
 
@@ -184,22 +184,19 @@ export async function downloadStory(storyId: string, format: 'html' | 'text') {
  * @param format The format to download ('html' or 'text')
  */
 export async function downloadChapter(chapterId: string, format: 'html' | 'text') {
-    try {
-        // Get the chapter
-        const chapter = await db.chapters.get(chapterId);
-        if (!chapter) {
-            throw new Error('Chapter not found');
-        }
+    const chapter = await db.chapters.get(chapterId);
+    if (!chapter) {
+        throw new Error('Chapter not found');
+    }
 
-        // Get the story
-        const story = await db.stories.get(chapter.storyId);
-        if (!story) {
-            throw new Error('Story not found');
-        }
+    const story = await db.stories.get(chapter.storyId);
+    if (!story) {
+        throw new Error('Story not found');
+    }
 
-        if (format === 'html') {
-            // Create HTML content
-            let htmlContent = `<!DOCTYPE html>
+    if (format === 'html') {
+        const chapterHtml = await convertLexicalToHtml(chapter.content);
+        const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -216,53 +213,16 @@ export async function downloadChapter(chapterId: string, format: 'html' | 'text'
 <body>
   <h1>${story.title}</h1>
   <div class="chapter">
-    <h2 class="chapter-title">Chapter ${chapter.order}: ${chapter.title}</h2>`;
-
-            // Convert chapter content to HTML
-            const chapterHtml = await convertLexicalToHtml(chapter.content);
-            htmlContent += `<div class="chapter-content">${chapterHtml}</div>
+    <h2 class="chapter-title">Chapter ${chapter.order}: ${chapter.title}</h2>
+    <div class="chapter-content">${chapterHtml}</div>
   </div>
 </body>
 </html>`;
 
-            // Download the HTML file
-            downloadAsFile(htmlContent, `${story.title} - Chapter ${chapter.order}.html`, 'text/html');
-        } else {
-            // Create plain text content
-            let textContent = `${story.title}\n`;
-            textContent += `Chapter ${chapter.order}: ${chapter.title}\n\n`;
-
-            // Get chapter plain text
-            try {
-                // Parse the Lexical state
-                const editorState = JSON.parse(chapter.content);
-                let plainText = '';
-
-                const processNode = (node: any) => {
-                    if (node.type === 'text') {
-                        plainText += node.text;
-                    } else if (node.children) {
-                        node.children.forEach(processNode);
-                    }
-                    if (node.type === 'paragraph') {
-                        plainText += '\n\n';
-                    }
-                };
-
-                if (editorState.root?.children) {
-                    editorState.root.children.forEach(processNode);
-                }
-
-                textContent += plainText.trim();
-            } catch (error) {
-                console.error('Failed to parse chapter content:', error);
-            }
-
-            // Download the text file
-            downloadAsFile(textContent, `${story.title} - Chapter ${chapter.order}.txt`, 'text/plain');
-        }
-    } catch (error) {
-        console.error('Failed to download chapter:', error);
-        throw error;
+        downloadAsFile(htmlContent, `${story.title} - Chapter ${chapter.order}.html`, 'text/html');
+    } else {
+        const chapterPlainText = extractPlainTextFromLexical(chapter.content);
+        const textContent = `${story.title}\nChapter ${chapter.order}: ${chapter.title}\n\n${chapterPlainText.trim()}`;
+        downloadAsFile(textContent, `${story.title} - Chapter ${chapter.order}.txt`, 'text/plain');
     }
 } 

@@ -58,6 +58,20 @@ if (error) return handleError(error);
 - Use async/await for asynchronous code.
 - Avoid explicit `any` type. Type everything properly.
 
+#### Architectural Exceptions to Functional Programming
+
+The following classes are justified exceptions to the functional programming preference:
+
+1. **StoryDatabase (Dexie)** - Required by Dexie.js library architecture for IndexedDB wrapper
+2. **AIService (Singleton)** - Manages stateful API client instances and initialization for multiple AI providers
+3. **AIProviderFactory** - Factory pattern for provider-specific client creation (OpenAI, OpenRouter, Local)
+4. **PromptParser** - Complex parsing system with registry pattern for variable resolution and context building
+5. **ContextBuilder** - Manages database-dependent context construction for prompt parsing
+6. **VariableResolverRegistry** - Registry pattern for managing and resolving dynamic prompt variables
+7. **AI Provider Classes** (OpenAIProvider, OpenRouterProvider, LocalProvider) - Encapsulate provider-specific client state and initialization logic
+
+All other services should use functional patterns.
+
 ## Architecture
 
 ### Technology Stack

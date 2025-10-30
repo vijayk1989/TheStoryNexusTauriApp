@@ -9,7 +9,6 @@ interface ChapterState {
     currentChapter: Chapter | null;
     loading: boolean;
     error: string | null;
-    summariesSoFar: string;
     lastEditedChapterIds: Record<string, string>;
 
     // Actions
@@ -55,9 +54,6 @@ export const useChapterStore = create<ChapterState>((set, get) => {
         });
     });
 
-    useChapterMetadataStore.subscribe((state) => {
-        set({ summariesSoFar: state.summariesSoFar });
-    });
 
     return {
     // Initial state from data store
@@ -66,7 +62,6 @@ export const useChapterStore = create<ChapterState>((set, get) => {
     loading: useChapterDataStore.getState().loading,
     error: useChapterDataStore.getState().error,
     lastEditedChapterIds: useChapterDataStore.getState().lastEditedChapterIds,
-    summariesSoFar: useChapterMetadataStore.getState().summariesSoFar,
 
     // Delegate to data store
     fetchChapters: (storyId) => useChapterDataStore.getState().fetchChapters(storyId),

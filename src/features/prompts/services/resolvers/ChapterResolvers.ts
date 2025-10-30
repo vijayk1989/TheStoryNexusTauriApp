@@ -1,6 +1,7 @@
 import { PromptContext } from '@/types/story';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
 import { IVariableResolver, ILorebookFormatter } from './types';
+import { attemptPromise } from '@jfdi/attempt';
 
 export class ChapterSummariesResolver implements IVariableResolver {
     async resolve(context: PromptContext): Promise<string> {
@@ -20,72 +21,99 @@ export class PreviousWordsResolver implements IVariableResolver {
     async resolve(context: PromptContext, count: string = '1000'): Promise<string> {
         const requestedWordCount = parseInt(count, 10) || 1000;
 
-        let result = '';
-        let currentWordCount = 0;
+        const { result: initialResult, wordCount } = this.getInitialWords(context, requestedWordCount);
 
-        if (context.previousWords) {
-            const newlineToken = '§NEWLINE§';
-            const textWithTokens = context.previousWords.replace(/\n/g, newlineToken);
-
-            const words = textWithTokens.split(/\s+/);
-            currentWordCount = words.length;
-
-            if (currentWordCount >= requestedWordCount) {
-                const selectedWords = words.slice(-requestedWordCount);
-                result = selectedWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
-                return result;
-            }
-
-            result = context.previousWords;
+        if (wordCount >= requestedWordCount || !context.currentChapter) {
+            return initialResult;
         }
 
-        if (currentWordCount < requestedWordCount && context.currentChapter) {
-            try {
-                const currentPovType = context.povType || context.currentChapter.povType;
-                const currentPovCharacter = context.povCharacter || context.currentChapter.povCharacter;
+        return await this.augmentWithPreviousChapter(
+            context,
+            initialResult,
+            wordCount,
+            requestedWordCount
+        );
+    }
 
-                const chapterStore = useChapterStore.getState();
-                const previousChapter = await chapterStore.getPreviousChapter(context.currentChapter.id);
-
-                if (previousChapter) {
-                    const prevPovType = previousChapter.povType;
-                    const prevPovCharacter = previousChapter.povCharacter;
-
-                    const povMatches =
-                        (currentPovType === 'Third Person Omniscient' && prevPovType === 'Third Person Omniscient') ||
-                        (currentPovType === prevPovType && currentPovCharacter === prevPovCharacter);
-
-                    if (povMatches) {
-                        const previousContent = await chapterStore.getChapterPlainText(previousChapter.id);
-
-                        if (previousContent) {
-                            const wordsNeeded = requestedWordCount - currentWordCount;
-
-                            const newlineToken = '§NEWLINE§';
-                            const textWithTokens = previousContent.replace(/\n/g, newlineToken);
-                            const prevWords = textWithTokens.split(/\s+/);
-
-                            const wordsToTake = Math.min(wordsNeeded, prevWords.length);
-                            const selectedPrevWords = prevWords.slice(-wordsToTake);
-
-                            if (selectedPrevWords.length > 0) {
-                                const prevContent = selectedPrevWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
-                                result = prevContent + '\n\n[...]\n\n' + result;
-                                console.log(`Added ${selectedPrevWords.length} words from previous chapter to context`);
-                            }
-                        }
-                    } else {
-                        console.log('Previous chapter POV does not match current chapter POV, skipping');
-                    }
-                } else {
-                    console.log('No previous chapter found');
-                }
-            } catch (error) {
-                console.error('Error fetching previous chapter content:', error);
-            }
+    private getInitialWords(context: PromptContext, requestedWordCount: number): { result: string; wordCount: number } {
+        if (!context.previousWords) {
+            return { result: '', wordCount: 0 };
         }
 
-        return result;
+        const newlineToken = '§NEWLINE§';
+        const textWithTokens = context.previousWords.replace(/\n/g, newlineToken);
+        const words = textWithTokens.split(/\s+/);
+
+        if (words.length >= requestedWordCount) {
+            const selectedWords = words.slice(-requestedWordCount);
+            const result = selectedWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
+            return { result, wordCount: words.length };
+        }
+
+        return { result: context.previousWords, wordCount: words.length };
+    }
+
+    private async augmentWithPreviousChapter(
+        context: PromptContext,
+        currentResult: string,
+        currentWordCount: number,
+        requestedWordCount: number
+    ): Promise<string> {
+        if (!context.currentChapter) {
+            return currentResult;
+        }
+
+        const currentPovType = context.povType || context.currentChapter.povType;
+        const currentPovCharacter = context.povCharacter || context.currentChapter.povCharacter;
+
+        const chapterStore = useChapterStore.getState();
+        const [error, previousChapter] = await attemptPromise(() =>
+            chapterStore.getPreviousChapter(context.currentChapter!.id)
+        );
+
+        if (error) {
+            console.error('Error fetching previous chapter:', error);
+            return currentResult;
+        }
+
+        if (!previousChapter) {
+            console.log('No previous chapter found');
+            return currentResult;
+        }
+
+        const povMatches =
+            (currentPovType === 'Third Person Omniscient' && previousChapter.povType === 'Third Person Omniscient') ||
+            (currentPovType === previousChapter.povType && currentPovCharacter === previousChapter.povCharacter);
+
+        if (!povMatches) {
+            console.log('Previous chapter POV does not match current chapter POV, skipping');
+            return currentResult;
+        }
+
+        const [contentError, previousContent] = await attemptPromise(() =>
+            chapterStore.getChapterPlainText(previousChapter.id)
+        );
+
+        if (contentError || !previousContent) {
+            console.error('Error fetching previous chapter content:', contentError);
+            return currentResult;
+        }
+
+        const wordsNeeded = requestedWordCount - currentWordCount;
+        const newlineToken = '§NEWLINE§';
+        const textWithTokens = previousContent.replace(/\n/g, newlineToken);
+        const prevWords = textWithTokens.split(/\s+/);
+
+        const wordsToTake = Math.min(wordsNeeded, prevWords.length);
+        const selectedPrevWords = prevWords.slice(-wordsToTake);
+
+        if (selectedPrevWords.length === 0) {
+            return currentResult;
+        }
+
+        const prevContent = selectedPrevWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
+        console.log(`Added ${selectedPrevWords.length} words from previous chapter to context`);
+        return prevContent + '\n\n[...]\n\n' + currentResult;
     }
 }
 

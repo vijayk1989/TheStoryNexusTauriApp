@@ -7,6 +7,7 @@ import {
 } from '@/types/story';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { ContextBuilder } from './ContextBuilder';
+import { attemptPromise } from '@jfdi/attempt';
 import {
     VariableResolverRegistry,
     LorebookFormatter,
@@ -91,21 +92,40 @@ export class PromptParser {
     }
 
     async parse(config: PromptParserConfig): Promise<ParsedPrompt> {
-        try {
-            const prompt = await this.database.prompts.get(config.promptId);
-            if (!prompt) throw new Error('Prompt not found');
+        const [promptError, prompt] = await attemptPromise(() =>
+            this.database.prompts.get(config.promptId)
+        );
 
-            const context = await this.contextBuilder.buildContext(config);
-            const parsedMessages = await this.parseMessages(prompt.messages, context);
-
-            return { messages: parsedMessages };
-        } catch (error) {
-            console.error('Error parsing prompt:', error);
+        if (promptError || !prompt) {
             return {
                 messages: [],
-                error: error instanceof Error ? error.message : 'Unknown error occurred'
+                error: promptError?.message || 'Prompt not found'
             };
         }
+
+        const [contextError, context] = await attemptPromise(() =>
+            this.contextBuilder.buildContext(config)
+        );
+
+        if (contextError) {
+            return {
+                messages: [],
+                error: contextError.message
+            };
+        }
+
+        const [parseError, parsedMessages] = await attemptPromise(() =>
+            this.parseMessages(prompt.messages, context)
+        );
+
+        if (parseError) {
+            return {
+                messages: [],
+                error: parseError.message
+            };
+        }
+
+        return { messages: parsedMessages };
     }
 
     private async parseMessages(messages: PromptMessage[], context: PromptContext): Promise<PromptMessage[]> {
@@ -116,120 +136,118 @@ export class PromptParser {
     }
 
     private async parseContent(content: string, context: PromptContext): Promise<string> {
-        let parsedContent = content.replace(/\/\*[\s\S]*?\*\//g, '');
+        const withoutComments = content.replace(/\/\*[\s\S]*?\*\//g, '');
 
         const functionRegex = /\{\{(\w+)\((.*?)\)\}\}/g;
-        const matches = Array.from(parsedContent.matchAll(functionRegex));
+        const matches = Array.from(withoutComments.matchAll(functionRegex));
 
-        for (const match of matches) {
+        const withFunctionsResolved = await matches.reduce(async (accPromise, match) => {
+            const acc = await accPromise;
             const [fullMatch, func, args] = match;
+
             if (func === 'previous_words') {
                 const resolved = await this.registry.resolve('previous_words', context, args.trim());
-                parsedContent = parsedContent.replace(fullMatch, resolved);
+                return acc.replace(fullMatch, resolved);
             }
             if (func === 'chapter_data') {
                 const resolved = await this.registry.resolve('chapter_data', context, args.trim());
-                parsedContent = parsedContent.replace(fullMatch, resolved);
+                return acc.replace(fullMatch, resolved);
             }
+            return acc;
+        }, Promise.resolve(withoutComments));
+
+        const hasSpecialCombination = withFunctionsResolved.includes('{{matched_entries_chapter}}') &&
+            withFunctionsResolved.includes('{{additional_scenebeat_context}}');
+
+        const withVariablesResolved = hasSpecialCombination
+            ? await this.parseSpecialCombination(withFunctionsResolved, context)
+            : await this.parseRegularVariables(withFunctionsResolved, context);
+
+        return withVariablesResolved.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+    }
+
+    private async parseSpecialCombination(content: string, context: PromptContext): Promise<string> {
+        const matchedEntries = this.getMatchedEntriesFormatted(context);
+        const additionalContext = this.getAdditionalContextFormatted(context);
+
+        const combinedResult = [matchedEntries, additionalContext]
+            .filter(Boolean)
+            .join('\n\n');
+
+        return content
+            .replace(/\{\{matched_entries_chapter\}\}[\s\n]*\{\{[\s\n]*additional_scenebeat_context[\s\n]*\}\}/g, combinedResult)
+            .replace(/\{\{[\s\n]*additional_scenebeat_context[\s\n]*\}\}[\s\n]*\{\{matched_entries_chapter\}\}/g, combinedResult)
+            .replace(/\{\{matched_entries_chapter\}\}/g, '')
+            .replace(/\{\{[\s\n]*additional_scenebeat_context[\s\n]*\}\}/g, '');
+    }
+
+    private getMatchedEntriesFormatted(context: PromptContext): string {
+        if (!context.chapterMatchedEntries || context.chapterMatchedEntries.size === 0) {
+            return '';
         }
 
-        if (parsedContent.includes('{{matched_entries_chapter}}') &&
-            parsedContent.includes('{{additional_scenebeat_context}}')) {
+        const entries = Array.from(context.chapterMatchedEntries);
+        const sorted = entries.sort((a, b) => {
+            const importanceOrder = { 'major': 0, 'minor': 1, 'background': 2 };
+            const aImportance = a.metadata?.importance || 'background';
+            const bImportance = b.metadata?.importance || 'background';
+            return importanceOrder[aImportance] - importanceOrder[bImportance];
+        });
 
-            let matchedEntries = '';
-            if (context.chapterMatchedEntries && context.chapterMatchedEntries.size > 0) {
-                const entries = Array.from(context.chapterMatchedEntries);
-                entries.sort((a, b) => {
-                    const importanceOrder = { 'major': 0, 'minor': 1, 'background': 2 };
-                    const aImportance = a.metadata?.importance || 'background';
-                    const bImportance = b.metadata?.importance || 'background';
-                    return importanceOrder[aImportance] - importanceOrder[bImportance];
-                });
-                matchedEntries = this.formatter.formatEntries(entries);
-            }
+        return this.formatter.formatEntries(sorted);
+    }
 
-            let additionalContext = '';
-            if (context.additionalContext?.selectedItems && context.additionalContext.selectedItems.length > 0) {
-                const selectedItemIds = context.additionalContext.selectedItems as string[];
-                const lorebookStore = useLorebookStore.getState();
-                const entries = lorebookStore.entries.filter(entry => selectedItemIds.includes(entry.id));
-
-                const existingEntryIds = new Set<string>();
-
-                if (context.chapterMatchedEntries) {
-                    Array.from(context.chapterMatchedEntries.values()).forEach(entry => {
-                        existingEntryIds.add(entry.id);
-                    });
-                }
-
-                const uniqueEntries = entries.filter(entry => !existingEntryIds.has(entry.id));
-
-                if (uniqueEntries.length > 0) {
-                    additionalContext = this.formatter.formatEntries(uniqueEntries);
-                }
-            }
-
-            let combinedResult = '';
-            if (matchedEntries && additionalContext) {
-                combinedResult = matchedEntries + '\n\n' + additionalContext;
-            } else if (matchedEntries) {
-                combinedResult = matchedEntries;
-            } else if (additionalContext) {
-                combinedResult = additionalContext;
-            }
-
-            parsedContent = parsedContent.replace(/\{\{matched_entries_chapter\}\}[\s\n]*\{\{[\s\n]*additional_scenebeat_context[\s\n]*\}\}/g, combinedResult);
-            parsedContent = parsedContent.replace(/\{\{[\s\n]*additional_scenebeat_context[\s\n]*\}\}[\s\n]*\{\{matched_entries_chapter\}\}/g, combinedResult);
-
-            parsedContent = parsedContent.replace(/\{\{matched_entries_chapter\}\}/g, '');
-            parsedContent = parsedContent.replace(/\{\{[\s\n]*additional_scenebeat_context[\s\n]*\}\}/g, '');
-        } else {
-            parsedContent = await this.parseRegularVariables(parsedContent, context);
+    private getAdditionalContextFormatted(context: PromptContext): string {
+        const selectedItems = context.additionalContext?.selectedItems;
+        if (!selectedItems || !Array.isArray(selectedItems) || selectedItems.length === 0) {
+            return '';
         }
 
-        parsedContent = parsedContent.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+        const selectedItemIds = selectedItems as string[];
+        const lorebookStore = useLorebookStore.getState();
+        const entries = lorebookStore.entries.filter(entry => selectedItemIds.includes(entry.id));
 
-        return parsedContent;
+        const existingEntryIds = context.chapterMatchedEntries
+            ? new Set(Array.from(context.chapterMatchedEntries).map(entry => entry.id))
+            : new Set<string>();
+
+        const uniqueEntries = entries.filter(entry => !existingEntryIds.has(entry.id));
+
+        return uniqueEntries.length > 0 ? this.formatter.formatEntries(uniqueEntries) : '';
     }
 
     private async parseRegularVariables(content: string, context: PromptContext): Promise<string> {
         const variableRegex = /\{\{([^}]+)\}\}/g;
-        let result = content;
-
         const matches = Array.from(content.matchAll(variableRegex));
 
-        for (const match of matches) {
+        return await matches.reduce(async (accPromise, match) => {
+            const acc = await accPromise;
             const [fullMatch, variable] = match;
             const [varName, ...params] = variable.trim().split(' ');
 
             if (varName === 'scenebeat' && context.scenebeat) {
-                result = result.replace(fullMatch, context.scenebeat);
-                continue;
+                return acc.replace(fullMatch, context.scenebeat);
             }
 
             if (varName.startsWith('all_') && this.registry.has(varName)) {
                 const resolved = await this.registry.resolve(varName, context);
-                result = result.replace(fullMatch, resolved);
-                continue;
+                return acc.replace(fullMatch, resolved);
             }
 
             if (varName === 'character' && params.length > 0) {
                 const characterName = params.join(' ');
                 const resolved = await this.registry.resolve('character', context, characterName);
-                result = result.replace(fullMatch, resolved);
-                continue;
+                return acc.replace(fullMatch, resolved);
             }
 
             if (this.registry.has(varName)) {
                 const resolved = await this.registry.resolve(varName, context, ...params);
-                result = result.replace(fullMatch, resolved || '');
-            } else {
-                console.warn(`Unknown variable: ${varName}`);
-                result = result.replace(fullMatch, `[Unknown variable: ${varName}]`);
+                return acc.replace(fullMatch, resolved || '');
             }
-        }
 
-        return result;
+            console.warn(`Unknown variable: ${varName}`);
+            return acc.replace(fullMatch, `[Unknown variable: ${varName}]`);
+        }, Promise.resolve(content));
     }
 }
 

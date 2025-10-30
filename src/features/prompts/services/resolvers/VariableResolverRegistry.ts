@@ -1,5 +1,6 @@
 import { PromptContext } from '@/types/story';
 import { IVariableResolver, IVariableResolverRegistry } from './types';
+import { attemptPromise } from '@jfdi/attempt';
 
 export class VariableResolverRegistry implements IVariableResolverRegistry {
     private resolvers = new Map<string, IVariableResolver>();
@@ -22,12 +23,16 @@ export class VariableResolverRegistry implements IVariableResolverRegistry {
             return `[Unknown variable: ${name}]`;
         }
 
-        try {
-            return await resolver.resolve(context, ...params);
-        } catch (error) {
+        const [error, result] = await attemptPromise(() =>
+            resolver.resolve(context, ...params)
+        );
+
+        if (error) {
             console.error(`Error resolving variable ${name}:`, error);
-            return `[Error: ${error.message}]`;
+            return `[Error: ${(error as Error).message}]`;
         }
+
+        return result;
     }
 
     has(name: string): boolean {

@@ -1,5 +1,6 @@
 import { AIModel, AIProvider, PromptMessage } from '@/types/story';
 import { IAIProvider } from './IAIProvider';
+import { attemptPromise } from '@jfdi/attempt';
 
 export class LocalAIProvider implements IAIProvider {
     private apiUrl: string;
@@ -15,29 +16,14 @@ export class LocalAIProvider implements IAIProvider {
     }
 
     async fetchModels(): Promise<AIModel[]> {
-        try {
-            console.log(`[LocalAIProvider] Fetching models from: ${this.apiUrl}`);
+        console.log(`[LocalAIProvider] Fetching models from: ${this.apiUrl}`);
 
-            const response = await fetch(`${this.apiUrl}/models`);
-            if (!response.ok) {
-                console.error(`[LocalAIProvider] Failed to fetch models: ${response.status}`);
-                throw new Error('Failed to fetch local models');
-            }
+        const [fetchError, response] = await attemptPromise(() =>
+            fetch(`${this.apiUrl}/models`)
+        );
 
-            const result = await response.json();
-            console.log(`[LocalAIProvider] Received ${result.data.length} models`);
-
-            const models = result.data.map((model: { id: string }) => ({
-                id: `local/${model.id}`,
-                name: model.id,
-                provider: 'local' as AIProvider,
-                contextLength: 16384,
-                enabled: true
-            }));
-
-            return models;
-        } catch (error) {
-            console.warn('[LocalAIProvider] Failed to fetch models:', error);
+        if (fetchError || !response) {
+            console.warn('[LocalAIProvider] Failed to fetch models:', fetchError);
             return [{
                 id: 'local',
                 name: 'Local Model',
@@ -46,6 +32,42 @@ export class LocalAIProvider implements IAIProvider {
                 enabled: true
             }];
         }
+
+        if (!response.ok) {
+            console.error(`[LocalAIProvider] Failed to fetch models: ${response.status}`);
+            return [{
+                id: 'local',
+                name: 'Local Model',
+                provider: 'local',
+                contextLength: 16384,
+                enabled: true
+            }];
+        }
+
+        const [jsonError, result] = await attemptPromise(() => response.json());
+
+        if (jsonError || !result) {
+            console.warn('[LocalAIProvider] Failed to parse models:', jsonError);
+            return [{
+                id: 'local',
+                name: 'Local Model',
+                provider: 'local',
+                contextLength: 16384,
+                enabled: true
+            }];
+        }
+
+        console.log(`[LocalAIProvider] Received ${result.data.length} models`);
+
+        const models = result.data.map((model: { id: string }) => ({
+            id: `local/${model.id}`,
+            name: model.id,
+            provider: 'local' as AIProvider,
+            contextLength: 16384,
+            enabled: true
+        }));
+
+        return models;
     }
 
     async generate(

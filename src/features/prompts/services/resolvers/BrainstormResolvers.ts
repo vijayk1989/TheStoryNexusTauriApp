@@ -3,6 +3,7 @@ import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
 import { db } from '@/services/database';
 import { IVariableResolver, ILorebookFormatter } from './types';
+import { attemptPromise } from '@jfdi/attempt';
 
 export class ChatHistoryResolver implements IVariableResolver {
     async resolve(context: PromptContext): Promise<string> {
@@ -42,114 +43,116 @@ export class BrainstormContextResolver implements IVariableResolver {
             const chapterSummary = await chapterStore.getAllChapterSummaries(context.storyId);
             const entries = lorebookStore.getAllEntries();
 
-            let result = '';
+            const parts = [
+                chapterSummary ? `Story Chapter Summaries:\n${chapterSummary}` : '',
+                entries.length > 0 ? (chapterSummary ? "Story World Information:\n" : '') + this.formatter.formatEntries(entries) : ''
+            ];
 
-            if (chapterSummary) {
-                result += `Story Chapter Summaries:\n${chapterSummary}\n\n`;
-            }
-
-            if (entries.length > 0) {
-                if (chapterSummary) {
-                    result += "Story World Information:\n";
-                }
-                result += this.formatter.formatEntries(entries);
-            }
-
-            return result;
+            return parts.filter(Boolean).join('\n\n');
         }
 
-        let chapterSummary = '';
-        if (context.additionalContext?.selectedSummaries && context.additionalContext.selectedSummaries.length > 0) {
-            const selectedSummaries = context.additionalContext.selectedSummaries as string[];
+        const summaries = await this.getSelectedSummaries(context, chapterStore);
+        const chapterContent = await this.getSelectedChapterContent(context, chapterStore);
+        const lorebookEntries = this.getSelectedLorebookEntries(context, lorebookStore);
 
-            if (selectedSummaries.includes('all')) {
-                chapterSummary = await chapterStore.getAllChapterSummaries(context.storyId);
-            } else {
-                const summaries = await Promise.all(
-                    selectedSummaries.map(id => chapterStore.getChapterSummary(id))
-                );
-                chapterSummary = summaries.filter(Boolean).join('\n\n');
-            }
-        }
-
-        let entries = [];
-
-        if (context.additionalContext?.selectedItems && context.additionalContext.selectedItems.length > 0) {
-            const selectedItemIds = context.additionalContext.selectedItems as string[];
-            entries = lorebookStore.entries.filter(entry => selectedItemIds.includes(entry.id));
-        }
-
-        if (entries.length === 0 && !chapterSummary && !context.additionalContext?.selectedChapterContent?.length) {
+        if (!summaries && !chapterContent && !lorebookEntries) {
             return "No story context is available for this query. Feel free to ask about anything related to writing or storytelling in general.";
         }
 
-        let result = '';
+        const parts = [
+            summaries ? `Story Chapter Summaries:\n${summaries}` : '',
+            chapterContent ? `Full Chapter Content:\n${chapterContent}` : '',
+            lorebookEntries ? `Story World Information:\n${lorebookEntries}` : ''
+        ];
 
-        if (context.additionalContext?.selectedSummaries?.length > 0) {
-            const summaries = await Promise.all(
-                context.additionalContext.selectedSummaries.map(id =>
-                    chapterStore.getChapterSummary(id)
-                )
-            );
-            const summaryText = summaries.filter(Boolean).join('\n\n');
-            if (summaryText) {
-                result += `Story Chapter Summaries:\n${summaryText}\n\n`;
-            }
+        return parts.filter(Boolean).join('\n\n') ||
+            "No story context is available for this query. Feel free to ask about anything related to writing or storytelling in general.";
+    }
+
+    private async getSelectedSummaries(context: PromptContext, chapterStore: ReturnType<typeof useChapterStore.getState>): Promise<string> {
+        const selectedSummaries = context.additionalContext?.selectedSummaries;
+        if (!selectedSummaries || !Array.isArray(selectedSummaries) || selectedSummaries.length === 0) {
+            return '';
         }
 
-        if (context.additionalContext?.selectedChapterContent?.length > 0) {
-            console.log('DEBUG: Processing selectedChapterContent:', context.additionalContext.selectedChapterContent);
+        if (selectedSummaries.includes('all')) {
+            return await chapterStore.getAllChapterSummaries(context.storyId);
+        }
 
-            try {
-                const contents = await Promise.all(
-                    context.additionalContext.selectedChapterContent.map(async id => {
-                        console.log(`DEBUG: Fetching content for chapter ID: ${id}`);
-                        try {
-                            const chapter = await db.chapters.get(id);
-                            console.log(`DEBUG: Chapter fetch result:`, chapter ? `Found chapter ${chapter.order}` : 'Not found');
+        const summaries = await Promise.all(
+            (selectedSummaries as string[]).map(id => chapterStore.getChapterSummary(id))
+        );
+        return summaries.filter(Boolean).join('\n\n');
+    }
 
-                            if (!chapter) return '';
-
-                            console.log(`DEBUG: Getting plain text for chapter ${chapter.order}`);
-                            const content = await chapterStore.getChapterPlainText(id);
-                            console.log(`DEBUG: Content length for chapter ${chapter.order}: ${content ? content.length : 0} chars`);
-
-                            return `Chapter ${chapter.order} Content:\n${content}`;
-                        } catch (err) {
-                            console.error(`DEBUG: Error processing chapter ${id}:`, err);
-                            return '';
-                        }
-                    })
-                );
-
-                console.log(`DEBUG: Contents array:`, contents);
-                const contentText = contents.filter(Boolean).join('\n\n');
-                console.log(`DEBUG: Final chapter content text:`, contentText.substring(0, 100) + '...');
-
-                if (contentText) {
-                    result += `Full Chapter Content:\n${contentText}\n\n`;
-                    console.log('DEBUG: Added chapter content to result');
-                } else {
-                    console.log('DEBUG: No chapter content was added (empty content)');
-                }
-            } catch (err) {
-                console.error('DEBUG: Error in chapter content processing:', err);
-            }
-        } else {
+    private async getSelectedChapterContent(context: PromptContext, chapterStore: ReturnType<typeof useChapterStore.getState>): Promise<string> {
+        const selectedContent = context.additionalContext?.selectedChapterContent;
+        if (!selectedContent || !Array.isArray(selectedContent) || selectedContent.length === 0) {
             console.log('DEBUG: No selectedChapterContent found or empty array');
+            return '';
         }
 
-        if (context.additionalContext?.selectedItems?.length > 0) {
-            const selectedItemIds = context.additionalContext.selectedItems;
-            entries = lorebookStore.entries.filter(entry =>
-                selectedItemIds.includes(entry.id)
-            );
-            if (entries.length > 0) {
-                result += "Story World Information:\n";
-                result += this.formatter.formatEntries(entries);
-            }
+        console.log('DEBUG: Processing selectedChapterContent:', selectedContent);
+
+        const [error, contents] = await attemptPromise(() =>
+            Promise.all(
+                (selectedContent as string[]).map(async id => {
+                    console.log(`DEBUG: Fetching content for chapter ID: ${id}`);
+
+                    const [chapterError, chapter] = await attemptPromise(() => db.chapters.get(id));
+
+                    if (chapterError) {
+                        console.error(`DEBUG: Error fetching chapter ${id}:`, chapterError);
+                        return '';
+                    }
+
+                    console.log(`DEBUG: Chapter fetch result:`, chapter ? `Found chapter ${chapter.order}` : 'Not found');
+
+                    if (!chapter) return '';
+
+                    console.log(`DEBUG: Getting plain text for chapter ${chapter.order}`);
+                    const [contentError, content] = await attemptPromise(() =>
+                        chapterStore.getChapterPlainText(id)
+                    );
+
+                    if (contentError) {
+                        console.error(`DEBUG: Error getting content for chapter ${id}:`, contentError);
+                        return '';
+                    }
+
+                    console.log(`DEBUG: Content length for chapter ${chapter.order}: ${content ? content.length : 0} chars`);
+
+                    return content ? `Chapter ${chapter.order} Content:\n${content}` : '';
+                })
+            )
+        );
+
+        if (error) {
+            console.error('DEBUG: Error in chapter content processing:', error);
+            return '';
         }
 
-        return result || "No story context is available for this query. Feel free to ask about anything related to writing or storytelling in general.";
+        const contentText = contents.filter(Boolean).join('\n\n');
+        console.log(`DEBUG: Final chapter content text:`, contentText.substring(0, 100) + '...');
+
+        if (contentText) {
+            console.log('DEBUG: Added chapter content to result');
+        } else {
+            console.log('DEBUG: No chapter content was added (empty content)');
+        }
+
+        return contentText;
+    }
+
+    private getSelectedLorebookEntries(context: PromptContext, lorebookStore: ReturnType<typeof useLorebookStore.getState>): string {
+        const selectedItems = context.additionalContext?.selectedItems;
+        if (!selectedItems || !Array.isArray(selectedItems) || selectedItems.length === 0) {
+            return '';
+        }
+
+        const selectedItemIds = selectedItems as string[];
+        const entries = lorebookStore.entries.filter(entry => selectedItemIds.includes(entry.id));
+
+        return entries.length > 0 ? this.formatter.formatEntries(entries) : '';
     }
 }

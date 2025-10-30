@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { AIModel, AIProvider, PromptMessage } from '@/types/story';
 import { IAIProvider } from './IAIProvider';
+import { attemptPromise } from '@jfdi/attempt';
 
 export class OpenAIProvider implements IAIProvider {
     private client: OpenAI | null = null;
@@ -20,26 +21,27 @@ export class OpenAIProvider implements IAIProvider {
             return [];
         }
 
-        try {
-            console.log('[OpenAIProvider] Fetching models');
+        console.log('[OpenAIProvider] Fetching models');
 
-            const response = await this.client.models.list();
-            const gptModels = response.data.filter(m => m.id.startsWith('gpt'));
+        const [error, response] = await attemptPromise(() => this.client!.models.list());
 
-            const models: AIModel[] = gptModels.map(model => ({
-                id: model.id,
-                name: model.id,
-                provider: 'openai' as AIProvider,
-                contextLength: this.getContextLength(model.id),
-                enabled: true
-            }));
-
-            console.log(`[OpenAIProvider] Fetched ${models.length} models`);
-            return models;
-        } catch (error) {
+        if (error) {
             console.error('[OpenAIProvider] Error fetching models:', error);
             return [];
         }
+
+        const gptModels = response.data.filter(m => m.id.startsWith('gpt'));
+
+        const models: AIModel[] = gptModels.map(model => ({
+            id: model.id,
+            name: model.id,
+            provider: 'openai' as AIProvider,
+            contextLength: this.getContextLength(model.id),
+            enabled: true
+        }));
+
+        console.log(`[OpenAIProvider] Fetched ${models.length} models`);
+        return models;
     }
 
     async generate(
@@ -64,16 +66,19 @@ export class OpenAIProvider implements IAIProvider {
         return new Response(
             new ReadableStream({
                 async start(controller) {
-                    try {
+                    const [error] = await attemptPromise(async () => {
                         for await (const chunk of stream) {
                             const content = chunk.choices[0]?.delta?.content;
                             if (content) {
                                 controller.enqueue(new TextEncoder().encode(content));
                             }
                         }
-                        controller.close();
-                    } catch (error) {
+                    });
+
+                    if (error) {
                         controller.error(error);
+                    } else {
+                        controller.close();
                     }
                 }
             })

@@ -4,6 +4,7 @@ import { db } from '@/services/database';
 import { formatError } from '@/utils/errorUtils';
 import { ERROR_MESSAGES } from '@/constants/errorMessages';
 import { generatePromptId } from '@/utils/idGenerator';
+import { logger } from '@/utils/logger';
 import type { Prompt, PromptMessage } from '@/types/story';
 
 interface PromptStore {
@@ -93,7 +94,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         const [fetchError, prompts] = await attemptPromise(() => db.prompts.toArray());
 
         if (fetchError) {
-            console.error(formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), fetchError);
+            logger.error(formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), fetchError);
         } else {
             set({ prompts, error: null });
         }
@@ -132,7 +133,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         const [fetchError, prompts] = await attemptPromise(() => db.prompts.toArray());
 
         if (fetchError) {
-            console.error(formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), fetchError);
+            logger.error(formatError(fetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), fetchError);
         } else {
             set({ prompts, error: null });
         }
@@ -164,7 +165,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         const [refetchError, prompts] = await attemptPromise(() => db.prompts.toArray());
 
         if (refetchError) {
-            console.error(formatError(refetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), refetchError);
+            logger.error(formatError(refetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), refetchError);
         } else {
             set({ prompts, error: null });
         }
@@ -198,7 +199,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         const [refetchError, prompts] = await attemptPromise(() => db.prompts.toArray());
 
         if (refetchError) {
-            console.error(formatError(refetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), refetchError);
+            logger.error(formatError(refetchError, ERROR_MESSAGES.FETCH_FAILED('prompts')), refetchError);
         } else {
             set({ prompts, error: null });
         }
@@ -243,40 +244,17 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         }
 
         const imported: Prompt[] = data.prompts;
-        const MAX_IMPORT_ATTEMPTS = 100;
 
         for (const p of imported) {
             // Minimal validation of messages
             if (!p.messages || !Array.isArray(p.messages) || !get().validatePromptData(p.messages)) {
                 // Skip invalid prompt
-                console.warn('Skipping invalid prompt during import (messages invalid):', p.name);
+                logger.warn('Skipping invalid prompt during import (messages invalid)', { name: p.name });
                 continue;
             }
 
             // Ensure unique name - check DB for existing name and append suffix if needed
-            let newName = p.name || 'Imported Prompt';
-            const attempts = Array.from({ length: MAX_IMPORT_ATTEMPTS }, (_, i) => i);
-
-            for (const attempt of attempts) {
-                if (attempt > 0) {
-                    newName = `${p.name} (Imported${attempt > 1 ? ` ${attempt}` : ''})`;
-                }
-
-                const [checkError, existing] = await attemptPromise(() =>
-                    db.prompts.where('name').equals(newName).first()
-                );
-
-                if (checkError) {
-                    console.error('Error checking for existing prompt:', checkError);
-                    throw checkError;
-                }
-
-                if (!existing) break;
-
-                if (attempt === MAX_IMPORT_ATTEMPTS - 1) {
-                    throw new Error(`Failed to generate unique name after ${MAX_IMPORT_ATTEMPTS} attempts`);
-                }
-            }
+            const newName = await this.findUniqueName(p.name || 'Imported Prompt');
 
             const newPrompt: Prompt = {
                 ...p,
@@ -291,7 +269,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
             const [addError] = await attemptPromise(() => db.prompts.add(newPrompt));
 
             if (addError) {
-                console.error(`Failed to import prompt "${newName}":`, addError);
+                logger.error(`Failed to import prompt "${newName}"`, addError);
                 // Continue with other prompts instead of failing entire import
             }
         }
@@ -305,5 +283,40 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
         }
 
         set({ prompts, error: null });
+    },
+
+    // Helper to find a unique name by appending (Imported) or (Imported N) suffix
+    findUniqueName: async (baseName: string): Promise<string> => {
+        const MAX_IMPORT_ATTEMPTS = 100;
+
+        const generateCandidateName = (attempt: number): string => {
+            if (attempt === 0) return baseName;
+            return `${baseName} (Imported${attempt > 1 ? ` ${attempt}` : ''})`;
+        };
+
+        const attempts = Array.from({ length: MAX_IMPORT_ATTEMPTS }, (_, i) => i);
+
+        for (const attempt of attempts) {
+            const candidateName = generateCandidateName(attempt);
+
+            const [checkError, existing] = await attemptPromise(() =>
+                db.prompts.where('name').equals(candidateName).first()
+            );
+
+            if (checkError) {
+                logger.error('Error checking for existing prompt', checkError);
+                throw checkError;
+            }
+
+            if (!existing) {
+                return candidateName;
+            }
+
+            if (attempt === MAX_IMPORT_ATTEMPTS - 1) {
+                throw new Error(`Failed to generate unique name after ${MAX_IMPORT_ATTEMPTS} attempts`);
+            }
+        }
+
+        throw new Error('Failed to generate unique name');
     }
 }));

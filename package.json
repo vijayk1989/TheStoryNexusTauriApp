@@ -57,6 +57,7 @@
     "@radix-ui/react-toggle": "^1.1.2",
     "@radix-ui/react-toggle-group": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.8",
+    "@sindresorhus/is": "^7.1.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@types/prismjs": "^1.26.5",

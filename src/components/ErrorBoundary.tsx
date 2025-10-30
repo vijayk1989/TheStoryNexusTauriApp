@@ -1,8 +1,13 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ReactNode, type ErrorInfo } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { AlertCircle } from 'lucide-react';
 
 interface Props {
 	children: ReactNode;
-	fallback?: ReactNode;
+	fallback?: (error: Error, resetError: () => void) => ReactNode;
+	onError?: (error: Error, errorInfo: ErrorInfo) => void;
+	resetKeys?: unknown[];
 }
 
 interface State {
@@ -20,30 +25,55 @@ export class ErrorBoundary extends Component<Props, State> {
 		return { hasError: true, error };
 	}
 
-	componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+	componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
 		console.error('Error caught by boundary:', error, errorInfo);
+		this.props.onError?.(error, errorInfo);
 	}
 
+	componentDidUpdate(prevProps: Props): void {
+		if (this.state.hasError && this.props.resetKeys) {
+			const prevKeys = prevProps.resetKeys || [];
+			const currentKeys = this.props.resetKeys;
+
+			if (prevKeys.length !== currentKeys.length ||
+				prevKeys.some((key, i) => key !== currentKeys[i])) {
+				this.resetError();
+			}
+		}
+	}
+
+	resetError = (): void => {
+		this.setState({ hasError: false, error: null });
+	};
+
 	render(): ReactNode {
-		if (this.state.hasError) {
+		if (this.state.hasError && this.state.error) {
+			if (this.props.fallback) {
+				return this.props.fallback(this.state.error, this.resetError);
+			}
+
 			return (
-				this.props.fallback || (
-					<div className="flex items-center justify-center min-h-screen">
-						<div className="text-center">
-							<h1 className="text-2xl font-bold mb-4">Something went wrong</h1>
-							<p className="text-muted-foreground mb-4">
-								{this.state.error?.message || 'An unexpected error occurred'}
-							</p>
-							<button
-								type="button"
-								onClick={() => window.location.reload()}
-								className="px-4 py-2 bg-primary text-primary-foreground rounded"
-							>
-								Reload Application
-							</button>
-						</div>
-					</div>
-				)
+				<div className="flex items-center justify-center min-h-[400px] p-4">
+					<Alert variant="destructive" className="max-w-2xl">
+						<AlertCircle className="h-4 w-4" />
+						<AlertTitle>Something went wrong</AlertTitle>
+						<AlertDescription className="mt-2">
+							<p className="mb-4">{this.state.error.message}</p>
+							<div className="flex gap-2">
+								<Button onClick={this.resetError} variant="outline" size="sm">
+									Try again
+								</Button>
+								<Button
+									onClick={() => window.location.reload()}
+									variant="outline"
+									size="sm"
+								>
+									Reload app
+								</Button>
+							</div>
+						</AlertDescription>
+					</Alert>
+				</div>
 			);
 		}
 

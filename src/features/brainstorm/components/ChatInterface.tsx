@@ -192,6 +192,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             return;
 
         const [error] = await attemptPromise(async () => {
+            // Type safety: already checked above
+            if (!state.selectedPrompt || !state.selectedModel) {
+                throw new Error("Prompt or model not selected");
+            }
+
             clearDraftMessage();
 
             const userMessage: ChatMessage = {

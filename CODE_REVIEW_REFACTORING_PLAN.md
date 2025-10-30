@@ -1340,72 +1340,72 @@ export const formatSSEChunk = (content: string): string => {
 
 ## Implementation Checklist
 
-### Phase 1: Constants & Utilities ✓
-- [ ] Create `src/constants/errorMessages.ts`
-- [ ] Create `src/constants/routes.ts`
-- [ ] Create `src/constants/databaseTables.ts`
-- [ ] Create `src/constants/lorebookCategories.ts`
-- [ ] Create `src/constants/apiConfig.ts`
-- [ ] Create `src/utils/idGenerator.ts`
-- [ ] Create `src/utils/errorUtils.ts`
-- [ ] Create `src/utils/storageService.ts`
-- [ ] Update all imports to use new constants
-- [ ] Test all affected functionality
+### Phase 1: Constants & Utilities ✅
+- [x] Create `src/constants/errorMessages.ts`
+- [x] Create `src/constants/routes.ts`
+- [x] Create `src/constants/databaseTables.ts`
+- [x] Create `src/constants/lorebookCategories.ts`
+- [x] Create `src/constants/apiConfig.ts`
+- [x] Create `src/utils/idGenerator.ts`
+- [x] Create `src/utils/errorUtils.ts`
+- [x] Create `src/utils/storageService.ts`
+- [x] Update all imports to use new constants
+- [x] Test all affected functionality
 
-### Phase 2: DRY Violations ✓
-- [ ] Create `src/features/ai/types/generationParams.ts`
-- [ ] Create `src/features/ai/services/aiGenerationHelper.ts`
-- [ ] Refactor `useAIStore.ts` to use helper
-- [ ] Add `formatStreamAsSSE()` to AIService
-- [ ] Refactor OpenAI/OpenRouter methods
-- [ ] Create `src/utils/databaseHelpers.ts`
-- [ ] Update all stores to use `fetchAndSet`
-- [ ] Refactor lorebook store getters
-- [ ] Create `src/utils/chapterFormatters.ts`
-- [ ] Update chapter metadata store
-- [ ] Test all AI generation functionality
-- [ ] Test all database operations
+### Phase 2: DRY Violations ✅
+- [x] Create `src/features/ai/types/generationParams.ts`
+- [x] Create `src/features/ai/services/aiGenerationHelper.ts`
+- [x] Refactor `useAIStore.ts` to use helper
+- [x] Add `formatStreamAsSSE()` to AIService
+- [x] Refactor OpenAI/OpenRouter methods
+- [x] Create `src/utils/databaseHelpers.ts`
+- [x] Update all stores to use `fetchAndSet`
+- [x] Refactor lorebook store getters
+- [x] Create `src/utils/chapterFormatters.ts`
+- [x] Update chapter metadata store
+- [x] Test all AI generation functionality
+- [x] Test all database operations
 
-### Phase 3: Error Handling ✓
-- [ ] Install/verify `@jfdi/attempt` dependency
-- [ ] Refactor useStoryStore.ts
-- [ ] Refactor useChapterDataStore.ts
-- [ ] Refactor useChapterContentStore.ts
-- [ ] Refactor useChapterMetadataStore.ts
-- [ ] Refactor useLorebookDataStore.ts
-- [ ] Refactor useBrainstormStore.ts
-- [ ] Refactor useNotesStore.ts
-- [ ] Refactor useSceneBeatStore.ts
-- [ ] Refactor promptStore.ts
-- [ ] Refactor useAIStore.ts
-- [ ] Create `src/components/ErrorBoundary.tsx`
-- [ ] Integrate ErrorBoundary in main.tsx
-- [ ] Test error scenarios in all stores
+### Phase 3: Error Handling ✅
+- [x] Install/verify `@jfdi/attempt` dependency
+- [x] Refactor useStoryStore.ts
+- [x] Refactor useChapterDataStore.ts
+- [x] Refactor useChapterContentStore.ts
+- [x] Refactor useChapterMetadataStore.ts
+- [x] Refactor useLorebookDataStore.ts
+- [x] Refactor useBrainstormStore.ts
+- [x] Refactor useNotesStore.ts
+- [x] Refactor useSceneBeatStore.ts
+- [x] Refactor promptStore.ts
+- [x] Refactor useAIStore.ts
+- [x] Create `src/components/ErrorBoundary.tsx`
+- [x] Integrate ErrorBoundary in main.tsx
+- [x] Test error scenarios in all stores
 
-### Phase 4: Code Style & Type Safety ✓
-- [ ] Audit and replace `let` with `const` in 20+ files
-- [ ] Refactor PromptParser to functional
-- [ ] Refactor StreamProcessor to functional
-- [ ] Update CLAUDE.md with class exceptions
-- [ ] Fix explicit `any` types (20+ occurrences):
-  - [ ] Lexical editor node types in exportUtils.ts (8 occurrences)
-  - [ ] Chat messages in useBrainstormStore.ts (use ChatMessage type)
-  - [ ] Prompt type in MessageInputArea.tsx
-  - [ ] OpenRouter API response types
-  - [ ] Database migration filter types
-  - [ ] Lexical playground plugin types
-  - [ ] Replace Record<string, any> with Record<string, unknown>
-- [ ] Run linter/formatter
-- [ ] Test refactored services
+### Phase 4: Code Style & Type Safety ✅
+- [x] Audit and replace `let` with `const` in 20+ files
+- [x] Refactor PromptParser to functional
+- [x] Refactor StreamProcessor to functional
+- [x] Update CLAUDE.md with class exceptions
+- [x] Fix explicit `any` types (20+ occurrences):
+  - [x] Lexical editor node types in exportUtils.ts (8 occurrences)
+  - [x] Chat messages in useBrainstormStore.ts (use ChatMessage type)
+  - [x] Prompt type in MessageInputArea.tsx
+  - [x] OpenRouter API response types
+  - [x] Database migration filter types
+  - [x] Lexical playground plugin types
+  - [x] Replace Record<string, any> with Record<string, unknown>
+- [x] Run linter/formatter
+- [x] Test refactored services
 
-### Phase 5: Architecture ✓
-- [ ] Create `docs/ARCHITECTURE.md`
-- [ ] Document store patterns
-- [ ] Refactor useChapterStore cross-store coupling
-- [ ] Create `src/features/prompts/services/variableResolvers.ts`
-- [ ] Refactor PromptParser to use resolvers
-- [ ] Improve optimistic update rollback in useBrainstormStore
-- [ ] Test all architectural changes
+### Phase 5: Architecture ✅
+- [x] Create `docs/ARCHITECTURE.md`
+- [x] Document store patterns
+- [x] Refactor useChapterStore cross-store coupling
+- [x] Create `src/features/prompts/services/variableResolvers.ts`
+- [x] Refactor PromptParser to use resolvers
+- [x] Improve optimistic update rollback in useBrainstormStore
+- [x] Test all architectural changes
 
 ### Phase 6: Polish ✅
 - [x] Create `src/utils/typeGuards.ts` (using @sindresorhus/is)

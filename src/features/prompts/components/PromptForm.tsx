@@ -43,6 +43,7 @@ interface PromptFormProps {
     prompt?: Prompt;
     onSave?: () => void;
     onCancel?: () => void;
+    fixedType?: PromptType;
 }
 
 type MessageWithId = PromptMessage & { _id: string };
@@ -52,12 +53,12 @@ const createMessageWithId = (message: PromptMessage): MessageWithId => ({
     _id: crypto.randomUUID(),
 });
 
-export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
+export function PromptForm({ prompt, onSave, onCancel, fixedType }: PromptFormProps) {
     const [name, setName] = useState(prompt?.name || '');
     const [messages, setMessages] = useState<MessageWithId[]>(
         prompt?.messages.map(createMessageWithId) || [createMessageWithId({ role: 'system', content: '' })]
     );
-    const [promptType, setPromptType] = useState<PromptType>(prompt?.promptType || 'scene_beat');
+    const [promptType, setPromptType] = useState<PromptType>(fixedType || prompt?.promptType || 'scene_beat');
     const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
     const [selectedModels, setSelectedModels] = useState<AllowedModel[]>(prompt?.allowedModels || []);
     const { createPrompt, updatePrompt } = usePromptStore();
@@ -486,7 +487,11 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
 
             <div className="border-t border-input pt-6">
                 <h3 className="font-medium mb-4">Prompt Type</h3>
-                <Select value={promptType} onValueChange={(value: PromptType) => setPromptType(value)}>
+                <Select
+                    value={promptType}
+                    onValueChange={(value: PromptType) => setPromptType(value)}
+                    disabled={!!fixedType}
+                >
                     <SelectTrigger>
                         <SelectValue placeholder="Select prompt type" />
                     </SelectTrigger>
@@ -498,6 +503,11 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                         ))}
                     </SelectContent>
                 </Select>
+                {fixedType && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                        Prompt type is fixed for this context
+                    </p>
+                )}
             </div>
 
             <div className="border-t border-input pt-6">

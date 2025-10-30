@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { AIModel, Prompt, AllowedModel } from "@/types/story";
 import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarSub, MenubarSubContent, MenubarSubTrigger, MenubarTrigger } from "./menubar";
 import { Loader2, ChevronDown } from "lucide-react";
+import { PromptConfigDialog } from "./prompt-config-dialog";
 
 interface AIGenerateMenuProps {
     isGenerating: boolean;
@@ -22,6 +24,7 @@ export function AIGenerateMenu({
     buttonText,
     onGenerate
 }: Omit<AIGenerateMenuProps, 'availableModels'>) {
+    const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
     const filteredPrompts = prompts.filter(p => p.promptType === promptType);
 
     return (
@@ -78,11 +81,19 @@ export function AIGenerateMenu({
                                 </MenubarSub>
                             ))}
                             <MenubarSeparator />
-                            <MenubarItem>Configure Prompts...</MenubarItem>
+                            <MenubarItem onClick={() => setIsConfigDialogOpen(true)}>
+                                Configure Prompts...
+                            </MenubarItem>
                         </>
                     )}
                 </MenubarContent>
             </MenubarMenu>
+
+            <PromptConfigDialog
+                open={isConfigDialogOpen}
+                onOpenChange={setIsConfigDialogOpen}
+                promptType={promptType as Prompt['promptType']}
+            />
         </Menubar>
     );
 } 

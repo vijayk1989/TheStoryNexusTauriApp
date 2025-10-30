@@ -10,6 +10,7 @@ interface PromptsListProps {
     onPromptSelect: (prompt: Prompt) => void;
     selectedPromptId?: string;
     onPromptDelete: (promptId: string) => void;
+    filterByType?: Prompt['promptType'];
 }
 
 const getPromptTypeLabel = (type: Prompt['promptType']) => {
@@ -24,8 +25,13 @@ const getPromptTypeLabel = (type: Prompt['promptType']) => {
     return labels[type];
 };
 
-export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }: PromptsListProps) {
+export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete, filterByType }: PromptsListProps) {
     const { prompts, fetchPrompts, deletePrompt, clonePrompt, isLoading, error } = usePromptStore();
+
+    // Filter prompts by type if specified
+    const filteredPrompts = filterByType
+        ? prompts.filter(p => p.promptType === filterByType)
+        : prompts;
     // Track which groups are expanded (default all expanded)
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
@@ -93,16 +99,16 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
         );
     }
 
-    if (!prompts.length) {
+    if (!filteredPrompts.length) {
         return (
             <div className="p-4 text-muted-foreground h-full">
-                No prompts available
+                {filterByType ? `No ${getPromptTypeLabel(filterByType)} prompts available` : 'No prompts available'}
             </div>
         );
     }
 
     // Group prompts by promptType
-    const groupedPrompts = prompts.reduce((acc, prompt) => {
+    const groupedPrompts = filteredPrompts.reduce((acc, prompt) => {
         if (!acc[prompt.promptType]) {
             acc[prompt.promptType] = [];
         }

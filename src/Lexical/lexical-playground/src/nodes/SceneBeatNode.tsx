@@ -284,13 +284,6 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 
   // Add effect to handle toggle changes
   useEffect(() => {
-    // Log the current toggle states
-    console.log("Context toggle states changed:", {
-      useMatchedChapter,
-      useMatchedSceneBeat,
-      useCustomContext,
-    });
-
     // Save the scene beat with updated toggle states
     if (sceneBeatId && isLoaded) {
       const updatedSceneBeat: Partial<SceneBeat> = {
@@ -313,16 +306,12 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
     useCustomContext,
     sceneBeatId,
     isLoaded,
-    currentStoryId,
-    currentChapterId,
-    command,
-    povType,
-    povCharacter,
   ]);
 
-  // Add effect to load toggle states from scene beat
+  // Add effect to load toggle states from scene beat (only once on load)
+  const [togglesLoaded, setTogglesLoaded] = useState(false);
   useEffect(() => {
-    if (sceneBeatId && isLoaded) {
+    if (sceneBeatId && isLoaded && !togglesLoaded) {
       sceneBeatService
         .getSceneBeat(sceneBeatId)
         .then((sceneBeat) => {
@@ -338,12 +327,14 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
               setUseCustomContext(sceneBeat.metadata.useCustomContext);
             }
           }
+          setTogglesLoaded(true);
         })
         .catch((error) => {
           console.error("Error loading scene beat toggle states:", error);
+          setTogglesLoaded(true);
         });
     }
-  }, [sceneBeatId, isLoaded]);
+  }, [sceneBeatId, isLoaded, togglesLoaded]);
 
   // Initialize history when command is first loaded
   useEffect(() => {

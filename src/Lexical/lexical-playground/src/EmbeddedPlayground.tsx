@@ -10,13 +10,9 @@ interface EmbeddedPlaygroundProps {
 
 export default function EmbeddedPlayground({ maximizeButton }: EmbeddedPlaygroundProps) {
     const { currentChapterId } = useStoryContext();
-    const { getChapter, currentChapter } = useChapterStore();
+    const { currentChapter } = useChapterStore();
 
-    useEffect(() => {
-        if (currentChapterId) {
-            getChapter(currentChapterId);
-        }
-    }, [currentChapterId, getChapter]);
+    // Note: getChapter is called by LoadChapterContentPlugin, no need to duplicate here
 
     if (!currentChapterId || !currentChapter) {
         return (

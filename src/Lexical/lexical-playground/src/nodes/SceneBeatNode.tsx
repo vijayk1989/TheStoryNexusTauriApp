@@ -145,9 +145,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
   const [showContext, setShowContext] = useState(false);
 
   // Get character entries from lorebook
-  const characterEntries = useMemo(() => {
-    return entries.filter((entry) => entry.category === "character");
-  }, [entries]);
+  const characterEntries = entries.filter((entry) => entry.category === "character");
 
   useEffect(() => {
     fetchPrompts().catch((error) => {

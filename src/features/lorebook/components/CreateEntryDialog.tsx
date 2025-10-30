@@ -225,9 +225,9 @@ export function CreateEntryDialog({
           {tagInput && (
             <div className="flex flex-wrap gap-2">
               {tagInput.split(",").map(
-                (tag, index) =>
+                (tag) =>
                   tag.trim() && (
-                    <Badge key={index} variant="secondary" className="group">
+                    <Badge key={tag.trim()} variant="secondary" className="group">
                       {tag.trim()}
                     </Badge>
                   )

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { PromptForm } from './PromptForm';
 import { PromptsList } from './PromptList';
@@ -18,7 +18,7 @@ export function PromptsManager() {
     const { fetchPrompts } = usePromptStore();
     const { exportPrompts, importPrompts } = usePromptStore();
     const [isImporting, setIsImporting] = useState(false);
-    const fileInputRef = useState<HTMLInputElement | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const handleNewPrompt = () => {
         setSelectedPrompt(undefined);
@@ -101,11 +101,7 @@ export function PromptsManager() {
                             type="file"
                             accept="application/json"
                             style={{ display: 'none' }}
-                            ref={el => {
-                                // maintain ref in state to avoid using useRef for simplicity
-                                // @ts-ignore
-                                fileInputRef[1](el);
-                            }}
+                            ref={fileInputRef}
                             onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
@@ -121,8 +117,7 @@ export function PromptsManager() {
                                 } finally {
                                     setIsImporting(false);
                                     // clear the input so the same file can be reselected if needed
-                                    // @ts-ignore
-                                    if (fileInputRef[0]) fileInputRef[0].value = '';
+                                    if (fileInputRef.current) fileInputRef.current.value = '';
                                 }
                             }}
                         />
@@ -131,8 +126,7 @@ export function PromptsManager() {
                             variant="outline"
                             size="icon"
                             onClick={() => {
-                                // @ts-ignore
-                                if (fileInputRef[0]) fileInputRef[0].click();
+                                if (fileInputRef.current) fileInputRef.current.click();
                             }}
                             disabled={isImporting}
                             title="Import prompts"

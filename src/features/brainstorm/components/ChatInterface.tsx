@@ -1,424 +1,448 @@
-import React, { useState, useEffect, useRef } from "react";
-import { toast } from "react-toastify";
-import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
-import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
-import { useBrainstormStore } from "../stores/useBrainstormStore";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
+import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
+import { createPromptParser } from "@/features/prompts/services/promptParser";
+import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { db } from "@/services/database";
+import {
+    AllowedModel,
+    ChatMessage,
+    Prompt,
+    PromptParserConfig,
+} from "@/types/story";
+import { useEffect, useReducer, useRef } from "react";
+import { toast } from "react-toastify";
+import { chatReducer, initialChatState } from "../reducers/chatReducer";
+import { useBrainstormStore } from "../stores/useBrainstormStore";
 import { ChatMessageList } from "./ChatMessageList";
 import { ContextSelector } from "./ContextSelector";
-import { PromptControls } from "./PromptControls";
 import { MessageInputArea } from "./MessageInputArea";
-import {
-  LorebookEntry,
-  ChatMessage,
-  Prompt,
-  AllowedModel,
-  PromptParserConfig,
-  Chapter,
-} from "@/types/story";
-import { createPromptParser } from "@/features/prompts/services/promptParser";
+import { PromptControls } from "./PromptControls";
 
 interface ChatInterfaceProps {
-  storyId: string;
+    storyId: string;
 }
 
 export default function ChatInterface({ storyId }: ChatInterfaceProps) {
-  // Chat state
-  const [input, setInput] = useState(useBrainstormStore.getState().draftMessage);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [currentChatId, setCurrentChatId] = useState<string>("");
+    const [state, dispatch] = useReducer(chatReducer, {
+        ...initialChatState,
+        input: useBrainstormStore.getState().draftMessage,
+    });
+    const editingTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Context state
-  const [includeFullContext, setIncludeFullContext] = useState(false);
-  const [contextOpen, setContextOpen] = useState(false);
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [selectedSummaries, setSelectedSummaries] = useState<string[]>([]);
-  const [selectedChapterContent, setSelectedChapterContent] = useState<string[]>([]);
-  const [selectedItems, setSelectedItems] = useState<LorebookEntry[]>([]);
+    // Stores
+    const { loadEntries, entries: lorebookEntries } = useLorebookStore();
+    const {
+        fetchPrompts,
+        prompts,
+        isLoading: promptsLoading,
+        error: promptsError,
+    } = usePromptStore();
+    const {
+        initialize: initializeAI,
+        getAvailableModels,
+        generateWithPrompt,
+        processStreamedResponse,
+        abortGeneration,
+    } = useAIStore();
+    const {
+        addChat,
+        updateChat,
+        selectedChat,
+        draftMessage,
+        setDraftMessage,
+        clearDraftMessage,
+        setMessageEdited,
+    } = useBrainstormStore();
+    const { fetchChapters } = useChapterStore();
 
-  // Prompt state
-  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
-  const [selectedModel, setSelectedModel] = useState<AllowedModel | null>(null);
-  const [availableModels, setAvailableModels] = useState<AllowedModel[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewMessages, setPreviewMessages] = useState<any>(undefined);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
+    // Initialize
+    useEffect(() => {
+        const loadData = async () => {
+            await loadEntries(storyId);
+            await fetchPrompts();
+            await initializeAI();
+            await fetchChapters(storyId);
 
-  // Editing state
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editingContent, setEditingContent] = useState<string>('');
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
-  const editingTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+            const chaptersData = await db.chapters
+                .where("storyId")
+                .equals(storyId)
+                .sortBy("order");
+            dispatch({ type: "SET_CHAPTERS", payload: chaptersData });
 
-  // Stores
-  const { loadEntries, entries: lorebookEntries } = useLorebookStore();
-  const { fetchPrompts, prompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
-  const {
-    initialize: initializeAI,
-    getAvailableModels,
-    generateWithPrompt,
-    processStreamedResponse,
-    abortGeneration,
-  } = useAIStore();
-  const {
-    addChat,
-    updateChat,
-    selectedChat,
-    draftMessage,
-    setDraftMessage,
-    clearDraftMessage,
-    setMessageEdited,
-  } = useBrainstormStore();
-  const { fetchChapters } = useChapterStore();
+            const models = await getAvailableModels();
+            if (models.length > 0) {
+                dispatch({
+                    type: "SET_AVAILABLE_MODELS",
+                    payload: models.map((model) => ({
+                        id: model.id,
+                        name: model.name,
+                        provider: model.provider,
+                    })),
+                });
+            }
+        };
 
-  // Initialize
-  useEffect(() => {
-    const loadData = async () => {
-      await loadEntries(storyId);
-      await fetchPrompts();
-      await initializeAI();
-      await fetchChapters(storyId);
+        dispatch({ type: "CLEAR_CONTEXT_SELECTIONS" });
+        loadData();
+    }, [
+        storyId,
+        loadEntries,
+        fetchPrompts,
+        initializeAI,
+        fetchChapters,
+        getAvailableModels,
+    ]);
 
-      const chaptersData = await db.chapters
-        .where("storyId")
-        .equals(storyId)
-        .sortBy("order");
-      setChapters(chaptersData);
+    useEffect(() => {
+        dispatch({ type: "SET_INPUT", payload: draftMessage });
+    }, [draftMessage]);
 
-      const models = await getAvailableModels();
-      if (models.length > 0) {
-        setAvailableModels(
-          models.map((model) => ({
-            id: model.id,
-            name: model.name,
-            provider: model.provider,
-          }))
-        );
-      }
-    };
-
-    setSelectedItems([]);
-    setSelectedSummaries([]);
-    setIncludeFullContext(false);
-
-    loadData();
-  }, [storyId]);
-
-  useEffect(() => {
-    setInput(useBrainstormStore.getState().draftMessage);
-  }, [selectedChat]);
-
-  useEffect(() => {
-    if (selectedChat) {
-      setCurrentChatId(selectedChat.id);
-      setMessages(selectedChat.messages || []);
-    }
-  }, [selectedChat]);
-
-  useEffect(() => {
-    if (includeFullContext) {
-      setSelectedSummaries([]);
-      setSelectedItems([]);
-      setSelectedChapterContent([]);
-    }
-  }, [includeFullContext]);
-
-  useEffect(() => {
-    if (showPreview && selectedPrompt) {
-      handlePreviewPrompt();
-    }
-  }, [includeFullContext, selectedSummaries, selectedItems, selectedChapterContent, input]);
-
-  // Helper functions
-  const getFilteredEntries = () => {
-    return useLorebookStore.getState().getFilteredEntries();
-  };
-
-  const createPromptConfig = (prompt: Prompt): PromptParserConfig => {
-    return {
-      promptId: prompt.id,
-      storyId,
-      scenebeat: input.trim(),
-      additionalContext: {
-        chatHistory: messages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        includeFullContext,
-        selectedSummaries: includeFullContext ? [] : selectedSummaries,
-        selectedItems: includeFullContext ? [] : selectedItems.map((item) => item.id),
-        selectedChapterContent: includeFullContext ? [] : selectedChapterContent,
-      },
-    };
-  };
-
-  // Event handlers
-  const handlePromptSelect = (prompt: Prompt, model: AllowedModel) => {
-    setSelectedPrompt(prompt);
-    setSelectedModel(model);
-  };
-
-  const handlePreviewPrompt = async () => {
-    if (!selectedPrompt) return;
-
-    try {
-      setPreviewLoading(true);
-      setPreviewError(null);
-      setPreviewMessages(undefined);
-
-      const config = createPromptConfig(selectedPrompt);
-      const promptParser = createPromptParser();
-      const parsedPrompt = await promptParser.parse(config);
-
-      if (parsedPrompt.error) {
-        setPreviewError(parsedPrompt.error);
-        toast.error(`Error parsing prompt: ${parsedPrompt.error}`);
-        return;
-      }
-
-      setPreviewMessages(parsedPrompt.messages);
-      setShowPreview(true);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      setPreviewError(errorMessage);
-      toast.error(`Error previewing prompt: ${errorMessage}`);
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!input.trim() || !selectedPrompt || !selectedModel || isGenerating) return;
-
-    try {
-      setIsGenerating(true);
-      setPreviewError(null);
-      clearDraftMessage();
-
-      const userMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: input.trim(),
-        timestamp: new Date(),
-      };
-
-      const newMessages = [...messages, userMessage];
-      setMessages(newMessages);
-
-      let chatId = currentChatId;
-      if (!chatId) {
-        const newTitle = userMessage.content.substring(0, 40) + (userMessage.content.length > 40 ? '...' : '');
-        chatId = await addChat(storyId, newTitle, newMessages);
-        setCurrentChatId(chatId);
-      } else {
-        await updateChat(chatId, { messages: newMessages });
-      }
-
-      const config = createPromptConfig(selectedPrompt);
-      const response = await generateWithPrompt(config, selectedModel);
-
-      if (!response.ok && response.status !== 204) {
-        throw new Error("Failed to generate response");
-      }
-
-      if (response.status === 204) {
-        console.log('Generation was aborted.');
-        setIsGenerating(false);
-        return;
-      }
-
-      const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: "",
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-      setStreamingMessageId(assistantMessage.id);
-
-      let fullResponse = "";
-      await processStreamedResponse(
-        response,
-        (token) => {
-          fullResponse += token;
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessage.id ? { ...msg, content: fullResponse } : msg
-            )
-          );
-        },
-        () => {
-          setIsGenerating(false);
-          setStreamingMessageId(null);
-          updateChat(chatId, {
-            messages: [...newMessages, { ...assistantMessage, content: fullResponse }],
-          });
-        },
-        (error) => {
-          console.error("Streaming error:", error);
-          setPreviewError("Failed to stream response");
-          setIsGenerating(false);
-          setStreamingMessageId(null);
+    useEffect(() => {
+        if (selectedChat) {
+            dispatch({ type: "SET_CURRENT_CHAT_ID", payload: selectedChat.id });
+            dispatch({
+                type: "SET_MESSAGES",
+                payload: selectedChat.messages || [],
+            });
         }
-      );
-    } catch (error) {
-      console.error("Error during generation:", error);
-      setPreviewError(error instanceof Error ? error.message : "An unknown error occurred");
-      setIsGenerating(false);
-    }
-  };
+    }, [selectedChat]);
 
-  const handleInputChange = (value: string) => {
-    setInput(value);
-    setDraftMessage(value);
-  };
+    useEffect(() => {
+        if (state.includeFullContext) {
+            dispatch({ type: "CLEAR_CONTEXT_SELECTIONS" });
+        }
+    }, [state.includeFullContext]);
 
-  const handleStopGeneration = () => {
-    abortGeneration();
-    setIsGenerating(false);
-    setStreamingMessageId(null);
-  };
+    // Helper functions
+    const getFilteredEntries = () => {
+        return useLorebookStore.getState().getFilteredEntries();
+    };
 
-  const handleStartEdit = (message: ChatMessage) => {
-    if (streamingMessageId === message.id) {
-      if (!confirm('This message is still being generated. Stop generation and edit?')) return;
-      abortGeneration();
-      setStreamingMessageId(null);
-    }
-    setEditingMessageId(message.id);
-    setEditingContent(message.content);
-  };
+    const createPromptConfig = (prompt: Prompt): PromptParserConfig => {
+        return {
+            promptId: prompt.id,
+            storyId,
+            scenebeat: state.input.trim(),
+            additionalContext: {
+                chatHistory: state.messages.map((msg) => ({
+                    role: msg.role,
+                    content: msg.content,
+                })),
+                includeFullContext: state.includeFullContext,
+                selectedSummaries: state.includeFullContext
+                    ? []
+                    : state.selectedSummaries,
+                selectedItems: state.includeFullContext
+                    ? []
+                    : state.selectedItems.map((item) => item.id),
+                selectedChapterContent: state.includeFullContext
+                    ? []
+                    : state.selectedChapterContent,
+            },
+        };
+    };
 
-  const handleSaveEdit = async (messageId: string) => {
-    if (!editingContent.trim()) {
-      toast.error('Edited content cannot be empty');
-      return;
-    }
+    // Event handlers
+    const handlePromptSelect = (prompt: Prompt, model: AllowedModel) => {
+        dispatch({ type: "SET_PROMPT_AND_MODEL", payload: { prompt, model } });
+    };
 
-    try {
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === messageId
-            ? { ...m, content: editingContent, editedAt: new Date().toISOString(), originalContent: m.originalContent ?? m.content }
-            : m
+    const handlePreviewPrompt = async () => {
+        if (!state.selectedPrompt) return;
+
+        try {
+            dispatch({ type: "START_PREVIEW" });
+
+            const config = createPromptConfig(state.selectedPrompt);
+            const promptParser = createPromptParser();
+            const parsedPrompt = await promptParser.parse(config);
+
+            if (parsedPrompt.error) {
+                dispatch({
+                    type: "PREVIEW_ERROR",
+                    payload: parsedPrompt.error,
+                });
+                toast.error(`Error parsing prompt: ${parsedPrompt.error}`);
+                return;
+            }
+
+            dispatch({
+                type: "PREVIEW_SUCCESS",
+                payload: parsedPrompt.messages,
+            });
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : String(error);
+            dispatch({ type: "PREVIEW_ERROR", payload: errorMessage });
+            toast.error(`Error previewing prompt: ${errorMessage}`);
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (
+            !state.input.trim() ||
+            !state.selectedPrompt ||
+            !state.selectedModel ||
+            state.isGenerating
         )
-      );
+            return;
 
-      if (!selectedChat) throw new Error('No chat selected');
-      await setMessageEdited(selectedChat.id, messageId, editingContent);
+        try {
+            clearDraftMessage();
 
-      toast.success('Message edited');
-      setEditingMessageId(null);
-      setEditingContent('');
-    } catch (error) {
-      console.error('Failed to save edit', error);
-      toast.error('Failed to save edit');
+            const userMessage: ChatMessage = {
+                id: crypto.randomUUID(),
+                role: "user",
+                content: state.input.trim(),
+                timestamp: new Date(),
+            };
 
-      if (selectedChat) {
-        const fresh = await db.aiChats.get(selectedChat.id);
-        if (fresh) setMessages(fresh.messages || []);
-      }
-    }
-  };
+            const newMessages = [...state.messages, userMessage];
 
-  const handleCancelEdit = () => {
-    setEditingMessageId(null);
-    setEditingContent('');
-  };
+            let chatId = state.currentChatId;
+            if (!chatId) {
+                const newTitle =
+                    userMessage.content.substring(0, 40) +
+                    (userMessage.content.length > 40 ? "..." : "");
+                chatId = await addChat(storyId, newTitle, newMessages);
+            } else {
+                await updateChat(chatId, { messages: newMessages });
+            }
 
-  const handleToggleSummary = (chapterId: string) => {
-    if (selectedSummaries.includes(chapterId)) {
-      setSelectedSummaries(selectedSummaries.filter(id => id !== chapterId));
-    } else {
-      setSelectedSummaries([...selectedSummaries, chapterId]);
-    }
-  };
+            const config = createPromptConfig(state.selectedPrompt);
+            const response = await generateWithPrompt(
+                config,
+                state.selectedModel
+            );
 
-  const handleItemSelect = (itemId: string) => {
-    const filteredEntries = useLorebookStore.getState().getFilteredEntries();
-    const item = filteredEntries.find((entry) => entry.id === itemId);
-    if (item && !selectedItems.some((i) => i.id === itemId)) {
-      setSelectedItems([...selectedItems, item]);
-    }
-  };
+            if (!response.ok && response.status !== 204) {
+                throw new Error("Failed to generate response");
+            }
 
-  const handleRemoveItem = (itemId: string) => {
-    setSelectedItems(selectedItems.filter((item) => item.id !== itemId));
-  };
+            if (response.status === 204) {
+                console.log("Generation was aborted.");
+                dispatch({ type: "ABORT_GENERATION" });
+                return;
+            }
 
-  const handleChapterContentSelect = (chapterId: string) => {
-    if (!selectedChapterContent.includes(chapterId)) {
-      setSelectedChapterContent([...selectedChapterContent, chapterId]);
-    }
-  };
+            const assistantMessage: ChatMessage = {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content: "",
+                timestamp: new Date(),
+            };
 
-  const handleRemoveChapterContent = (chapterId: string) => {
-    setSelectedChapterContent(selectedChapterContent.filter((id) => id !== chapterId));
-  };
+            dispatch({
+                type: "START_GENERATION",
+                payload: { userMessage, assistantMessage, chatId },
+            });
 
-  return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 space-y-4">
-        <PromptControls
-          prompts={prompts}
-          promptsLoading={promptsLoading}
-          promptsError={promptsError}
-          selectedPrompt={selectedPrompt}
-          selectedModel={selectedModel}
-          availableModels={availableModels}
-          showPreview={showPreview}
-          previewMessages={previewMessages}
-          previewLoading={previewLoading}
-          previewError={previewError}
-          onPromptSelect={handlePromptSelect}
-          onPreviewPrompt={handlePreviewPrompt}
-          onClosePreview={() => setShowPreview(false)}
-        />
+            let fullResponse = "";
+            await processStreamedResponse(
+                response,
+                (token) => {
+                    fullResponse += token;
+                    dispatch({
+                        type: "UPDATE_MESSAGE",
+                        payload: {
+                            id: assistantMessage.id,
+                            content: fullResponse,
+                        },
+                    });
+                },
+                () => {
+                    dispatch({ type: "COMPLETE_GENERATION" });
+                    updateChat(chatId, {
+                        messages: [
+                            ...newMessages,
+                            { ...assistantMessage, content: fullResponse },
+                        ],
+                    });
+                },
+                (error) => {
+                    console.error("Streaming error:", error);
+                    dispatch({
+                        type: "SET_PREVIEW_ERROR",
+                        payload: "Failed to stream response",
+                    });
+                    dispatch({ type: "ABORT_GENERATION" });
+                }
+            );
+        } catch (error) {
+            console.error("Error during generation:", error);
+            dispatch({
+                type: "SET_PREVIEW_ERROR",
+                payload:
+                    error instanceof Error
+                        ? error.message
+                        : "An unknown error occurred",
+            });
+            dispatch({ type: "ABORT_GENERATION" });
+        }
+    };
 
-        <ContextSelector
-          includeFullContext={includeFullContext}
-          contextOpen={contextOpen}
-          selectedSummaries={selectedSummaries}
-          selectedItems={selectedItems}
-          selectedChapterContent={selectedChapterContent}
-          chapters={chapters}
-          lorebookEntries={lorebookEntries}
-          onToggleFullContext={() => setIncludeFullContext(!includeFullContext)}
-          onToggleContextOpen={() => setContextOpen(!contextOpen)}
-          onToggleSummary={handleToggleSummary}
-          onItemSelect={handleItemSelect}
-          onRemoveItem={handleRemoveItem}
-          onChapterContentSelect={handleChapterContentSelect}
-          onRemoveChapterContent={handleRemoveChapterContent}
-          getFilteredEntries={getFilteredEntries}
-        />
-      </div>
+    const handleInputChange = (value: string) => {
+        dispatch({ type: "SET_INPUT", payload: value });
+        setDraftMessage(value);
+    };
 
-      <ChatMessageList
-        messages={messages}
-        editingMessageId={editingMessageId}
-        editingContent={editingContent}
-        streamingMessageId={streamingMessageId}
-        onStartEdit={handleStartEdit}
-        onSaveEdit={handleSaveEdit}
-        onCancelEdit={handleCancelEdit}
-        onEditContentChange={setEditingContent}
-        editingTextareaRef={editingTextareaRef}
-      />
+    const handleStopGeneration = () => {
+        abortGeneration();
+        dispatch({ type: "ABORT_GENERATION" });
+    };
 
-      <MessageInputArea
-        input={input}
-        isGenerating={isGenerating}
-        selectedPrompt={selectedPrompt}
-        onInputChange={handleInputChange}
-        onSend={handleSubmit}
-        onStop={handleStopGeneration}
-      />
-    </div>
-  );
+    const handleStartEdit = (message: ChatMessage) => {
+        if (state.streamingMessageId === message.id) {
+            if (
+                !confirm(
+                    "This message is still being generated. Stop generation and edit?"
+                )
+            )
+                return;
+            abortGeneration();
+            dispatch({ type: "SET_STREAMING_MESSAGE_ID", payload: null });
+        }
+        dispatch({
+            type: "START_EDIT",
+            payload: { id: message.id, content: message.content },
+        });
+    };
+
+    const handleSaveEdit = async (messageId: string) => {
+        if (!state.editingContent.trim()) {
+            toast.error("Edited content cannot be empty");
+            return;
+        }
+
+        try {
+            dispatch({
+                type: "UPDATE_EDITED_MESSAGE",
+                payload: {
+                    id: messageId,
+                    content: state.editingContent,
+                    editedAt: new Date().toISOString(),
+                },
+            });
+
+            if (!selectedChat) throw new Error("No chat selected");
+            await setMessageEdited(
+                selectedChat.id,
+                messageId,
+                state.editingContent
+            );
+
+            toast.success("Message edited");
+            dispatch({ type: "CANCEL_EDIT" });
+        } catch (error) {
+            console.error("Failed to save edit", error);
+            toast.error("Failed to save edit");
+
+            if (selectedChat) {
+                const fresh = await db.aiChats.get(selectedChat.id);
+                if (fresh)
+                    dispatch({
+                        type: "SET_MESSAGES",
+                        payload: fresh.messages || [],
+                    });
+            }
+        }
+    };
+
+    const handleCancelEdit = () => {
+        dispatch({ type: "CANCEL_EDIT" });
+    };
+
+    const handleToggleSummary = (chapterId: string) => {
+        dispatch({ type: "TOGGLE_SUMMARY", payload: chapterId });
+    };
+
+    const handleItemSelect = (itemId: string) => {
+        const filteredEntries = useLorebookStore
+            .getState()
+            .getFilteredEntries();
+        const item = filteredEntries.find((entry) => entry.id === itemId);
+        if (item) {
+            dispatch({ type: "ADD_ITEM", payload: item });
+        }
+    };
+
+    const handleRemoveItem = (itemId: string) => {
+        dispatch({ type: "REMOVE_ITEM", payload: itemId });
+    };
+
+    const handleChapterContentSelect = (chapterId: string) => {
+        dispatch({ type: "ADD_CHAPTER_CONTENT", payload: chapterId });
+    };
+
+    const handleRemoveChapterContent = (chapterId: string) => {
+        dispatch({ type: "REMOVE_CHAPTER_CONTENT", payload: chapterId });
+    };
+
+    return (
+        <div className="flex flex-col h-full">
+            <div className="p-4 space-y-4">
+                <PromptControls
+                    prompts={prompts}
+                    promptsLoading={promptsLoading}
+                    promptsError={promptsError}
+                    selectedPrompt={state.selectedPrompt}
+                    selectedModel={state.selectedModel}
+                    availableModels={state.availableModels}
+                    showPreview={state.showPreview}
+                    previewMessages={state.previewMessages}
+                    previewLoading={state.previewLoading}
+                    previewError={state.previewError}
+                    onPromptSelect={handlePromptSelect}
+                    onPreviewPrompt={handlePreviewPrompt}
+                    onClosePreview={() => dispatch({ type: "CLOSE_PREVIEW" })}
+                />
+
+                <ContextSelector
+                    includeFullContext={state.includeFullContext}
+                    contextOpen={state.contextOpen}
+                    selectedSummaries={state.selectedSummaries}
+                    selectedItems={state.selectedItems}
+                    selectedChapterContent={state.selectedChapterContent}
+                    chapters={state.chapters}
+                    lorebookEntries={lorebookEntries}
+                    onToggleFullContext={() =>
+                        dispatch({ type: "TOGGLE_FULL_CONTEXT" })
+                    }
+                    onToggleContextOpen={() =>
+                        dispatch({ type: "TOGGLE_CONTEXT_OPEN" })
+                    }
+                    onToggleSummary={handleToggleSummary}
+                    onItemSelect={handleItemSelect}
+                    onRemoveItem={handleRemoveItem}
+                    onChapterContentSelect={handleChapterContentSelect}
+                    onRemoveChapterContent={handleRemoveChapterContent}
+                    getFilteredEntries={getFilteredEntries}
+                />
+            </div>
+
+            <ChatMessageList
+                messages={state.messages}
+                editingMessageId={state.editingMessageId}
+                editingContent={state.editingContent}
+                streamingMessageId={state.streamingMessageId}
+                onStartEdit={handleStartEdit}
+                onSaveEdit={handleSaveEdit}
+                onCancelEdit={handleCancelEdit}
+                onEditContentChange={(value) =>
+                    dispatch({ type: "SET_EDITING_CONTENT", payload: value })
+                }
+                editingTextareaRef={editingTextareaRef}
+            />
+
+            <MessageInputArea
+                input={state.input}
+                isGenerating={state.isGenerating}
+                selectedPrompt={state.selectedPrompt}
+                onInputChange={handleInputChange}
+                onSend={handleSubmit}
+                onStop={handleStopGeneration}
+            />
+        </div>
+    );
 }

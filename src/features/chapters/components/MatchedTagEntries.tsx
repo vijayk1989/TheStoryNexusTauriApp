@@ -17,14 +17,17 @@ export function MatchedTagEntries() {
     const [openStates, setOpenStates] = useState<Record<string, boolean>>({});
     const [editingEntry, setEditingEntry] = useState<LorebookEntry | null>(null);
 
-    // Reset open states when matched entries change
+    // Initialize open states for new entries, preserving existing ones
     useEffect(() => {
-        // Initialize all new entries as closed
-        const newOpenStates: Record<string, boolean> = {};
-        Array.from(chapterMatchedEntries.values()).forEach(entry => {
-            newOpenStates[entry.id] = false;
+        setOpenStates(prev => {
+            const newState = { ...prev };
+            Array.from(chapterMatchedEntries.values()).forEach(entry => {
+                if (!(entry.id in newState)) {
+                    newState[entry.id] = false;
+                }
+            });
+            return newState;
         });
-        setOpenStates(newOpenStates);
     }, [chapterMatchedEntries]);
 
     if (chapterMatchedEntries.size === 0) return null;

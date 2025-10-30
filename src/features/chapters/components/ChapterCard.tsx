@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Button } from "../../../components/ui/button";
 import {
   Pencil,
@@ -99,9 +99,7 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
     (state) => state.getChapterPlainText
   );
   const { entries } = useLorebookStore();
-  const characterEntries = useMemo(() => {
-    return entries.filter((entry) => entry.category === "character");
-  }, [entries]);
+  const characterEntries = entries.filter((entry) => entry.category === "character");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const {
@@ -127,20 +125,14 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
     }
   }, []);
 
-  useEffect(() => {
+  // Adjust textarea height when expanded or summary changes
+  useLayoutEffect(() => {
     if (isExpanded) {
-      // Add a small delay to ensure the content is rendered
-      const timer = setTimeout(() => {
-        adjustTextareaHeight();
-      }, 0);
-      return () => clearTimeout(timer);
+      adjustTextareaHeight();
     }
-  }, [isExpanded, adjustTextareaHeight]);
+  }, [isExpanded, summary, adjustTextareaHeight]);
 
-  useEffect(() => {
-    adjustTextareaHeight();
-  }, [summary, adjustTextareaHeight]);
-
+  // Save expanded state to localStorage
   useEffect(() => {
     localStorage.setItem(expandedStateKey, JSON.stringify(isExpanded));
   }, [isExpanded, expandedStateKey]);
@@ -255,51 +247,6 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
     navigate(`/dashboard/${storyId}/chapters/${chapter.id}`);
   };
 
-  const cardContent = useMemo(
-    () => (
-      <CardContent className="p-4">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor={`summary-${chapter.id}`}>Chapter Summary</Label>
-            <Textarea
-              ref={textareaRef}
-              id={`summary-${chapter.id}`}
-              placeholder="Enter a brief summary of this chapter..."
-              value={summary}
-              onChange={(e) => {
-                setSummary(e.target.value);
-              }}
-              className="min-h-[100px] overflow-hidden"
-            />
-            <div className="flex justify-between items-center">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleSaveSummary}
-              >
-                Save Summary
-              </Button>
-              <AIGenerateMenu
-                isGenerating={isGenerating}
-                isLoading={isLoading}
-                error={error}
-                prompts={prompts}
-                promptType="gen_summary"
-                buttonText="Generate Summary"
-                onGenerate={handleGenerateSummary}
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-3 border-t">
-              <DownloadMenu type="chapter" id={chapter.id} />
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    ),
-    [summary, chapter.id, isGenerating, isLoading, error, prompts]
-  );
-
   return (
     <div ref={setNodeRef} style={style}>
       <Card className="w-full">
@@ -358,7 +305,47 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
             </div>
           </div>
         </CardHeader>
-        {isExpanded && cardContent}
+        {isExpanded && (
+          <CardContent className="p-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor={`summary-${chapter.id}`}>Chapter Summary</Label>
+                <Textarea
+                  ref={textareaRef}
+                  id={`summary-${chapter.id}`}
+                  placeholder="Enter a brief summary of this chapter..."
+                  value={summary}
+                  onChange={(e) => {
+                    setSummary(e.target.value);
+                  }}
+                  className="min-h-[100px] overflow-hidden"
+                />
+                <div className="flex justify-between items-center">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleSaveSummary}
+                  >
+                    Save Summary
+                  </Button>
+                  <AIGenerateMenu
+                    isGenerating={isGenerating}
+                    isLoading={isLoading}
+                    error={error}
+                    prompts={prompts}
+                    promptType="gen_summary"
+                    buttonText="Generate Summary"
+                    onGenerate={handleGenerateSummary}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-3 border-t">
+                  <DownloadMenu type="chapter" id={chapter.id} />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

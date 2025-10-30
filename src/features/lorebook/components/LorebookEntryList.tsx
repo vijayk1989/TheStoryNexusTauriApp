@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLorebookStore } from "../stores/useLorebookStore";
 import { CreateEntryDialog } from "./CreateEntryDialog";
 import { Button } from "@/components/ui/button";
@@ -35,38 +35,44 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
     const [deletingEntry, setDeletingEntry] = useState<LorebookEntry | null>(null);
     const [showDisabled, setShowDisabled] = useState(false);
 
-    // Filter entries based on search term and disabled status only
-    const filteredEntries = allEntries.filter(entry => {
-        // Apply search filter
-        const searchMatch = !searchTerm || [
-            entry.name,
-            entry.description,
-            ...(entry.tags || [])
-        ].some(field =>
-            field?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+    // Filter entries based on search term and disabled status
+    const filteredEntries = useMemo(() =>
+        allEntries.filter(entry => {
+            // Apply search filter
+            const searchMatch = !searchTerm || [
+                entry.name,
+                entry.description,
+                ...(entry.tags || [])
+            ].some(field =>
+                field?.toLowerCase().includes(searchTerm.toLowerCase())
+            );
 
-        // Apply disabled filter
-        const disabledMatch = showDisabled || !entry.isDisabled;
+            // Apply disabled filter
+            const disabledMatch = showDisabled || !entry.isDisabled;
 
-        return searchMatch && disabledMatch;
-    });
+            return searchMatch && disabledMatch;
+        }),
+        [allEntries, searchTerm, showDisabled]
+    );
 
     // Sort entries
-    const sortedEntries = [...filteredEntries].sort((a, b) => {
-        switch (sortBy) {
-            case 'name':
-                return a.name.localeCompare(b.name);
-            case 'category':
-                return a.category.localeCompare(b.category);
-            case 'importance':
-                return (a.metadata?.importance || '').localeCompare(b.metadata?.importance || '');
-            case 'created':
-                return b.createdAt.getTime() - a.createdAt.getTime();
-            default:
-                return 0;
-        }
-    });
+    const sortedEntries = useMemo(() =>
+        [...filteredEntries].sort((a, b) => {
+            switch (sortBy) {
+                case 'name':
+                    return a.name.localeCompare(b.name);
+                case 'category':
+                    return a.category.localeCompare(b.category);
+                case 'importance':
+                    return (a.metadata?.importance || '').localeCompare(b.metadata?.importance || '');
+                case 'created':
+                    return b.createdAt.getTime() - a.createdAt.getTime();
+                default:
+                    return 0;
+            }
+        }),
+        [filteredEntries, sortBy]
+    );
 
     const handleDelete = async (entry: LorebookEntry) => {
         try {
@@ -178,9 +184,9 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                                 )}
                             </div>
                             <div className="flex flex-wrap gap-1 mb-2">
-                                {entry.tags && entry.tags.map((tag, index) => (
+                                {entry.tags && entry.tags.map((tag) => (
                                     <Badge
-                                        key={index}
+                                        key={tag}
                                         variant="secondary"
                                         className="bg-primary/10 text-xs px-2 py-0.5"
                                     >

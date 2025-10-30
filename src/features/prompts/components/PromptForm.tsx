@@ -45,10 +45,17 @@ interface PromptFormProps {
     onCancel?: () => void;
 }
 
+type MessageWithId = PromptMessage & { _id: string };
+
+const createMessageWithId = (message: PromptMessage): MessageWithId => ({
+    ...message,
+    _id: crypto.randomUUID(),
+});
+
 export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const [name, setName] = useState(prompt?.name || '');
-    const [messages, setMessages] = useState<PromptMessage[]>(
-        prompt?.messages || [{ role: 'system', content: '' }]
+    const [messages, setMessages] = useState<MessageWithId[]>(
+        prompt?.messages.map(createMessageWithId) || [createMessageWithId({ role: 'system', content: '' })]
     );
     const [promptType, setPromptType] = useState<PromptType>(prompt?.promptType || 'scene_beat');
     const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
@@ -136,7 +143,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     // Simple search state for the popover-based selector (placed after modelGroups memo)
     const [modelSearch, setModelSearch] = useState('');
 
-    const filteredModelGroups = useMemo(() => {
+    const getFilteredModelGroups = () => {
         if (!modelSearch.trim()) return modelGroups;
         const q = modelSearch.toLowerCase();
         const filtered: ModelsByProvider = {};
@@ -147,7 +154,9 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             if (matched.length > 0) filtered[provider] = matched;
         });
         return filtered;
-    }, [modelGroups, modelSearch]);
+    };
+
+    const filteredModelGroups = getFilteredModelGroups();
 
     const handleModelSelect = (modelId: string) => {
         const selectedModel = availableModels.find(m => m.id === modelId);
@@ -171,7 +180,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     };
 
     const handleAddMessage = (role: 'system' | 'user' | 'assistant') => {
-        setMessages([...messages, { role, content: '' }]);
+        setMessages([...messages, createMessageWithId({ role, content: '' })]);
     };
 
     const handleRemoveMessage = (index: number) => {
@@ -271,7 +280,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         try {
             const promptData = {
                 name,
-                messages,
+                messages: messages.map(({ _id, ...msg }) => msg),
                 promptType,
                 allowedModels: selectedModels,
                 temperature,
@@ -305,7 +314,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
 
             <div className="space-y-4">
                 {messages.map((message, index) => (
-                    <div key={index} className="space-y-2 p-4 border rounded-lg">
+                    <div key={message._id} className="space-y-2 p-4 border rounded-lg">
                         <div className="flex items-center justify-between gap-2">
                             <Select
                                 value={message.role}

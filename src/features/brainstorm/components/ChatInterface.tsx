@@ -198,16 +198,12 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 timestamp: new Date(),
             };
 
-            const newMessages = [...state.messages, userMessage];
-
             let chatId = state.currentChatId;
             if (!chatId) {
                 const newTitle =
                     userMessage.content.substring(0, 40) +
                     (userMessage.content.length > 40 ? "..." : "");
-                chatId = await addChat(storyId, newTitle, newMessages);
-            } else {
-                await updateChat(chatId, { messages: newMessages });
+                chatId = await addChat(storyId, newTitle, [userMessage]);
             }
 
             const config = createPromptConfig(state.selectedPrompt);
@@ -255,7 +251,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                     dispatch({ type: "COMPLETE_GENERATION" });
                     updateChat(chatId, {
                         messages: [
-                            ...newMessages,
+                            ...state.messages,
+                            userMessage,
                             { ...assistantMessage, content: fullResponse },
                         ],
                     });

@@ -1,10 +1,10 @@
-import type { AIProvider } from '@/types/ai';
+import type { AIProvider, PromptMessage } from '@/types/story';
 import type { GenerationParams } from '../types/generationParams';
 import { aiService } from '@/services/ai/AIService';
 
 export const generateWithProvider = (
 	provider: AIProvider,
-	messages: Array<{ role: string; content: string }>,
+	messages: PromptMessage[],
 	modelId: string,
 	params: GenerationParams,
 ): Promise<Response> => {

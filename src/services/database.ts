@@ -8,7 +8,8 @@ import {
     AISettings,
     LorebookEntry,
     SceneBeat,
-    Note
+    Note,
+    AllowedModel
 } from '../types/story';
 
 export class StoryDatabase extends Dexie {
@@ -49,7 +50,7 @@ export class StoryDatabase extends Dexie {
             console.log('Upgraded to v13: Added default model fields to aiSettings');
 
             // Fix system prompts with placeholder "local" model
-            const systemPrompts = await tx.table('prompts').where('isSystem').equals(true).toArray();
+            const systemPrompts = await tx.table('prompts').where('isSystem').equals(1).toArray();
             for (const prompt of systemPrompts) {
                 // Check if prompt has the old placeholder "local" model
                 const hasPlaceholder = prompt.allowedModels?.some(

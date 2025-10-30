@@ -7,11 +7,12 @@ import { attemptPromise } from '@jfdi/attempt';
 
 export class ChatHistoryResolver implements IVariableResolver {
     async resolve(context: PromptContext): Promise<string> {
-        if (!context.additionalContext?.chatHistory?.length) {
+        const chatHistory = context.additionalContext?.chatHistory as Array<{ role: string; content: string }> | undefined;
+        if (!chatHistory?.length) {
             return 'No previous conversation history.';
         }
 
-        return context.additionalContext.chatHistory
+        return chatHistory
             .map(msg => `${msg.role.toUpperCase()}: ${msg.content}`)
             .join('\n\n');
     }

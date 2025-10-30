@@ -23,7 +23,7 @@ interface ChapterMetadataState {
     getChapterNotes: (id: string) => Promise<ChapterNotes | null>;
 }
 
-export const useChapterMetadataStore = create<ChapterMetadataState>((set) => ({
+export const useChapterMetadataStore = create<ChapterMetadataState>(() => ({
     updateChapterSummary: async (id: string, summary: string) => {
         const [error] = await attemptPromise(() => db.chapters.update(id, { summary }));
         if (error) {
@@ -61,7 +61,6 @@ export const useChapterMetadataStore = create<ChapterMetadataState>((set) => ({
             .filter(Boolean)
             .join(' ');
 
-        set({ summariesSoFar: summaries });
         return summaries;
     },
 

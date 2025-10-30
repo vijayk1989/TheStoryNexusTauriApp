@@ -36,17 +36,17 @@ export function PromptControls({
     onPreviewPrompt,
     onClosePreview
 }: PromptControlsProps) {
-    const brainstormPrompts = prompts.filter((p) => p.type === 'brainstorm');
+    const brainstormPrompts = prompts.filter((p) => p.promptType === 'brainstorm');
 
     return (
         <div className="space-y-4 mb-4">
             <div className="flex items-center gap-2">
                 <PromptSelectMenu
-                    prompts={brainstormPrompts}
+                    prompts={prompts}
+                    promptType="brainstorm"
                     selectedPrompt={selectedPrompt}
                     selectedModel={selectedModel}
-                    availableModels={availableModels}
-                    onPromptSelect={onPromptSelect}
+                    onSelect={onPromptSelect}
                     isLoading={promptsLoading}
                     error={promptsError}
                 />
@@ -64,8 +64,8 @@ export function PromptControls({
             </div>
 
             <PromptPreviewDialog
-                isOpen={showPreview}
-                onClose={onClosePreview}
+                open={showPreview}
+                onOpenChange={onClosePreview}
                 messages={previewMessages}
                 isLoading={previewLoading}
                 error={previewError}

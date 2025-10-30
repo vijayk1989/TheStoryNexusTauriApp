@@ -625,7 +625,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         additionalContext: {
           selectedItems: config.additionalContext?.selectedItems,
           selectedItemsCount:
-            config.additionalContext?.selectedItems?.length || 0,
+            Array.isArray(config.additionalContext?.selectedItems) ? config.additionalContext.selectedItems.length : 0,
         },
       });
 
@@ -673,7 +673,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         additionalContext: {
           selectedItems: config.additionalContext?.selectedItems,
           selectedItemsCount:
-            config.additionalContext?.selectedItems?.length || 0,
+            Array.isArray(config.additionalContext?.selectedItems) ? config.additionalContext.selectedItems.length : 0,
         },
       });
 

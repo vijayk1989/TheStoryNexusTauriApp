@@ -25,6 +25,7 @@ interface PromptStore {
 
     // Helpers
     validatePromptData: (messages: PromptMessage[]) => boolean;
+    findUniqueName: (baseName: string) => Promise<string>;
 }
 
 export const usePromptStore = create<PromptStore>((set, get) => ({
@@ -254,7 +255,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
             }
 
             // Ensure unique name - check DB for existing name and append suffix if needed
-            const newName = await this.findUniqueName(p.name || 'Imported Prompt');
+            const newName = await get().findUniqueName(p.name || 'Imported Prompt');
 
             const newPrompt: Prompt = {
                 ...p,

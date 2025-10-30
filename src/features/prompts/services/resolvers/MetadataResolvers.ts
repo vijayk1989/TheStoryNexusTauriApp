@@ -23,11 +23,12 @@ export class PoVResolver implements IVariableResolver {
 
 export class SelectedTextResolver implements IVariableResolver {
     async resolve(context: PromptContext): Promise<string> {
-        if (!context.additionalContext?.selectedText) {
+        const selectedText = context.additionalContext?.selectedText as string | undefined;
+        if (!selectedText) {
             return '';
         }
 
-        return context.additionalContext.selectedText;
+        return selectedText;
     }
 }
 

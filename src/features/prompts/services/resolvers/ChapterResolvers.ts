@@ -121,8 +121,9 @@ export class ChapterContentResolver implements IVariableResolver {
     async resolve(context: PromptContext): Promise<string> {
         if (!context.currentChapter) return '';
 
-        if (context.additionalContext?.plainTextContent) {
-            return context.additionalContext.plainTextContent;
+        const plainTextContent = context.additionalContext?.plainTextContent as string | undefined;
+        if (plainTextContent) {
+            return plainTextContent;
         }
 
         console.warn('No plain text content found for chapter:', context.currentChapter.id);

@@ -1,6 +1,7 @@
 import type { AIProvider, PromptMessage } from '@/types/story';
 import type { GenerationParams } from '../types/generationParams';
 import { aiService } from '@/services/ai/AIService';
+import { logger } from '@/utils/logger';
 
 export const generateWithProvider = (
 	provider: AIProvider,
@@ -10,6 +11,15 @@ export const generateWithProvider = (
 ): Promise<Response> => {
 	const { temperature, maxTokens, top_p, top_k, repetition_penalty, min_p } =
 		params;
+
+	logger.info('AI Generation Request', {
+		provider,
+		model: modelId,
+		temperature,
+		maxTokens,
+		messageCount: messages.length,
+		promptPreview: messages[0]?.content?.substring(0, 200),
+	});
 
 	switch (provider) {
 		case 'local':

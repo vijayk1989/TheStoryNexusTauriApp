@@ -10,11 +10,12 @@ import { aiService } from '@/services/ai/AIService';
 import { toast } from 'react-toastify';
 import { AIModel } from '@/types/story';
 import { cn } from '@/lib/utils';
+import { API_URLS } from '@/constants/urls';
 
 export default function AISettingsPage() {
     const [openaiKey, setOpenaiKey] = useState('');
     const [openrouterKey, setOpenrouterKey] = useState('');
-    const [localApiUrl, setLocalApiUrl] = useState('http://localhost:1234/v1');
+    const [localApiUrl, setLocalApiUrl] = useState(API_URLS.LOCAL_AI_DEFAULT);
     const [isLoading, setIsLoading] = useState(false);
     const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
     const [openrouterModels, setOpenrouterModels] = useState<AIModel[]>([]);
@@ -365,7 +366,7 @@ export default function AISettingsPage() {
                                             <Input
                                                 id="local-api-url"
                                                 type="text"
-                                                placeholder="http://localhost:1234/v1"
+                                                placeholder={API_URLS.LOCAL_AI_DEFAULT}
                                                 value={localApiUrl}
                                                 onChange={(e) => setLocalApiUrl(e.target.value)}
                                             />
@@ -377,7 +378,7 @@ export default function AISettingsPage() {
                                             </Button>
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            The URL of your local LLM server. Default is http://localhost:1234/v1
+                                            The URL of your local LLM server. Default is {API_URLS.LOCAL_AI_DEFAULT}
                                         </p>
                                     </div>
                                 </CollapsibleContent>

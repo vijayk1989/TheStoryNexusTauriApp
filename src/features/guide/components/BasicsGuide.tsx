@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { ExternalLink, Bot, BookOpen, PenLine, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { API_URLS } from "@/constants/urls";
 
 export default function BasicsGuide() {
     return (
@@ -47,7 +48,7 @@ export default function BasicsGuide() {
                         <div className="border rounded-lg p-4 bg-card">
                             <h4 className="font-medium mb-2">Local</h4>
                             <p className="text-sm text-muted-foreground">
-                                Connect to a locally hosted model by entering the API URL (default: http://localhost:1234/v1).
+                                Connect to a locally hosted model by entering the API URL (default: {API_URLS.LOCAL_AI_DEFAULT}).
                             </p>
                         </div>
                     </div>

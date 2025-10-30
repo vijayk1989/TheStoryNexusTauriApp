@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { AIModel, AIProvider, PromptMessage } from '@/types/story';
 import { IAIProvider } from './IAIProvider';
 import { attemptPromise } from '@jfdi/attempt';
+import { API_URLS } from '@/constants/urls';
 
 interface OpenRouterModelResponse {
     id: string;
@@ -24,11 +25,11 @@ export class OpenRouterProvider implements IAIProvider {
         if (!apiKey) return;
 
         this.client = new OpenAI({
-            baseURL: 'https://openrouter.ai/api/v1',
+            baseURL: API_URLS.OPENROUTER_BASE,
             apiKey,
             dangerouslyAllowBrowser: true,
             defaultHeaders: {
-                'HTTP-Referer': 'http://localhost:5173',
+                'HTTP-Referer': API_URLS.DEV_REFERER,
                 'X-Title': 'Story Forge Desktop',
             }
         });
@@ -43,7 +44,7 @@ export class OpenRouterProvider implements IAIProvider {
         console.log('[OpenRouterProvider] Fetching models');
 
         const [fetchError, response] = await attemptPromise(() =>
-            fetch('https://openrouter.ai/api/v1/models')
+            fetch(`${API_URLS.OPENROUTER_BASE}/models`)
         );
 
         if (fetchError || !response) {

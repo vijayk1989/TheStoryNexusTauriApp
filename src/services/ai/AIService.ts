@@ -3,11 +3,12 @@ import { db } from '../database';
 import { AIProviderFactory } from './AIProviderFactory';
 import { attemptPromise } from '@jfdi/attempt';
 import { formatSSEChunk, formatSSEDone } from '@/constants/aiConstants';
+import { API_URLS } from '@/constants/urls';
 
 export class AIService {
     private static instance: AIService;
     private settings: AISettings | null = null;
-    private readonly DEFAULT_LOCAL_API_URL = 'http://localhost:1234/v1';
+    private readonly DEFAULT_LOCAL_API_URL = API_URLS.LOCAL_AI_DEFAULT;
     private providerFactory: AIProviderFactory;
     private abortController: AbortController | null = null;
 

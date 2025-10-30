@@ -1,11 +1,12 @@
 import { AIModel, AIProvider, PromptMessage } from '@/types/story';
 import { IAIProvider } from './IAIProvider';
 import { attemptPromise } from '@jfdi/attempt';
+import { API_URLS } from '@/constants/urls';
 
 export class LocalAIProvider implements IAIProvider {
     private apiUrl: string;
 
-    constructor(apiUrl: string = 'http://localhost:1234/v1') {
+    constructor(apiUrl: string = API_URLS.LOCAL_AI_DEFAULT) {
         this.apiUrl = apiUrl;
     }
 

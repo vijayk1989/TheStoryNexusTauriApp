@@ -61,6 +61,7 @@ if (error) return handleError(error);
 - Use async/await for asynchronous code.
 - Avoid explicit `any` type. Type everything properly.
 - Avoid all React antipatterns, particularly around abuse of `useEffect` to handle derived or computed state. Fix these wherever found.
+- Modules should be small and focused on a single responsibility.
 
 #### Architectural Exceptions to Functional Programming
 
@@ -74,7 +75,7 @@ The following classes are justified exceptions to the functional programming pre
 6. **VariableResolverRegistry** - Registry pattern for managing and resolving dynamic prompt variables
 7. **AI Provider Classes** (OpenAIProvider, OpenRouterProvider, LocalProvider) - Encapsulate provider-specific client state and initialization logic
 
-All other services should use functional patterns.
+All other services should use functional patterns if practical.
 
 ## Architecture
 

@@ -142,6 +142,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
   const [useMatchedChapter, setUseMatchedChapter] = useState(true); // Default: ON
   const [useMatchedSceneBeat, setUseMatchedSceneBeat] = useState(false); // Default: OFF
   const [useCustomContext, setUseCustomContext] = useState(false); // Default: OFF
+  const [includeAllLorebook, setIncludeAllLorebook] = useState(false);
   const [showContext, setShowContext] = useState(false);
 
   // Get character entries from lorebook
@@ -344,6 +345,14 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         });
     }
   }, [sceneBeatId, isLoaded]);
+
+  // Clear custom context selections if custom context is turned off
+  useEffect(() => {
+    if (!useCustomContext) {
+      setIncludeAllLorebook(false);
+      setSelectedItems([]);
+    }
+  }, [useCustomContext]);
 
   // Initialize history when command is first loaded
   useEffect(() => {
@@ -933,7 +942,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="space-y-4 mb-4">
-                  {/* Matched Chapter Tags Toggle */}
+                  {/* Matched Chapter Tags Toggle with All Lorebook switch */}
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-medium">Matched Chapter Tags</div>
@@ -941,10 +950,33 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                         Include entries matched from the entire chapter
                       </div>
                     </div>
-                    <Switch
-                      checked={useMatchedChapter}
-                      onCheckedChange={setUseMatchedChapter}
-                    />
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={useMatchedChapter}
+                          onCheckedChange={setUseMatchedChapter}
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">All Lorebook</span>
+                        <Switch
+                          checked={includeAllLorebook}
+                          onCheckedChange={(v) => {
+                            const enabled = v as boolean;
+                            setIncludeAllLorebook(enabled);
+                            // enabling All Lorebook should enable custom context and select all filtered entries
+                            if (enabled) {
+                              setUseCustomContext(true);
+                              const allEntries = useLorebookStore.getState().getFilteredEntries();
+                              setSelectedItems(allEntries);
+                            } else {
+                              setSelectedItems([]);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Matched Scene Beat Tags Toggle */}
@@ -981,6 +1013,28 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                 {/* Custom Context Selection */}
                 {useCustomContext && (
                   <div className="mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="font-medium">All Lorebook</div>
+                        <div className="text-sm text-muted-foreground">
+                          Select all lorebook entries as custom context (respects filters)
+                        </div>
+                      </div>
+                      <Switch
+                        checked={includeAllLorebook}
+                        onCheckedChange={(v) => {
+                          const enabled = v as boolean;
+                          setIncludeAllLorebook(enabled);
+                          if (enabled) {
+                            // select all filtered lorebook entries
+                            const allEntries = useLorebookStore.getState().getFilteredEntries();
+                            setSelectedItems(allEntries);
+                          } else {
+                            setSelectedItems([]);
+                          }
+                        }}
+                      />
+                    </div>
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="font-medium">Custom Context</h4>
                     </div>

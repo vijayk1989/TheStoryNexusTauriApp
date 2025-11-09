@@ -21,6 +21,7 @@ import { useBrainstormStore } from "../stores/useBrainstormStore";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { db } from "@/services/database";
 import MarkdownRenderer from "./MarkdownRenderer";
+import { cn } from '@/lib/utils';
 import {
   LorebookEntry,
   ChatMessage,
@@ -59,6 +60,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
   // State for context selection
   const [includeFullContext, setIncludeFullContext] = useState(false);
+  // Toggle to include all lorebook entries (separate from full context)
+  const [includeAllLorebook, setIncludeAllLorebook] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
 
   // State for chapter summaries
@@ -226,8 +229,14 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     const newValue = !includeFullContext;
     setIncludeFullContext(newValue);
 
-    // If turning off full context, clear all selections
-    if (!newValue) {
+    if (newValue) {
+      // When enabling full context, disable/includeAllLorebook and clear custom selections
+      setIncludeAllLorebook(false);
+      setSelectedSummaries([]);
+      setSelectedItems([]);
+      setSelectedChapterContent([]);
+    } else {
+      // If turning off full context, clear all selections
       setSelectedSummaries([]);
       setSelectedItems([]);
       setSelectedChapterContent([]);
@@ -678,16 +687,49 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                   )}
                 </>
               )}
-              <span className="text-sm">Full Context</span>
-              <div className="relative group">
-                <Switch
-                  checked={includeFullContext}
-                  onCheckedChange={toggleIncludeFullContext}
-                  className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
-                />
-                <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-popover text-popover-foreground text-xs rounded-md shadow-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
-                  When enabled, all lorebook entries and chapter summaries will
-                  be included
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Full Context</span>
+                  <div className="relative group">
+                    <Switch
+                      checked={includeFullContext}
+                      onCheckedChange={toggleIncludeFullContext}
+                      className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
+                    />
+                    <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-popover text-popover-foreground text-xs rounded-md shadow-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
+                      When enabled, all lorebook entries and chapter summaries will
+                      be included
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">All Lorebook</span>
+                  <div className="relative group">
+                    <Switch
+                      checked={includeAllLorebook}
+                      onCheckedChange={(v) => {
+                        setIncludeAllLorebook(v as boolean);
+                        if (v) {
+                          // select all filtered lorebook entries
+                          const allEntries = getFilteredEntries();
+                          setSelectedItems(allEntries);
+                        } else {
+                          // clear selected lorebook items
+                          setSelectedItems([]);
+                        }
+                      }}
+                      // disable when full context is enabled
+                      className={cn(
+                        "data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30",
+                        includeFullContext && "opacity-50 pointer-events-none"
+                      )}
+                      disabled={includeFullContext}
+                    />
+                    <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-popover text-popover-foreground text-xs rounded-md shadow-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
+                      When enabled, all lorebook entries (respecting filters) will be selected as context
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

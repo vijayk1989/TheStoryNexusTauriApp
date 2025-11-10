@@ -102,6 +102,15 @@ export interface Prompt extends BaseEntity {
     min_p?: number; // Minimum probability for sampling: 0.0 is default, 1.0 means only consider most likely tokens
 }
 
+// Templates used by the chat insert dropdown (separate from Prompts)
+export interface Template extends BaseEntity {
+    name: string;
+    content: string; // the raw template text to insert into the chat input
+    templateType?: 'chat' | 'other';
+    storyId?: string | null; // optional scoping to a story
+    isSystem?: boolean;
+}
+
 // AI Provider and Model types
 export type AIProvider = 'openai' | 'openrouter' | 'local';
 

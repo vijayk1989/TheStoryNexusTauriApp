@@ -21,6 +21,8 @@ import { useBrainstormStore } from "../stores/useBrainstormStore";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { db } from "@/services/database";
 import MarkdownRenderer from "./MarkdownRenderer";
+import parseLorebookJson from "@/features/brainstorm/utils/parseLorebookJson";
+import { CreateEntryDialog } from '@/features/lorebook/components/CreateEntryDialog';
 import { cn } from '@/lib/utils';
 import {
   LorebookEntry,
@@ -39,6 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import useTemplateStore from '@/features/templates/store/templateStore';
+import CreateTemplateDialog from '@/features/templates/components/CreateTemplateDialog';
 
 interface ChatInterfaceProps {
   storyId: string;
@@ -160,6 +164,12 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     const loadData = async () => {
       await loadEntries(storyId);
       await fetchPrompts();
+      // load persisted templates used by the Insert dropdown
+      try {
+        await useTemplateStore.getState().fetchTemplates();
+      } catch (err) {
+        // ignore
+      }
       await initializeAI();
 
       // Fetch chapters for the story
@@ -343,6 +353,20 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     }
   };
 
+  // One-click lorebook template insertion
+  const LOREBOOK_TEMPLATE = `Please produce exactly one JSON object (or an array of objects) inside a \`\`\`json\ncode block only. Do NOT include any surrounding explanation or commentary. Each object should include at least a \"name\" field (string). Optional fields: \"description\" (string), \"tags\" (array of strings), \"category\" (one of [\"character\",\"location\",\"item\",\"event\",\"note\",\"synopsis\",\"starting scenario\",\"timeline\"]), \"metadata\" (object), and \"isDisabled\" (boolean).\n\nExample:\n{\n  \"name\": \"Elandra, Crowned Hunter\",\n  \"description\": \"A skilled tracker and ruler of the northern woodlands.\",\n  \"tags\": [\"ranger\", \"royalty\"],\n  \"category\": \"character\",\n  \"metadata\": { \"importance\": \"major\", \"status\": \"active\" }\n}\n\nReturn only the JSON inside the fenced code block.`;
+
+  const insertLorebookTemplate = () => {
+    // Append the template to existing input rather than replacing it
+    const existing = input || "";
+    const separator = existing.trim() ? "\n\n" : "";
+    const newText = `${existing}${separator}${LOREBOOK_TEMPLATE}`;
+    setInput(newText);
+    setDraftMessage(newText);
+    // focus the textarea so the user can edit immediately
+    setTimeout(() => textareaRef.current?.focus(), 50);
+  };
+
   // Update preview when context settings change
   useEffect(() => {
     if (showPreview && selectedPrompt) {
@@ -475,6 +499,49 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     }
   };
 
+  // Extraction UI state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [dialogEntry, setDialogEntry] = useState<Partial<LorebookEntry> | null>(null);
+
+  // Templates dialog state (for creating/editing insert templates)
+  const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Partial<any> | null>(null);
+
+  const handleExtractFromMessage = async (messageContent: string) => {
+    const parsed = parseLorebookJson(messageContent);
+    if (parsed.error) {
+      toast.error(parsed.error);
+      return;
+    }
+
+    if (!parsed.entries || parsed.entries.length === 0) {
+      toast.info('No valid lorebook JSON found in this message.');
+      return;
+    }
+
+    try {
+      // create entries using store helper
+      for (const item of parsed.entries) {
+        // createEntry expects Omit<LorebookEntry, 'id' | 'createdAt'>
+        await useLorebookStore.getState().createEntry({
+          ...item,
+          storyId,
+          tags: item.tags || [],
+          description: item.description || '',
+          category: (item.category as any) || 'note',
+          metadata: item.metadata || {},
+          isDisabled: item.isDisabled ?? false,
+        } as any);
+      }
+      toast.success(`Created ${parsed.entries.length} lorebook entr${parsed.entries.length === 1 ? 'y' : 'ies'}`);
+      // reload entries
+      await loadEntries(storyId);
+    } catch (err) {
+      console.error('Failed to import entries', err);
+      toast.error('Failed to create lorebook entries');
+    }
+  };
+
   // Autosize the editing textarea when editing starts or content changes
   useEffect(() => {
     const ta = editingTextareaRef.current;
@@ -560,7 +627,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {messages.map((message) => (
+              {messages.map((message) => {
+                const parsed = parseLorebookJson(message.content || "");
+                const hasParsableJson = !parsed.error && parsed.entries && parsed.entries.length > 0;
+
+                return (
                 <div
                   key={message.id}
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
@@ -628,11 +699,26 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                             setEditingContent(message.content);
                           }}
                         />
+
+                        {/* Extract button for parsed JSON -> lorebook entry */}
+                        {message.role === 'assistant' && hasParsableJson && (
+                          <div className="absolute bottom-2 right-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleExtractFromMessage(message.content)}
+                              disabled={streamingMessageId === message.id}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 </div>
-              ))}
+              );
+              })}
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -1024,6 +1110,81 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
               selectedModel={selectedModel}
               onSelect={handlePromptSelect}
             />
+            {/* Small Select dropdown to insert helper templates */}
+            <div className="ml-2">
+              <Select
+                onValueChange={(value) => {
+                  try {
+                    if (value === 'create-new') {
+                      setEditingTemplate(null);
+                      setCreateTemplateOpen(true);
+                    } else if (value) {
+                      // value is template id -> insert its content
+                      const tpl = useTemplateStore.getState().templates.find(t => t.id === value);
+                      if (tpl) {
+                        // insert the template content
+                        const existing = input || "";
+                        const separator = existing.trim() ? "\n\n" : "";
+                        const newText = `${existing}${separator}${tpl.content}`;
+                        setInput(newText);
+                        setDraftMessage(newText);
+                        setTimeout(() => textareaRef.current?.focus(), 50);
+                      }
+                    }
+                  } finally {
+                    // reset the visual select after choosing
+                    const selectElement = document.querySelector('[data-template-select="true"]');
+                    if (selectElement) {
+                      (selectElement as HTMLSelectElement).value = "";
+                    }
+                  }
+                }}
+                value=""
+              >
+                <SelectTrigger className="w-44" data-template-select="true">
+                  <SelectValue placeholder="Insert..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="create-new">
+                    <div className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      Create new...
+                    </div>
+                  </SelectItem>
+                  {/* List persisted templates (fetched via template store) */}
+                  {useTemplateStore.getState().templates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      <div className="flex items-center gap-2 w-full align-middle">
+                        <div className="truncate">{tpl.name}</div>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            // Prevent the SelectItem from being selected (Radix handles pointerdown)
+                            e.preventDefault();
+                            e.stopPropagation();
+                            // Blur the select trigger so the dropdown closes, then open dialog
+                            (document.activeElement as HTMLElement | null)?.blur();
+                            setTimeout(() => {
+                              setEditingTemplate(tpl);
+                              setCreateTemplateOpen(true);
+                            }, 0);
+                          }}
+                          onClick={(e) => {
+                            // Safety: prevent default click selection
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          className="ml-2 mt-1 text-muted-foreground hover:text-foreground"
+                          title="Edit template"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {selectedPrompt && (
               <>
                 <Button
@@ -1074,6 +1235,33 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         messages={previewMessages}
         isLoading={previewLoading}
         error={previewError}
+      />
+      {/* Create Entry Dialog used when extracting a single parsed entry */}
+      <CreateEntryDialog
+        open={createDialogOpen}
+        onOpenChange={() => {
+          setCreateDialogOpen(false);
+          setDialogEntry(null);
+        }}
+        storyId={storyId}
+        entry={dialogEntry as any}
+      />
+      {/* Create / Edit Template Dialog */}
+      <CreateTemplateDialog
+        open={createTemplateOpen}
+        onOpenChange={async (open) => {
+          setCreateTemplateOpen(open);
+          if (!open) {
+            setEditingTemplate(null);
+            // refresh templates after create/edit
+            try {
+              await useTemplateStore.getState().fetchTemplates();
+            } catch (err) {
+              // ignore
+            }
+          }
+        }}
+        template={editingTemplate as any}
       />
     </div>
   );

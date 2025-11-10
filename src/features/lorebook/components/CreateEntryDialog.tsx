@@ -137,7 +137,7 @@ export function CreateEntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[625px] overflow-y-auto max-h-[90vh]">
+    <DialogContent className="sm:max-w-[625px] overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{entry ? "Edit Entry" : "Create New Entry"}</DialogTitle>
         </DialogHeader>

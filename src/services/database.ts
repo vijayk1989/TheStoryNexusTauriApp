@@ -7,6 +7,7 @@ import {
     Prompt,
     AISettings,
     LorebookEntry,
+    Template,
     SceneBeat,
     Note
 } from '../types/story';
@@ -18,6 +19,7 @@ export class StoryDatabase extends Dexie {
     prompts!: Table<Prompt>;
     aiSettings!: Table<AISettings>;
     lorebookEntries!: Table<LorebookEntry>;
+    templates!: Table<Template>;
     sceneBeats!: Table<SceneBeat>;
     notes!: Table<Note>;
 
@@ -29,6 +31,7 @@ export class StoryDatabase extends Dexie {
             chapters: 'id, storyId, order, createdAt, isDemo',
             aiChats: 'id, storyId, createdAt, isDemo',
             prompts: 'id, name, promptType, storyId, createdAt, isSystem',
+            templates: 'id, name, templateType, storyId, createdAt, isSystem',
             aiSettings: 'id, lastModelsFetch',
             lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
             sceneBeats: 'id, storyId, chapterId',

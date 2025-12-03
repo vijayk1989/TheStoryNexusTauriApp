@@ -1,0 +1,54 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__
+*.so
+*.egg
+*.egg-info
+dist/
+/build/
+*.swp
+
+# Testing
+.pytest_cache
+.coverage
+coverage.xml
+htmlcov/
+.tox
+
+# IDEs
+.DS_Store
+.idea
+.vscode
+*.swo
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# SQLite databases
+*.db
+*.db-journal
+
+# UV
+uv.lock
+
+# Python packaging
+*.egg-info/
+dist/
+/build/
+
+# Sensitive files (do not commit)
+google-credentials.json
+*.pem
+*.key
+
+tests/examples/*
+
+# Integration test files (contain credentials/connection strings)
+tests/llm/clients/oss/openai/async_integration.py

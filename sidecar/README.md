@@ -8,7 +8,7 @@ cd sidecar
 python -m venv .venv
 . .venv/Scripts/activate  # or `source .venv/bin/activate` on macOS/Linux
 pip install -r requirements.txt
-uvicorn memori_bridge:app --reload --port 9876
+uvicorn sidecar.memori_bridge:app --reload --port 9876
 ```
 
 ## Testing

@@ -36,3 +36,8 @@ dist-ssr
 docs/
 src-tauri/gen/
 
+# Python sidecar
+.venv/
+__pycache__/
+.pytest_cache/
+

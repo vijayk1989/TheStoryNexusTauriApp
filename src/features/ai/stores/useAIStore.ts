@@ -173,6 +173,17 @@ export const useAIStore = create<AIState>((set, get) => ({
                     repetition_penalty,
                     min_p
                 );
+            case 'openai_compatible':
+                return aiService.generateWithOpenAICompatible(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty,
+                    min_p
+                );
             case 'openrouter':
                 return aiService.generateWithOpenRouter(
                     messages,
@@ -225,6 +236,17 @@ export const useAIStore = create<AIState>((set, get) => ({
                 );
             case 'openai':
                 return aiService.generateWithOpenAI(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty,
+                    min_p
+                );
+            case 'openai_compatible':
+                return aiService.generateWithOpenAICompatible(
                     messages,
                     selectedModel.id,
                     temperature,

@@ -112,7 +112,7 @@ export interface Template extends BaseEntity {
 }
 
 // AI Provider and Model types
-export type AIProvider = 'openai' | 'openrouter' | 'local';
+export type AIProvider = 'openai' | 'openrouter' | 'local' | 'openai_compatible';
 
 export interface AIModel {
     id: string;
@@ -125,6 +125,10 @@ export interface AIModel {
 export interface AISettings extends BaseEntity {
     openaiKey?: string;
     openrouterKey?: string;
+    // OpenAI-compatible provider (custom URL + key)
+    openaiCompatibleKey?: string;
+    openaiCompatibleUrl?: string;
+    openaiCompatibleModelsRoute?: string; // Custom route for fetching models (e.g., '/v1/models' or '/api/models')
     availableModels: AIModel[];
     lastModelsFetch?: Date;
     localApiUrl?: string;

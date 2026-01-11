@@ -12,6 +12,7 @@ import { toast } from 'react-toastify';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 
 type PromptType = Prompt['promptType'];
 
@@ -63,6 +64,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const [minP, setMinP] = useState(
         prompt?.min_p !== undefined ? prompt.min_p : 0.0
     );
+    const [showProviderLabels, setShowProviderLabels] = useState(false);
 
     const {
         initialize,
@@ -92,6 +94,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         const groups: ModelsByProvider = {
             'Most Used': [],
             'Local': [],
+            'OpenAI Compatible': [],
             'xAI': [],
             'Anthropic': [],
             'OpenAI': [],
@@ -104,6 +107,8 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         availableModels.forEach(model => {
             if (model.provider === 'local') {
                 groups['Local'].push(model);
+            } else if (model.provider === 'openai_compatible') {
+                groups['OpenAI Compatible'].push(model);
             } else if (MOST_USED_MODELS.some(name => model.name === name)) {
                 groups['Most Used'].push(model);
             } else if (model.name.toLowerCase().includes('(free)')) {
@@ -345,7 +350,19 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             </div>
 
             <div className="border-t border-input pt-6">
-                <h3 className="font-medium mb-4">Available Models</h3>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-medium">Available Models</h3>
+                    <div className="flex items-center gap-2">
+                        <Label htmlFor="show-provider" className="text-sm font-normal cursor-pointer">
+                            Show provider labels
+                        </Label>
+                        <Switch
+                            id="show-provider"
+                            checked={showProviderLabels}
+                            onCheckedChange={setShowProviderLabels}
+                        />
+                    </div>
+                </div>
 
                 <div className="flex flex-wrap gap-2 mb-4">
                     {selectedModels.map((model) => (
@@ -354,7 +371,14 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                             variant="secondary"
                             className="flex items-center gap-1 px-3 py-1" 
                         >
-                            {model.name}
+                            {showProviderLabels ? (
+                                <>
+                                    <span className="text-xs opacity-70">{model.provider}:</span>
+                                    <span>{model.name}</span>
+                                </>
+                            ) : (
+                                model.name
+                            )}
                             <button
                                 type="button"
                                 onClick={() => removeModel(model.id)}
@@ -395,7 +419,15 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                                 className={`px-2 py-1 hover:bg-accent hover:text-accent-foreground cursor-pointer ${selectedModels.some(m => m.id === model.id) ? 'opacity-50 pointer-events-none' : ''}`}
                                                 onClick={() => { handleModelSelect(model.id); }}
                                             >
-                                                {model.name}
+                                                {showProviderLabels ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-xs opacity-60">{model.provider}</span>
+                                                        <span className="opacity-40">•</span>
+                                                        <span>{model.name}</span>
+                                                    </div>
+                                                ) : (
+                                                    model.name
+                                                )}
                                             </div>
                                         ))}
                                     </div>

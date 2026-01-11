@@ -13,10 +13,14 @@ import { cn } from '@/lib/utils';
 export default function AISettingsPage() {
     const [openaiKey, setOpenaiKey] = useState('');
     const [openrouterKey, setOpenrouterKey] = useState('');
+    const [openaiCompatibleKey, setOpenaiCompatibleKey] = useState('');
+    const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState('');
+    const [openaiCompatibleModelsRoute, setOpenaiCompatibleModelsRoute] = useState('');
     const [localApiUrl, setLocalApiUrl] = useState('http://localhost:1234/v1');
     const [isLoading, setIsLoading] = useState(false);
     const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
     const [openrouterModels, setOpenrouterModels] = useState<AIModel[]>([]);
+    const [openaiCompatibleModels, setOpenaiCompatibleModels] = useState<AIModel[]>([]);
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
@@ -31,11 +35,17 @@ export default function AISettingsPage() {
             // Set the keys using the new getter methods
             const openaiKey = aiService.getOpenAIKey();
             const openrouterKey = aiService.getOpenRouterKey();
+            const openaiCompatibleKey = aiService.getOpenAICompatibleKey();
+            const openaiCompatibleUrl = aiService.getOpenAICompatibleUrl();
+            const openaiCompatibleModelsRoute = aiService.getOpenAICompatibleModelsRoute();
             const localApiUrl = aiService.getLocalApiUrl();
 
             console.log('[AISettingsPage] Retrieved API keys and URL from service');
             if (openaiKey) setOpenaiKey(openaiKey);
             if (openrouterKey) setOpenrouterKey(openrouterKey);
+            if (openaiCompatibleKey) setOpenaiCompatibleKey(openaiCompatibleKey);
+            if (openaiCompatibleUrl) setOpenaiCompatibleUrl(openaiCompatibleUrl);
+            if (openaiCompatibleModelsRoute) setOpenaiCompatibleModelsRoute(openaiCompatibleModelsRoute);
             if (localApiUrl) setLocalApiUrl(localApiUrl);
 
             console.log('[AISettingsPage] Getting all available models');
@@ -46,18 +56,20 @@ export default function AISettingsPage() {
             const localModels = allModels.filter(m => m.provider === 'local');
             const openaiModels = allModels.filter(m => m.provider === 'openai');
             const openrouterModels = allModels.filter(m => m.provider === 'openrouter');
+            const openaiCompatibleModels = allModels.filter(m => m.provider === 'openai_compatible');
 
             console.log(`[AISettingsPage] Filtered models - Local: ${localModels.length}, OpenAI: ${openaiModels.length}, OpenRouter: ${openrouterModels.length}`);
 
             setOpenaiModels(openaiModels);
             setOpenrouterModels(openrouterModels);
+            setOpenaiCompatibleModels(openaiCompatibleModels);
         } catch (error) {
             console.error('Error loading AI settings:', error);
             toast.error('Failed to load AI settings');
         }
     };
 
-    const handleKeyUpdate = async (provider: 'openai' | 'openrouter' | 'local', key: string) => {
+    const handleKeyUpdate = async (provider: 'openai' | 'openrouter' | 'local' | 'openai_compatible', key: string) => {
         if (provider !== 'local' && !key.trim()) return;
 
         setIsLoading(true);
@@ -74,6 +86,9 @@ export default function AISettingsPage() {
             } else if (provider === 'openrouter') {
                 setOpenrouterModels(models);
                 setOpenSections(prev => ({ ...prev, openrouter: true }));
+            } else if (provider === 'openai_compatible') {
+                setOpenaiCompatibleModels(models);
+                setOpenSections(prev => ({ ...prev, openai_compatible: true }));
             } else if (provider === 'local') {
                 console.log(`[AISettingsPage] Updating local models, received ${models.length} models`);
                 setOpenaiModels(prev => {
@@ -86,7 +101,7 @@ export default function AISettingsPage() {
                 setOpenSections(prev => ({ ...prev, local: true }));
             }
 
-            toast.success(`${provider === 'openai' ? 'OpenAI' : provider === 'openrouter' ? 'OpenRouter' : 'Local'} models updated successfully`);
+            toast.success(`${provider === 'openai' ? 'OpenAI' : provider === 'openrouter' ? 'OpenRouter' : provider === 'openai_compatible' ? 'OpenAI-compatible' : 'Local'} models updated successfully`);
         } catch (error) {
             toast.error(`Failed to update ${provider} models`);
         } finally {
@@ -94,7 +109,7 @@ export default function AISettingsPage() {
         }
     };
 
-    const handleRefreshModels = async (provider: 'openai' | 'openrouter' | 'local') => {
+    const handleRefreshModels = async (provider: 'openai' | 'openrouter' | 'local' | 'openai_compatible') => {
         setIsLoading(true);
         console.log(`[AISettingsPage] Refreshing models for provider: ${provider}`);
         try {
@@ -110,6 +125,10 @@ export default function AISettingsPage() {
                 case 'openrouter':
                     setOpenrouterModels(models);
                     setOpenSections(prev => ({ ...prev, openrouter: true }));
+                    break;
+                case 'openai_compatible':
+                    setOpenaiCompatibleModels(models);
+                    setOpenSections(prev => ({ ...prev, openai_compatible: true }));
                     break;
                 case 'local':
                     console.log(`[AISettingsPage] Updating local models, received ${models.length} models`);
@@ -158,6 +177,42 @@ export default function AISettingsPage() {
         } catch (error) {
             console.error('Error updating local API URL:', error);
             toast.error('Failed to update local API URL');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleOpenAICompatibleUrlUpdate = async (url: string) => {
+        if (!url.trim()) return;
+
+        setIsLoading(true);
+        console.log(`[AISettingsPage] Updating OpenAI-compatible API URL to: ${url}`);
+        try {
+            await aiService.updateOpenAICompatibleUrl(url);
+            console.log('[AISettingsPage] OpenAI-compatible URL updated, fetching models');
+            const models = await aiService.getAvailableModels('openai_compatible', true);
+            console.log(`[AISettingsPage] Received ${models.length} openai_compatible models`);
+            setOpenaiCompatibleModels(models);
+            setOpenSections(prev => ({ ...prev, openai_compatible: true }));
+            toast.success('OpenAI-compatible URL updated successfully');
+        } catch (error) {
+            console.error('Error updating OpenAI-compatible URL:', error);
+            toast.error('Failed to update OpenAI-compatible URL');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleOpenAICompatibleModelsRouteUpdate = async (route: string) => {
+        setIsLoading(true);
+        console.log(`[AISettingsPage] Updating OpenAI-compatible models route to: ${route}`);
+        try {
+            await aiService.updateOpenAICompatibleModelsRoute(route);
+            console.log('[AISettingsPage] OpenAI-compatible models route updated');
+            toast.success('Models route updated successfully');
+        } catch (error) {
+            console.error('Error updating OpenAI-compatible models route:', error);
+            toast.error('Failed to update models route');
         } finally {
             setIsLoading(false);
         }
@@ -222,6 +277,109 @@ export default function AISettingsPage() {
                                     </CollapsibleTrigger>
                                     <CollapsibleContent className="mt-2 space-y-2">
                                         {openaiModels.map(model => (
+                                            <div key={model.id} className="text-sm pl-6">
+                                                {model.name}
+                                            </div>
+                                        ))}
+                                    </CollapsibleContent>
+                                </Collapsible>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* OpenAI-Compatible Section */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex justify-between items-center">
+                                OpenAI-compatible Endpoint
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRefreshModels('openai_compatible')}
+                                    disabled={isLoading || !openaiCompatibleKey.trim() || !openaiCompatibleUrl.trim()}
+                                >
+                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Refresh Models'}
+                                </Button>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="openai-compatible-url">Endpoint URL</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="openai-compatible-url"
+                                        type="text"
+                                        placeholder="https://your-openai-compatible.example/v1"
+                                        value={openaiCompatibleUrl}
+                                        onChange={(e) => setOpenaiCompatibleUrl(e.target.value)}
+                                    />
+                                    <Button
+                                        onClick={() => handleOpenAICompatibleUrlUpdate(openaiCompatibleUrl)}
+                                        disabled={isLoading || !openaiCompatibleUrl.trim()}
+                                    >
+                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Enter the base URL for your OpenAI-compatible service (must support /models and /chat/completions).
+                                </p>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="openai-compatible-key">API Key</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="openai-compatible-key"
+                                        type="password"
+                                        placeholder="Enter your API key"
+                                        value={openaiCompatibleKey}
+                                        onChange={(e) => setOpenaiCompatibleKey(e.target.value)}
+                                    />
+                                    <Button
+                                        onClick={() => handleKeyUpdate('openai_compatible', openaiCompatibleKey)}
+                                        disabled={isLoading || !openaiCompatibleKey.trim()}
+                                    >
+                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="openai-compatible-models-route">Custom Models API Route (optional)</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="openai-compatible-models-route"
+                                        type="text"
+                                        placeholder="e.g., /v1/models or /api/models (leave empty for default)"
+                                        value={openaiCompatibleModelsRoute}
+                                        onChange={(e) => setOpenaiCompatibleModelsRoute(e.target.value)}
+                                    />
+                                    <Button
+                                        onClick={() => handleOpenAICompatibleModelsRouteUpdate(openaiCompatibleModelsRoute)}
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    If your API uses a non-standard route for fetching models, specify it here. Otherwise, the default /models endpoint will be used.
+                                </p>
+                            </div>
+
+                            {openaiCompatibleModels.length > 0 && (
+                                <Collapsible
+                                    open={openSections.openai_compatible}
+                                    onOpenChange={() => toggleSection('openai_compatible')}
+                                >
+                                    <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                                        <ChevronRight className={cn(
+                                            "h-4 w-4 transition-transform",
+                                            openSections.openai_compatible && "transform rotate-90"
+                                        )} />
+                                        Available Models
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="mt-2 space-y-2">
+                                        {openaiCompatibleModels.map(model => (
                                             <div key={model.id} className="text-sm pl-6">
                                                 {model.name}
                                             </div>

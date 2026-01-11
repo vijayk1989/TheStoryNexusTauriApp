@@ -8,6 +8,8 @@ export class AIService {
     private readonly LOCAL_API_URL = 'http://localhost:1234/v1';
     private openRouter: OpenAI | null = null;
     private openAI: OpenAI | null = null;
+    private openAICompatibleUrl: string | null = null;
+    private openAICompatibleKey: string | null = null;
     private abortController: AbortController | null = null;
 
     private constructor() { }
@@ -23,6 +25,10 @@ export class AIService {
         // Load or create settings
         const settings = await db.aiSettings.toArray();
         this.settings = settings[0] || await this.createInitialSettings();
+        // Initialize provider clients/values based on loaded settings
+        this.initializeOpenAI();
+        this.initializeOpenRouter();
+        this.initializeOpenAICompatible();
     }
 
     private async createInitialSettings(): Promise<AISettings> {
@@ -90,6 +96,15 @@ export class AIService {
         });
     }
 
+    private initializeOpenAICompatible() {
+        if (!this.settings?.openaiCompatibleKey || !this.settings?.openaiCompatibleUrl) return;
+
+        // Store locally for fetch-based calls; we don't use the OpenAI SDK for arbitrary compatible endpoints
+        this.openAICompatibleKey = this.settings.openaiCompatibleKey;
+        this.openAICompatibleUrl = this.settings.openaiCompatibleUrl;
+        console.log('[AIService] Initialized OpenAI-compatible provider', this.openAICompatibleUrl);
+    }
+
     private initializeOpenAI() {
         if (!this.settings?.openaiKey) return;
 
@@ -106,6 +121,7 @@ export class AIService {
         const update: Partial<AISettings> = {
             ...(provider === 'openai' && { openaiKey: key }),
             ...(provider === 'openrouter' && { openrouterKey: key })
+            , ...(provider === 'openai_compatible' && { openaiCompatibleKey: key })
         };
 
         console.log(`[AIService] Updating database with new key for ${provider}`);
@@ -120,6 +136,9 @@ export class AIService {
         } else if (provider === 'openai') {
             console.log(`[AIService] Initializing OpenAI client`);
             this.initializeOpenAI();
+        } else if (provider === 'openai_compatible') {
+            console.log(`[AIService] Initializing OpenAI-compatible provider`);
+            this.initializeOpenAICompatible();
         }
 
         // Fetch available models when key is updated
@@ -149,6 +168,12 @@ export class AIService {
                     if (this.settings.openrouterKey) {
                         console.log('[AIService] Fetching OpenRouter models');
                         models = await this.fetchOpenRouterModels();
+                    }
+                    break;
+                case 'openai_compatible':
+                    if (this.settings.openaiCompatibleKey && this.settings.openaiCompatibleUrl) {
+                        console.log('[AIService] Fetching OpenAI-compatible models');
+                        models = await this.fetchOpenAICompatibleModels();
                     }
                     break;
             }
@@ -211,6 +236,44 @@ export class AIService {
             name: model.name,
             provider: 'openrouter' as AIProvider,
             contextLength: model.context_length,
+            enabled: true
+        }));
+    }
+
+    private async fetchOpenAICompatibleModels(): Promise<AIModel[]> {
+        const url = this.settings?.openaiCompatibleUrl;
+        const key = this.settings?.openaiCompatibleKey;
+        const customRoute = this.settings?.openaiCompatibleModelsRoute;
+        if (!url || !key) throw new Error('OpenAI-compatible provider not configured');
+
+        // Use custom route if provided, otherwise default to /models
+        let endpoint: string;
+        if (customRoute) {
+            // If custom route starts with /, append to base URL, otherwise treat as full path
+            endpoint = customRoute.startsWith('/') 
+                ? (url.endsWith('/') ? `${url.slice(0, -1)}${customRoute}` : `${url}${customRoute}`)
+                : customRoute;
+        } else {
+            endpoint = url.endsWith('/') ? `${url}models` : `${url}/models`;
+        }
+
+        const response = await fetch(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${key}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch OpenAI-compatible models');
+        const data = await response.json();
+
+        // Support both { data: [] } and direct array responses
+        const list = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+
+        return list.map((model: any) => ({
+            id: model.id || model.name,
+            name: model.name || model.id || String(model.id),
+            provider: 'openai_compatible' as AIProvider,
+            contextLength: model.context_length || model.max_context || 16384,
             enabled: true
         }));
     }
@@ -498,6 +561,60 @@ export class AIService {
         }
     }
 
+    async generateWithOpenAICompatible(
+        messages: PromptMessage[],
+        modelId: string,
+        temperature: number = 1.0,
+        maxTokens: number = 2048,
+        top_p?: number,
+        top_k?: number,
+        repetition_penalty?: number,
+        min_p?: number
+    ): Promise<Response> {
+        if (!this.settings?.openaiCompatibleKey || !this.settings?.openaiCompatibleUrl) {
+            throw new Error('OpenAI-compatible provider not configured');
+        }
+
+        const urlBase = this.settings.openaiCompatibleUrl;
+        const endpoint = urlBase.endsWith('/') ? `${urlBase}chat/completions` : `${urlBase}/chat/completions`;
+
+        const body: any = {
+            model: modelId,
+            messages,
+            temperature,
+            max_tokens: maxTokens,
+            stream: true
+        };
+
+        if (top_p !== undefined && top_p !== 0) { body.top_p = top_p; }
+        if (top_k !== undefined && top_k !== 0) { body.top_k = top_k; }
+        if (repetition_penalty !== undefined && repetition_penalty !== 0) { body.repetition_penalty = repetition_penalty; }
+        if (min_p !== undefined && min_p !== 0) { body.min_p = min_p; }
+
+        this.abortController = new AbortController();
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.settings.openaiCompatibleKey}`
+                },
+                body: JSON.stringify(body),
+                signal: this.abortController.signal
+            });
+
+            return response;
+        } catch (error) {
+            if ((error as Error).name === 'AbortError') {
+                console.log('OpenAI-compatible generation aborted');
+                return new Response(null, { status: 204 });
+            }
+            console.error('Error generating with OpenAI-compatible provider:', error);
+            throw error;
+        }
+    }
+
     // Add getter methods for settings
     getOpenAIKey(): string | undefined {
         return this.settings?.openaiKey;
@@ -505,6 +622,18 @@ export class AIService {
 
     getOpenRouterKey(): string | undefined {
         return this.settings?.openrouterKey;
+    }
+
+    getOpenAICompatibleKey(): string | undefined {
+        return this.settings?.openaiCompatibleKey;
+    }
+
+    getOpenAICompatibleUrl(): string | undefined {
+        return this.settings?.openaiCompatibleUrl;
+    }
+
+    getOpenAICompatibleModelsRoute(): string | undefined {
+        return this.settings?.openaiCompatibleModelsRoute;
     }
 
     getLocalApiUrl(): string {
@@ -520,6 +649,25 @@ export class AIService {
 
         // Re-fetch local models as the URL has changed
         await this.fetchAvailableModels('local');
+    }
+
+    async updateOpenAICompatibleUrl(url: string): Promise<void> {
+        if (!this.settings) {
+            throw new Error('Settings not initialized');
+        }
+        await db.aiSettings.update(this.settings.id, { openaiCompatibleUrl: url });
+        this.settings.openaiCompatibleUrl = url;
+
+        // Re-fetch models for the openai_compatible provider
+        await this.fetchAvailableModels('openai_compatible');
+    }
+
+    async updateOpenAICompatibleModelsRoute(route: string): Promise<void> {
+        if (!this.settings) {
+            throw new Error('Settings not initialized');
+        }
+        await db.aiSettings.update(this.settings.id, { openaiCompatibleModelsRoute: route });
+        this.settings.openaiCompatibleModelsRoute = route;
     }
 
     getSettings(): AISettings | null {

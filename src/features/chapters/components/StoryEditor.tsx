@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -23,6 +23,13 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | null;
 
@@ -30,6 +37,7 @@ export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
     const { currentChapterId } = useStoryContext();
+    const isMobile = useIsMobile();
 
     const handleOpenDrawer = (drawer: DrawerType) => {
         setOpenDrawer(drawer === openDrawer ? null : drawer);
@@ -50,69 +58,109 @@ export function StoryEditor() {
         </Button>
     );
 
+    // Sidebar content for both desktop and mobile dropdown
+    const sidebarButtons = (
+        <>
+            <Button
+                variant={openDrawer === "matchedTags" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("matchedTags")}
+            >
+                <Tags className="h-4 w-4 mr-2" />
+                Matched Tags
+            </Button>
+
+            <Button
+                variant={openDrawer === "chapterOutline" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("chapterOutline")}
+            >
+                <BookOpen className="h-4 w-4 mr-2" />
+                Outline
+            </Button>
+
+            <Button
+                variant={openDrawer === "chapterPOV" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("chapterPOV")}
+            >
+                <User className="h-4 w-4 mr-2" />
+                Edit POV
+            </Button>
+
+            <Button
+                variant={openDrawer === "chapterNotes" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("chapterNotes")}
+            >
+                <StickyNote className="h-4 w-4 mr-2" />
+                Chapter Notes
+            </Button>
+
+            {currentChapterId && (
+                <DownloadMenu
+                    type="chapter"
+                    id={currentChapterId}
+                    variant="outline"
+                    size="sm"
+                    showIcon={true}
+                    label="Download"
+                    className="mx-2 justify-start"
+                />
+            )}
+        </>
+    );
+
     return (
-        <div className="h-full flex">
+        <div className="h-full flex relative overflow-hidden">
             {/* Main Editor Area */}
-            <div className={`flex-1 flex justify-center ${isMaximized ? '' : 'px-4'}`}>
-                <div className={`h-full flex flex-col ${isMaximized ? 'w-full' : 'max-w-[1024px] w-full'}`}>
+            <div className={`flex-1 flex justify-center overflow-hidden min-w-0 ${isMaximized ? '' : 'px-2 md:px-4'}`}>
+                <div className={`h-full flex flex-col min-w-0 ${isMaximized ? 'w-full' : 'max-w-[1024px] w-full'}`}>
                     <EmbeddedPlayground maximizeButton={maximizeButton} />
                 </div>
             </div>
 
-            {/* Right Sidebar with Buttons */}
-            <div className="w-48 border-l h-full flex flex-col py-4 space-y-2 bg-muted/20">
-                <Button
-                    variant={openDrawer === "matchedTags" ? "default" : "outline"}
-                    size="sm"
-                    className="mx-2 justify-start"
-                    onClick={() => handleOpenDrawer("matchedTags")}
-                >
-                    <Tags className="h-4 w-4 mr-2" />
-                    Matched Tags
-                </Button>
-
-                <Button
-                    variant={openDrawer === "chapterOutline" ? "default" : "outline"}
-                    size="sm"
-                    className="mx-2 justify-start"
-                    onClick={() => handleOpenDrawer("chapterOutline")}
-                >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Outline
-                </Button>
-
-                <Button
-                    variant={openDrawer === "chapterPOV" ? "default" : "outline"}
-                    size="sm"
-                    className="mx-2 justify-start"
-                    onClick={() => handleOpenDrawer("chapterPOV")}
-                >
-                    <User className="h-4 w-4 mr-2" />
-                    Edit POV
-                </Button>
-
-                <Button
-                    variant={openDrawer === "chapterNotes" ? "default" : "outline"}
-                    size="sm"
-                    className="mx-2 justify-start"
-                    onClick={() => handleOpenDrawer("chapterNotes")}
-                >
-                    <StickyNote className="h-4 w-4 mr-2" />
-                    Chapter Notes
-                </Button>
-
-                {currentChapterId && (
-                    <DownloadMenu
-                        type="chapter"
-                        id={currentChapterId}
-                        variant="outline"
-                        size="sm"
-                        showIcon={true}
-                        label="Download"
-                        className="mx-2 justify-start"
-                    />
-                )}
+            {/* Desktop: Right Sidebar with Buttons */}
+            <div className="hidden md:flex w-48 border-l h-full flex-col py-4 space-y-2 bg-muted/20 flex-shrink-0">
+                {sidebarButtons}
             </div>
+
+            {/* Mobile: Floating Action Button with Dropdown */}
+            {isMobile && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="default"
+                            size="icon"
+                            className="fixed bottom-20 right-4 z-40 h-12 w-12 rounded-full shadow-lg"
+                        >
+                            <MoreVertical className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="top" className="w-48">
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("matchedTags")}>
+                            <Tags className="h-4 w-4 mr-2" />
+                            Matched Tags
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterOutline")}>
+                            <BookOpen className="h-4 w-4 mr-2" />
+                            Outline
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterPOV")}>
+                            <User className="h-4 w-4 mr-2" />
+                            Edit POV
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterNotes")}>
+                            <StickyNote className="h-4 w-4 mr-2" />
+                            Chapter Notes
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
 
             {/* Matched Tags Drawer */}
             <Drawer open={openDrawer === "matchedTags"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
@@ -174,11 +222,11 @@ export function StoryEditor() {
                 </DrawerContent>
             </Drawer>
 
-            {/* Replace the Chapter Notes Drawer with this Sheet */}
+            {/* Chapter Notes Sheet - responsive width */}
             <Sheet open={openDrawer === "chapterNotes"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
                 <SheetContent
                     side="right"
-                    className="h-[100vh] min-w-[800px]"
+                    className="h-[100vh] w-full md:min-w-[800px] md:w-auto"
                 >
                     <SheetHeader>
                         <SheetTitle>Scribble</SheetTitle>

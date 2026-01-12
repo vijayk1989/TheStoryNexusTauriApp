@@ -27,12 +27,12 @@ export default function EmbeddedPlayground({ maximizeButton }: EmbeddedPlaygroun
     }
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col overflow-hidden">
             <div className="p-2 border-b flex justify-between items-center">
-                <h2 className="text-lg font-semibold">{currentChapter.title}</h2>
+                <h2 className="text-lg font-semibold truncate">{currentChapter.title}</h2>
                 {maximizeButton}
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden">
                 <PlaygroundApp />
             </div>
         </div>

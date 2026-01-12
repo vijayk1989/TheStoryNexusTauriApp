@@ -60,11 +60,11 @@ export default function Home() {
     };
 
     return (
-        <div className="p-8">
-            <div className="max-w-7xl mx-auto space-y-12">
+        <div className="p-4 md:p-8">
+            <div className="max-w-7xl mx-auto space-y-8 md:space-y-12">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold mb-8">Story Writing App</h1>
-                    <div className="flex justify-center gap-4 mb-8">
+                    <h1 className="text-2xl md:text-4xl font-bold mb-6 md:mb-8">Story Writing App</h1>
+                    <div className="flex flex-col sm:flex-row justify-center gap-3 md:gap-4 mb-6 md:mb-8">
                         <CreateStoryDialog />
                         <Button variant="outline" onClick={handleImportClick}>
                             <Upload className="w-4 h-4 mr-2" />
@@ -85,7 +85,7 @@ export default function Home() {
                         No stories yet. Create your first story to get started!
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 place-items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 place-items-center">
                         {stories.map((story) => (
                             <StoryCard
                                 key={story.id}

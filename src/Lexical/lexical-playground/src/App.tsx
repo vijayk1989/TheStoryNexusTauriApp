@@ -118,7 +118,7 @@ function App(): JSX.Element {
       <SharedHistoryContext>
         <TableContext>
           <ToolbarContext>
-            <div className="editor-shell">
+            <div className="editor-shell overflow-x-hidden">
               <Editor />
             </div>
           </ToolbarContext>

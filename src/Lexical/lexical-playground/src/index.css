@@ -36,16 +36,18 @@ header h1 {
 }
 
 .editor-shell {
-  @apply bg-background text-foreground border border-border relative;
+  @apply bg-background text-foreground border border-border relative overflow-hidden;
   line-height: 1.7;
   font-weight: 400;
+  max-width: 100%;
 }
 
 .editor-shell .editor-container {
-  @apply bg-background relative cursor-text;
+  @apply bg-background relative cursor-text overflow-hidden;
   display: block;
   border-bottom-left-radius: 0.5rem;
   border-bottom-right-radius: 0.5rem;
+  max-width: 100%;
 }
 
 .editor-shell .editor-container.tree-view {
@@ -60,21 +62,33 @@ header h1 {
 .editor-scroller {
   min-height: 150px;
   max-width: 100%;
+  width: 100%;
   border: 0;
   display: flex;
   position: relative;
   outline: 0;
   z-index: 0;
   resize: vertical;
+  overflow-x: hidden;
 }
 
 .editor {
   flex: auto;
   max-width: 100%;
+  width: 100%;
   position: relative;
   resize: vertical;
   z-index: -1;
   min-height: 800px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+/* Scene Beat Node responsive styles */
+.scene-beat-node {
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .test-recorder-output {

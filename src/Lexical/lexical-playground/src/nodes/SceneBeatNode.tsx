@@ -775,10 +775,10 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
   };
 
   return (
-    <div className="relative my-4 rounded-lg border border-border bg-card">
+    <div className="relative my-4 rounded-lg border border-border bg-card overflow-hidden max-w-full">
       {/* Collapsible Header */}
-      <div className="flex items-center justify-between p-2">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2">
+        <div className="flex items-center gap-2 md:gap-4">
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="flex items-center justify-center hover:bg-accent/50 rounded-md w-6 h-6"
@@ -790,9 +790,9 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
               )}
             />
           </button>
-          <span className="font-medium">Scene Beat</span>
+          <span className="font-medium text-sm md:text-base">Scene Beat</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1 md:gap-2">
           {streaming && (
             <Button
               variant="default"
@@ -802,7 +802,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                 abortGeneration();
                 setStreaming(false);
               }}
-              className="h-8"
+              className="h-7 md:h-8 text-xs md:text-sm"
             >
               Stop
             </Button>
@@ -810,17 +810,17 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 
           <Popover open={showPovPopover} onOpenChange={handleOpenPovPopover}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8">
-                <User className="h-4 w-4 mr-2" />
-                <span>
-                  POV:{" "}
+              <Button variant="ghost" size="sm" className="h-7 md:h-8 text-xs md:text-sm px-2">
+                <User className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">POV: </span>
+                <span className="truncate max-w-[60px] sm:max-w-none">
                   {povType === "Third Person Omniscient"
-                    ? "Omniscient"
+                    ? "Omni"
                     : povCharacter || "Select"}
                 </span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-[calc(100vw-2rem)] sm:w-80 max-w-sm">
               <div className="grid gap-4">
                 <div className="space-y-2">
                   <h4 className="font-medium leading-none">Point of View</h4>
@@ -887,19 +887,20 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8"
+            className="h-7 md:h-8 text-xs md:text-sm px-2"
             onClick={() => setShowMatchedEntries(!showMatchedEntries)}
           >
-            <Eye className="h-4 w-4 mr-2" />
-            <span>Scenebeat Matched Tags</span>
+            <Eye className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Matched Tags</span>
+            <span className="sm:hidden">Tags</span>
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={handleDelete}
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground hover:text-destructive"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
           </Button>
         </div>
       </div>
@@ -943,14 +944,14 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
               <CollapsibleContent>
                 <div className="space-y-4 mb-4">
                   {/* Matched Chapter Tags Toggle with All Lorebook switch */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Matched Chapter Tags</div>
-                      <div className="text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">Matched Chapter Tags</div>
+                      <div className="text-xs text-muted-foreground">
                         Include entries matched from the entire chapter
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={useMatchedChapter}
@@ -959,7 +960,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">All Lorebook</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">All Lorebook</span>
                         <Switch
                           checked={includeAllLorebook}
                           onCheckedChange={(v) => {
@@ -980,32 +981,34 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                   </div>
 
                   {/* Matched Scene Beat Tags Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Matched Scene Beat Tags</div>
-                      <div className="text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">Matched Scene Beat Tags</div>
+                      <div className="text-xs text-muted-foreground">
                         Include entries matched from this scene beat
                       </div>
                     </div>
                     <Switch
                       checked={useMatchedSceneBeat}
                       onCheckedChange={setUseMatchedSceneBeat}
+                      className="flex-shrink-0"
                     />
                   </div>
 
                   {/* Custom Context Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">
                         Custom Context Selection
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         Manually select additional lorebook entries
                       </div>
                     </div>
                     <Switch
                       checked={useCustomContext}
                       onCheckedChange={setUseCustomContext}
+                      className="flex-shrink-0"
                     />
                   </div>
                 </div>
@@ -1013,11 +1016,11 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                 {/* Custom Context Selection */}
                 {useCustomContext && (
                   <div className="mb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <div className="font-medium">All Lorebook</div>
-                        <div className="text-sm text-muted-foreground">
-                          Select all lorebook entries as custom context (respects filters)
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm">All Lorebook</div>
+                        <div className="text-xs text-muted-foreground">
+                          Select all lorebook entries as custom context
                         </div>
                       </div>
                       <Switch
@@ -1033,16 +1036,17 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                             setSelectedItems([]);
                           }
                         }}
+                        className="flex-shrink-0"
                       />
                     </div>
                     <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium">Custom Context</h4>
+                      <h4 className="font-medium text-sm">Custom Context</h4>
                     </div>
 
-                    <div className="flex flex-wrap gap-4 mb-4">
+                    <div className="mb-4">
                       {/* Lorebook items multi-select */}
-                      <div className="flex-1">
-                        <div className="text-sm font-medium mb-1">
+                      <div className="w-full">
+                        <div className="text-xs font-medium mb-1">
                           Lorebook Items
                         </div>
                         <Select
@@ -1103,23 +1107,23 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                     </div>
 
                     {/* Badges section */}
-                    <div className="border rounded-md p-3 bg-muted/10">
-                      <div className="text-sm font-medium mb-2">
-                        Selected Items
+                    <div className="border rounded-md p-2 md:p-3 bg-muted/10">
+                      <div className="text-xs font-medium mb-2">
+                        Selected Items ({selectedItems.length})
                       </div>
-                      <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+                      <div className="flex flex-wrap gap-1 md:gap-2 max-h-[120px] md:max-h-[150px] overflow-y-auto">
                         {/* Lorebook item badges */}
                         {selectedItems.map((item) => (
                           <Badge
                             key={item.id}
                             variant="secondary"
-                            className="flex items-center gap-1 px-3 py-1"
+                            className="flex items-center gap-1 px-2 py-0.5 md:px-3 md:py-1 text-xs"
                           >
-                            {item.name}
+                            <span className="truncate max-w-[100px] md:max-w-none">{item.name}</span>
                             <button
                               type="button"
                               onClick={() => removeItem(item.id)}
-                              className="ml-1 hover:text-destructive"
+                              className="ml-1 hover:text-destructive flex-shrink-0"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -1127,7 +1131,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                         ))}
 
                         {selectedItems.length === 0 && (
-                          <div className="text-muted-foreground text-sm">
+                          <div className="text-muted-foreground text-xs">
                             No items selected
                           </div>
                         )}
@@ -1143,8 +1147,8 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
             <div className="border-t border-border p-2">{streamedText}</div>
           )}
 
-          <div className="flex justify-between items-center border-t border-border p-2">
-            <div className="flex gap-2 items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 border-t border-border p-2">
+            <div className="flex flex-wrap gap-2 items-center">
               <PromptSelectMenu
                 isLoading={isLoading}
                 error={error}
@@ -1159,28 +1163,36 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                   variant="outline"
                   size="sm"
                   onClick={handlePreviewPrompt}
+                  className="text-xs md:text-sm"
                 >
-                  Preview Prompt
+                  <span className="hidden sm:inline">Preview Prompt</span>
+                  <span className="sm:hidden">Preview</span>
                 </Button>
               )}
               <Button
                 onClick={handleGenerateWithPrompt}
                 disabled={streaming || !selectedPrompt || !selectedModel}
+                size="sm"
+                className="text-xs md:text-sm"
               >
                 {streaming ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Generating...
+                    <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin mr-1 md:mr-2" />
+                    <span className="hidden sm:inline">Generating...</span>
+                    <span className="sm:hidden">...</span>
                   </>
                 ) : (
-                  "Generate Prose"
+                  <>
+                    <span className="hidden sm:inline">Generate Prose</span>
+                    <span className="sm:hidden">Generate</span>
+                  </>
                 )}
               </Button>
               
             </div>
 
             {streamComplete && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 justify-end">
                 <Button size="sm" variant="outline" onClick={handleAccept}>
                   Accept
                 </Button>
@@ -1209,9 +1221,9 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 
       {/* Matched Entries Panel */}
       {showMatchedEntries && (
-        <div className="p-4 border-t">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-medium">Matched Entries</h3>
+        <div className="p-3 md:p-4 border-t">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+            <h3 className="font-medium text-sm md:text-base">Matched Entries</h3>
             <div className="text-xs text-muted-foreground">
               Entries that match tags in your content
             </div>
@@ -1220,16 +1232,16 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
           <div className="space-y-4">
             {/* Chapter Matched Entries */}
             <div>
-              <div className="text-sm font-medium mb-2">
+              <div className="text-xs md:text-sm font-medium mb-2">
                 Chapter Matched Entries{" "}
                 {useMatchedChapter && (
                   <span className="text-xs text-green-500">(Included)</span>
                 )}
               </div>
-              <div className="mb-4 border rounded-md p-3 bg-muted/10">
-                <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+              <div className="mb-4 border rounded-md p-2 md:p-3 bg-muted/10">
+                <div className="flex flex-wrap gap-1 md:gap-2 max-h-[120px] md:max-h-[150px] overflow-y-auto">
                   {chapterMatchedEntries.size === 0 ? (
-                    <div className="text-muted-foreground text-sm">
+                    <div className="text-muted-foreground text-xs">
                       No matched entries found
                     </div>
                   ) : (
@@ -1237,10 +1249,10 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                       <Badge
                         key={entry.id}
                         variant="secondary"
-                        className="flex items-center gap-1 px-3 py-1"
+                        className="flex items-center gap-1 px-2 py-0.5 md:px-3 md:py-1 text-xs"
                       >
-                        {entry.name}
-                        <span className="text-xs text-muted-foreground ml-1 capitalize">
+                        <span className="truncate max-w-[80px] md:max-w-none">{entry.name}</span>
+                        <span className="text-xs text-muted-foreground ml-1 capitalize hidden sm:inline">
                           ({entry.category})
                         </span>
                       </Badge>
@@ -1252,16 +1264,16 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 
             {/* Scene Beat Matched Entries */}
             <div>
-              <div className="text-sm font-medium mb-2">
+              <div className="text-xs md:text-sm font-medium mb-2">
                 Scene Beat Matched Entries{" "}
                 {useMatchedSceneBeat && (
                   <span className="text-xs text-green-500">(Included)</span>
                 )}
               </div>
-              <div className="mb-4 border rounded-md p-3 bg-muted/10">
-                <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+              <div className="mb-4 border rounded-md p-2 md:p-3 bg-muted/10">
+                <div className="flex flex-wrap gap-1 md:gap-2 max-h-[120px] md:max-h-[150px] overflow-y-auto">
                   {localMatchedEntries.size === 0 ? (
-                    <div className="text-muted-foreground text-sm">
+                    <div className="text-muted-foreground text-xs">
                       No matched entries found
                     </div>
                   ) : (
@@ -1269,10 +1281,10 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                       <Badge
                         key={entry.id}
                         variant="secondary"
-                        className="flex items-center gap-1 px-3 py-1"
+                        className="flex items-center gap-1 px-2 py-0.5 md:px-3 md:py-1 text-xs"
                       >
-                        {entry.name}
-                        <span className="text-xs text-muted-foreground ml-1 capitalize">
+                        <span className="truncate max-w-[80px] md:max-w-none">{entry.name}</span>
+                        <span className="text-xs text-muted-foreground ml-1 capitalize hidden sm:inline">
                           ({entry.category})
                         </span>
                       </Badge>
@@ -1285,14 +1297,14 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
             {/* Custom Context Entries */}
             {useCustomContext && (
               <div>
-                <div className="text-sm font-medium mb-2">
+                <div className="text-xs md:text-sm font-medium mb-2">
                   Custom Context Entries{" "}
                   <span className="text-xs text-green-500">(Included)</span>
                 </div>
-                <div className="mb-4 border rounded-md p-3 bg-muted/10">
-                  <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+                <div className="mb-4 border rounded-md p-2 md:p-3 bg-muted/10">
+                  <div className="flex flex-wrap gap-1 md:gap-2 max-h-[120px] md:max-h-[150px] overflow-y-auto">
                     {selectedItems.length === 0 ? (
-                      <div className="text-muted-foreground text-sm">
+                      <div className="text-muted-foreground text-xs">
                         No items selected
                       </div>
                     ) : (
@@ -1300,10 +1312,10 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                         <Badge
                           key={item.id}
                           variant="secondary"
-                          className="flex items-center gap-1 px-3 py-1"
+                          className="flex items-center gap-1 px-2 py-0.5 md:px-3 md:py-1 text-xs"
                         >
-                          {item.name}
-                          <span className="text-xs text-muted-foreground ml-1 capitalize">
+                          <span className="truncate max-w-[80px] md:max-w-none">{item.name}</span>
+                          <span className="text-xs text-muted-foreground ml-1 capitalize hidden sm:inline">
                             ({item.category})
                           </span>
                         </Badge>
@@ -1319,18 +1331,18 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 
       {/* Additional Context Panel */}
       {showAdditionalContext && (
-        <div className="p-4 border-t">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-medium">Additional Context</h3>
+        <div className="p-3 md:p-4 border-t">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
+            <h3 className="font-medium text-sm md:text-base">Additional Context</h3>
             <div className="text-xs text-muted-foreground">
-              Select lorebook items to include in addition to matched entries
+              Select lorebook items to include
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4 mb-4">
+          <div className="mb-4">
             {/* Lorebook items multi-select */}
-            <div className="flex-1">
-              <div className="text-sm font-medium mb-1">Lorebook Items</div>
+            <div className="w-full">
+              <div className="text-xs font-medium mb-1">Lorebook Items</div>
               <Select
                 onValueChange={(value) => {
                   handleItemSelect(value);
@@ -1382,21 +1394,21 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
           </div>
 
           {/* Badges section */}
-          <div className="mb-4 border rounded-md p-3 bg-muted/10">
-            <div className="text-sm font-medium mb-2">Selected Items</div>
-            <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto">
+          <div className="mb-4 border rounded-md p-2 md:p-3 bg-muted/10">
+            <div className="text-xs font-medium mb-2">Selected Items ({selectedItems.length})</div>
+            <div className="flex flex-wrap gap-1 md:gap-2 max-h-[120px] md:max-h-[150px] overflow-y-auto">
               {/* Lorebook item badges */}
               {selectedItems.map((item) => (
                 <Badge
                   key={item.id}
                   variant="secondary"
-                  className="flex items-center gap-1 px-3 py-1"
+                  className="flex items-center gap-1 px-2 py-0.5 md:px-3 md:py-1 text-xs"
                 >
-                  {item.name}
+                  <span className="truncate max-w-[100px] md:max-w-none">{item.name}</span>
                   <button
                     type="button"
                     onClick={() => removeItem(item.id)}
-                    className="ml-1 hover:text-destructive"
+                    className="ml-1 hover:text-destructive flex-shrink-0"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -1404,7 +1416,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
               ))}
 
               {selectedItems.length === 0 && (
-                <div className="text-muted-foreground text-sm">
+                <div className="text-muted-foreground text-xs">
                   No items selected
                 </div>
               )}

@@ -100,21 +100,21 @@ export default function LorebookPage() {
     console.log("Filtered entries:", filteredEntries.length);
 
     return (
-        <div className="container mx-auto p-6 space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold">Lorebook</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Manage your story's characters, locations, and other important elements
+                    <h1 className="text-2xl md:text-3xl font-bold">Lorebook</h1>
+                    <p className="text-muted-foreground mt-1 text-sm md:text-base">
+                        Manage your story's characters, locations, and other elements
                     </p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleExport} className="border-2 border-gray-300 dark:border-gray-700">
+                <div className="flex gap-2 flex-wrap">
+                    <Button variant="outline" onClick={handleExport} size="sm" className="border-2 border-gray-300 dark:border-gray-700">
                         <Download className="w-4 h-4 mr-2" />
                         Export
                     </Button>
                     <label htmlFor="import-lorebook">
-                        <Button variant="outline" asChild className="border-2 border-gray-300 dark:border-gray-700">
+                        <Button variant="outline" size="sm" asChild className="border-2 border-gray-300 dark:border-gray-700">
                             <div>
                                 <Upload className="w-4 h-4 mr-2" />
                                 Import
@@ -128,7 +128,7 @@ export default function LorebookPage() {
                         className="hidden"
                         onChange={handleImport}
                     />
-                    <Button onClick={() => setIsCreateDialogOpen(true)}>
+                    <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
                         <Plus className="w-4 h-4 mr-2" />
                         New Entry
                     </Button>
@@ -138,64 +138,66 @@ export default function LorebookPage() {
             <Separator className="bg-gray-300 dark:bg-gray-700" />
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="w-full justify-start bg-gray-100 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-700">
-                    <TabsTrigger
-                        value="all"
-                        className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                    >
-                        All ({entries.length})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="character"
-                        className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                    >
-                        Characters ({categoryCounts.character || 0})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="location"
-                        className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                    >
-                        Locations ({categoryCounts.location || 0})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="item"
-                        className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                    >
-                        Items ({categoryCounts.item || 0})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="event"
-                        className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                    >
-                        Events ({categoryCounts.event || 0})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="note"
-                        className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                    >
-                        Notes ({categoryCounts.note || 0})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="synopsis"
-                        className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                    >
-                        Synopsis ({categoryCounts.synopsis || 0})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="starting scenario"
-                        className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                    >
-                        Starting Scenario ({categoryCounts['starting scenario'] || 0})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="timeline"
-                        className="data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                    >
-                        Timeline ({categoryCounts.timeline || 0})
-                    </TabsTrigger>
-                </TabsList>
+                <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-2">
+                    <TabsList className="inline-flex w-max bg-gray-100 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-700">
+                        <TabsTrigger
+                            value="all"
+                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                        >
+                            All ({entries.length})
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="character"
+                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                        >
+                            Characters ({categoryCounts.character || 0})
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="location"
+                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                        >
+                            Locations ({categoryCounts.location || 0})
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="item"
+                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                        >
+                            Items ({categoryCounts.item || 0})
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="event"
+                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                        >
+                            Events ({categoryCounts.event || 0})
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="note"
+                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                        >
+                            Notes ({categoryCounts.note || 0})
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="synopsis"
+                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                        >
+                            Synopsis ({categoryCounts.synopsis || 0})
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="starting scenario"
+                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                        >
+                            Starting ({categoryCounts['starting scenario'] || 0})
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="timeline"
+                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                        >
+                            Timeline ({categoryCounts.timeline || 0})
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
 
-                <TabsContent value={activeTab} className="mt-6">
+                <TabsContent value={activeTab} className="mt-4 md:mt-6">
                     {isLoading ? (
                         <div className="flex justify-center p-8">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

@@ -304,32 +304,34 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
     <div ref={setNodeRef} style={style}>
       <Card className="w-full">
         <CardHeader className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="cursor-grab active:cursor-grabbing"
-                {...attributes}
-                {...listeners}
-              >
-                <GripVertical className="h-4 w-4" />
-              </Button>
-              <h3 className="text-lg font-semibold">
-                {chapter.order}: {chapter.title}
-              </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="cursor-grab active:cursor-grabbing flex-shrink-0"
+                  {...attributes}
+                  {...listeners}
+                >
+                  <GripVertical className="h-4 w-4" />
+                </Button>
+                <h3 className="text-lg font-semibold truncate">
+                  {chapter.order}: {chapter.title}
+                </h3>
+              </div>
               {chapter.povCharacter && (
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground ml-8 sm:ml-0">
                   POV: {chapter.povCharacter} ({chapter.povType})
                 </span>
               )}
               {!chapter.povCharacter && chapter.povType && (
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground ml-8 sm:ml-0">
                   POV: {chapter.povType}
                 </span>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1 sm:gap-2 flex-wrap justify-end ml-8 sm:ml-0">
               <Button
                 variant="ghost"
                 size="sm"

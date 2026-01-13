@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -28,16 +28,19 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useNavigate } from "react-router";
 
 type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
-    const { currentChapterId } = useStoryContext();
+    const { currentChapterId, currentStoryId } = useStoryContext();
     const isMobile = useIsMobile();
+    const navigate = useNavigate();
 
     const handleOpenDrawer = (drawer: DrawerType) => {
         setOpenDrawer(drawer === openDrawer ? null : drawer);
@@ -142,6 +145,11 @@ export function StoryEditor() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" side="top" className="w-48">
+                        <DropdownMenuItem onClick={() => navigate(`/dashboard/${currentStoryId}/chapters`)}>
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Back to Chapters
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleOpenDrawer("matchedTags")}>
                             <Tags className="h-4 w-4 mr-2" />
                             Matched Tags

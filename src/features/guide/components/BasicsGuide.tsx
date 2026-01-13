@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ExternalLink, Bot, BookOpen, PenLine, Sparkles } from "lucide-react";
+import { ExternalLink, Bot, BookOpen, PenLine, Sparkles, Settings2, Youtube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -11,6 +11,26 @@ export default function BasicsGuide() {
                 <p className="text-muted-foreground mb-6">
                     Welcome to The Story Nexus! This guide will walk you through the essential steps to get started with your AI-powered writing journey.
                 </p>
+                <div className="p-4 border rounded-lg bg-card flex items-center gap-4">
+                    <Youtube className="h-8 w-8 text-red-500 flex-shrink-0" />
+                    <div className="flex-1">
+                        <h3 className="font-semibold mb-1">Video Tutorial</h3>
+                        <p className="text-sm text-muted-foreground mb-2">
+                            New to The Story Nexus? Watch this video to learn the absolute basics in just a few minutes.
+                        </p>
+                        <a 
+                            href="https://www.youtube.com/watch?v=9RAsuNBnegc" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                        >
+                            <Button variant="outline" className="gap-2">
+                                <Youtube className="h-4 w-4 text-red-500" />
+                                Watch Tutorial on YouTube
+                                <ExternalLink className="h-3 w-3" />
+                            </Button>
+                        </a>
+                    </div>
+                </div>
             </div>
 
             <div className="space-y-6">
@@ -88,6 +108,38 @@ export default function BasicsGuide() {
                 <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
                     <h3 className="text-xl font-semibold flex items-center gap-2">
                         <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center">3</span>
+                        Configure Prompts with Allowed Models
+                    </h3>
+                    <p>
+                        <strong className="text-destructive">This step is essential!</strong> Before you can generate content, you need to configure which AI models are allowed for each prompt template.
+                    </p>
+                    <ol className="list-decimal list-inside space-y-2 ml-4">
+                        <li>Go to the <strong>Prompts</strong> section from the sidebar</li>
+                        <li>Click on a prompt template you want to use (e.g., "Story Writing Prompt")</li>
+                        <li>In the prompt editor, find the <strong>Allowed Models</strong> section</li>
+                        <li>Click on the models you want to enable for this prompt (they will be highlighted when selected)</li>
+                        <li>Click <strong>Save Changes</strong> to update the prompt</li>
+                    </ol>
+                    <div className="flex items-center gap-2 my-2">
+                        <Settings2 className="h-5 w-5 text-primary" />
+                        <Link to="/prompts">
+                            <Button variant="outline" className="gap-1">
+                                Go to Prompts
+                                <ExternalLink className="h-3 w-3" />
+                            </Button>
+                        </Link>
+                    </div>
+                    <Alert variant="destructive">
+                        <AlertTitle>Required Step</AlertTitle>
+                        <AlertDescription>
+                            If you skip this step, AI generation will not work. The model dropdown in Scene Beats will only show models that have been allowed for the selected prompt.
+                        </AlertDescription>
+                    </Alert>
+                </div>
+
+                <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
+                    <h3 className="text-xl font-semibold flex items-center gap-2">
+                        <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center">4</span>
                         Create Your First Chapter
                     </h3>
                     <p>
@@ -107,7 +159,7 @@ export default function BasicsGuide() {
 
                 <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
                     <h3 className="text-xl font-semibold flex items-center gap-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center">4</span>
+                        <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center">5</span>
                         Write with AI Assistance
                     </h3>
                     <p>

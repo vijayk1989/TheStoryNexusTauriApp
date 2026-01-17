@@ -217,3 +217,73 @@ export interface ParsedPrompt {
 }
 
 export type VariableResolver = (context: PromptContext, ...args: string[]) => Promise<string>;
+
+// Agent Orchestration types
+export type AgentRole =
+    | 'summarizer'         // Condenses content to reduce tokens
+    | 'prose_writer'       // Main creative writing agent
+    | 'lore_judge'         // Validates lore consistency
+    | 'continuity_checker' // Checks plot/character continuity
+    | 'style_editor'       // Refines prose style/tone
+    | 'dialogue_specialist' // Improves dialogue authenticity
+    | 'expander'           // Expands brief notes into full prose
+    | 'custom';            // User-defined agent role
+
+export interface AgentPreset extends BaseEntity {
+    name: string;
+    description?: string;
+    role: AgentRole;
+    model: AllowedModel;
+    systemPrompt: string;
+    temperature: number;
+    maxTokens: number;
+    isSystem?: boolean;
+    // Optional: track which story this preset belongs to (null = global)
+    storyId?: string | null;
+}
+
+export interface PipelineStep {
+    agentPresetId: string;
+    order: number;
+    // Condition to determine if step should run (e.g., "wordCount > 5000", "previousOutputContains:ISSUE")
+    condition?: string;
+    // Whether to stream output for this step (typically prose writers)
+    streamOutput?: boolean;
+    // Revision mode: this step uses feedback from a previous judge to revise output
+    isRevision?: boolean;
+    // Maximum iterations for revision loops (default: 1, meaning no retry)
+    maxIterations?: number;
+    // Which step index to retry from if this step's condition passes (for revision loops)
+    retryFromStep?: number;
+}
+
+export interface PipelinePreset extends BaseEntity {
+    name: string;
+    description?: string;
+    steps: PipelineStep[];
+    isSystem?: boolean;
+    // Optional: track which story this preset belongs to (null = global)
+    storyId?: string | null;
+}
+
+export interface AgentResult {
+    role: AgentRole;
+    agentName: string;
+    output: string;
+    promptSent?: PromptMessage[]; // The messages sent to the AI for diagnostics
+    tokensUsed?: number;
+    duration?: number;
+    metadata?: Record<string, unknown>;
+}
+
+export interface PipelineExecution extends BaseEntity {
+    storyId: string;
+    chapterId?: string;
+    pipelinePresetId?: string;
+    pipelineName: string;
+    input: string; // JSON serialized input
+    results: AgentResult[];
+    finalOutput: string;
+    totalDuration: number;
+    status: 'running' | 'completed' | 'failed' | 'aborted';
+}

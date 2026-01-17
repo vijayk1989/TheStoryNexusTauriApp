@@ -9,7 +9,10 @@ import {
     LorebookEntry,
     Template,
     SceneBeat,
-    Note
+    Note,
+    AgentPreset,
+    PipelinePreset,
+    PipelineExecution
 } from '../types/story';
 
 export class StoryDatabase extends Dexie {
@@ -22,11 +25,14 @@ export class StoryDatabase extends Dexie {
     templates!: Table<Template>;
     sceneBeats!: Table<SceneBeat>;
     notes!: Table<Note>;
+    agentPresets!: Table<AgentPreset>;
+    pipelinePresets!: Table<PipelinePreset>;
+    pipelineExecutions!: Table<PipelineExecution>;
 
     constructor() {
         super('StoryDatabase');
 
-        this.version(12).stores({
+        this.version(13).stores({
             stories: 'id, title, createdAt, language, isDemo',
             chapters: 'id, storyId, order, createdAt, isDemo',
             aiChats: 'id, storyId, createdAt, isDemo',
@@ -36,6 +42,9 @@ export class StoryDatabase extends Dexie {
             lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
             sceneBeats: 'id, storyId, chapterId',
             notes: 'id, storyId, title, type, createdAt, updatedAt',
+            agentPresets: 'id, name, role, storyId, createdAt, isSystem',
+            pipelinePresets: 'id, name, storyId, createdAt, isSystem',
+            pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
         });
 
         this.on('populate', async () => {

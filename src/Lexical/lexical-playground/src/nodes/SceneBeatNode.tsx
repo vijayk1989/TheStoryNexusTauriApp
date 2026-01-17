@@ -34,6 +34,9 @@ import {
   ChevronDown,
   ChevronRightIcon,
   Square,
+  Bot,
+  Sparkles,
+  Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Trash2 } from "lucide-react";
@@ -46,6 +49,8 @@ import {
   PromptMessage,
   SceneBeat,
   LorebookEntry,
+  PipelinePreset,
+  AgentResult,
 } from "@/types/story";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
 import { toast } from "react-toastify";
@@ -80,6 +85,9 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
+import { useAgenticGeneration } from "@/features/agents/hooks/useAgenticGeneration";
+import { Progress } from "@/components/ui/progress";
+import { PipelineDiagnosticsDialog } from "@/features/agents/components/PipelineDiagnosticsDialog";
 
 export type SerializedSceneBeatNode = Spread<
   {
@@ -145,6 +153,26 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
   const [includeAllLorebook, setIncludeAllLorebook] = useState(false);
   const [showContext, setShowContext] = useState(false);
 
+  // Agentic mode state
+  const [agenticMode, setAgenticMode] = useState(false);
+  const [selectedPipeline, setSelectedPipeline] = useState<PipelinePreset | null>(null);
+  const [availablePipelines, setAvailablePipelines] = useState<PipelinePreset[]>([]);
+  const [agenticStepResults, setAgenticStepResults] = useState<AgentResult[]>([]);
+  const [showAgenticProgress, setShowAgenticProgress] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  // Agentic generation hook
+  const {
+    isGenerating: isAgenticGenerating,
+    currentStep,
+    currentAgentName,
+    stepResults,
+    error: agenticError,
+    generateWithPipeline,
+    abortGeneration: abortAgenticGeneration,
+    getAvailablePipelines,
+  } = useAgenticGeneration();
+
   // Get character entries from lorebook
   const characterEntries = useMemo(() => {
     return entries.filter((entry) => entry.category === "character");
@@ -156,6 +184,22 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
       console.error("Error loading prompts:", error);
     });
   }, [fetchPrompts]);
+
+  // Load available pipelines when agentic mode is enabled
+  useEffect(() => {
+    if (agenticMode) {
+      getAvailablePipelines().then((pipelines) => {
+        setAvailablePipelines(pipelines);
+        // Auto-select first pipeline if none selected
+        if (pipelines.length > 0 && !selectedPipeline) {
+          setSelectedPipeline(pipelines[0]);
+        }
+      }).catch((error) => {
+        console.error("Error loading pipelines:", error);
+        toast.error("Failed to load AI pipelines");
+      });
+    }
+  }, [agenticMode, getAvailablePipelines, selectedPipeline]);
 
   // Get the sceneBeatId from the node
   useEffect(() => {
@@ -733,6 +777,154 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
     }
   };
 
+  /**
+   * Handle agentic generation using a multi-agent pipeline
+   */
+  const handleAgenticGenerate = async () => {
+    if (!selectedPipeline) {
+      toast.error("Please select a pipeline first");
+      return;
+    }
+
+    if (!command.trim()) {
+      toast.error("Please enter a scene beat command");
+      return;
+    }
+
+    setStreamedText("");
+    setStreamComplete(false);
+    setAgenticStepResults([]);
+    setShowAgenticProgress(true);
+
+    // Collect previous text from editor (same as createPromptConfig)
+    let previousText = "";
+    editor.getEditorState().read(() => {
+      const node = $getNodeByKey(nodeKey);
+      if (node) {
+        const textNodes: string[] = [];
+        let currentNode = node.getPreviousSibling();
+
+        while (currentNode) {
+          if ("getTextContent" in currentNode) {
+            const isBlockNode =
+              currentNode.getType() === "paragraph" ||
+              currentNode.getType() === "heading" ||
+              currentNode.getType() === "list-item";
+
+            const nodeText = currentNode.getTextContent();
+
+            if (nodeText.trim()) {
+              textNodes.unshift(nodeText);
+              if (isBlockNode) {
+                textNodes.unshift("\n");
+              }
+            }
+          }
+          currentNode = currentNode.getPreviousSibling();
+        }
+
+        previousText = textNodes.join("");
+      }
+    });
+
+    // Combine matched entries
+    const combinedMatchedEntries: LorebookEntry[] = [];
+
+    if (useMatchedChapter && chapterMatchedEntries) {
+      chapterMatchedEntries.forEach((entry) => {
+        combinedMatchedEntries.push(entry);
+      });
+    }
+
+    if (useMatchedSceneBeat && localMatchedEntries) {
+      localMatchedEntries.forEach((entry) => {
+        if (!combinedMatchedEntries.some((e) => e.id === entry.id)) {
+          combinedMatchedEntries.push(entry);
+        }
+      });
+    }
+
+    // Add custom context items
+    if (useCustomContext && selectedItems.length > 0) {
+      selectedItems.forEach((entry) => {
+        if (!combinedMatchedEntries.some((e) => e.id === entry.id)) {
+          combinedMatchedEntries.push(entry);
+        }
+      });
+    }
+
+    // Get all entries for lore judge
+    const allEntries = useLorebookStore.getState().getFilteredEntries();
+
+    try {
+      const result = await generateWithPipeline(
+        selectedPipeline.id,
+        {
+          scenebeat: command.trim(),
+          previousWords: previousText,
+          matchedEntries: combinedMatchedEntries,
+          allEntries,
+          povType,
+          povCharacter:
+            povType !== "Third Person Omniscient" ? povCharacter : undefined,
+          currentChapter: currentChapter ?? undefined,
+          storyLanguage: "English", // TODO: Get from story settings
+        },
+        {
+          onStepStart: (stepIndex, agentName) => {
+            console.log(`[Agentic] Step ${stepIndex + 1}: ${agentName}`);
+          },
+          onStepComplete: (stepResult, stepIndex) => {
+            console.log(`[Agentic] Step ${stepIndex + 1} complete:`, stepResult.role);
+            setAgenticStepResults((prev) => [...prev, stepResult]);
+          },
+          onToken: (token) => {
+            setStreamedText((prev) => prev + token);
+          },
+          onComplete: (pipelineResult) => {
+            console.log("[Agentic] Pipeline complete:", pipelineResult.status);
+            if (pipelineResult.status === "completed") {
+              setStreamComplete(true);
+              // Use proseOutput (actual story content) not finalOutput (might be a judge output)
+              const contentToSave = pipelineResult.proseOutput || pipelineResult.finalOutput;
+              // Save to database
+              if (sceneBeatId) {
+                sceneBeatService.updateSceneBeat(sceneBeatId, {
+                  generatedContent: contentToSave,
+                  accepted: false,
+                  metadata: {
+                    ...currentChapter?.metadata,
+                    agenticPipelineId: selectedPipeline.id,
+                    agenticResults: pipelineResult.steps,
+                  },
+                }).catch((error) => {
+                  console.error("Error saving agentic result:", error);
+                });
+              }
+            } else if (pipelineResult.status === "failed") {
+              toast.error(`Pipeline failed: ${pipelineResult.error}`);
+            }
+          },
+          onError: (error) => {
+            console.error("[Agentic] Pipeline error:", error);
+            toast.error(`Agentic generation failed: ${error.message}`);
+          },
+        }
+      );
+    } catch (error) {
+      console.error("[Agentic] Error:", error);
+      toast.error("Failed to run agentic generation");
+    }
+  };
+
+  /**
+   * Abort the current agentic generation
+   */
+  const handleAbortAgentic = () => {
+    abortAgenticGeneration();
+    setShowAgenticProgress(false);
+  };
+
   const handleAccept = async () => {
     editor.update(() => {
       const paragraphNode = $createParagraphNode();
@@ -1143,64 +1335,175 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
             </Collapsible>
           </div>
 
+          {/* Agentic Pipeline Progress */}
+          {showAgenticProgress && isAgenticGenerating && (
+            <div className="border-t border-border p-3 bg-muted/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Bot className="h-4 w-4 text-primary animate-pulse" />
+                <span className="text-sm font-medium">
+                  Running: {currentAgentName || "Initializing..."}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAbortAgentic}
+                  className="ml-auto h-6 px-2 text-xs"
+                >
+                  <Square className="h-3 w-3 mr-1" />
+                  Stop
+                </Button>
+              </div>
+              <div className="space-y-1">
+                {selectedPipeline && (
+                  <Progress
+                    value={((currentStep + 1) / selectedPipeline.steps.length) * 100}
+                    className="h-1"
+                  />
+                )}
+                <div className="flex flex-wrap gap-1">
+                  {agenticStepResults.map((result, idx) => (
+                    <Badge
+                      key={idx}
+                      variant={result.output.includes("CONSISTENT") ? "secondary" : "outline"}
+                      className="text-xs"
+                    >
+                      {result.role}: {result.duration}ms
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {streamedText && (
             <div className="border-t border-border p-2">{streamedText}</div>
           )}
 
-          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 border-t border-border p-2">
-            <div className="flex flex-wrap gap-2 items-center">
-              <PromptSelectMenu
-                isLoading={isLoading}
-                error={error}
-                prompts={prompts}
-                promptType="scene_beat"
-                selectedPrompt={selectedPrompt}
-                selectedModel={selectedModel}
-                onSelect={handlePromptSelect}
+          <div className="flex flex-col gap-3 border-t border-border p-2">
+            {/* Agentic Mode Toggle */}
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={agenticMode}
+                onCheckedChange={setAgenticMode}
+                id="agentic-mode"
               />
-              {selectedPrompt && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePreviewPrompt}
-                  className="text-xs md:text-sm"
+              <Label htmlFor="agentic-mode" className="flex items-center gap-1 text-sm cursor-pointer">
+                <Sparkles className="h-3 w-3" />
+                Agentic Mode
+              </Label>
+              {agenticMode && (
+                <Select
+                  value={selectedPipeline?.id || ""}
+                  onValueChange={(value) => {
+                    const pipeline = availablePipelines.find((p) => p.id === value);
+                    setSelectedPipeline(pipeline || null);
+                  }}
                 >
-                  <span className="hidden sm:inline">Preview Prompt</span>
-                  <span className="sm:hidden">Preview</span>
-                </Button>
+                  <SelectTrigger className="h-8 w-[200px] text-xs">
+                    <SelectValue placeholder="Select pipeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePipelines.map((pipeline) => (
+                      <SelectItem key={pipeline.id} value={pipeline.id}>
+                        {pipeline.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
-              <Button
-                onClick={handleGenerateWithPrompt}
-                disabled={streaming || !selectedPrompt || !selectedModel}
-                size="sm"
-                className="text-xs md:text-sm"
-              >
-                {streaming ? (
-                  <>
-                    <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin mr-1 md:mr-2" />
-                    <span className="hidden sm:inline">Generating...</span>
-                    <span className="sm:hidden">...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="hidden sm:inline">Generate Prose</span>
-                    <span className="sm:hidden">Generate</span>
-                  </>
-                )}
-              </Button>
-              
             </div>
 
-            {streamComplete && (
-              <div className="flex gap-2 justify-end">
-                <Button size="sm" variant="outline" onClick={handleAccept}>
-                  Accept
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleReject}>
-                  Reject
-                </Button>
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+              <div className="flex flex-wrap gap-2 items-center">
+                {!agenticMode && (
+                  <>
+                    <PromptSelectMenu
+                      isLoading={isLoading}
+                      error={error}
+                      prompts={prompts}
+                      promptType="scene_beat"
+                      selectedPrompt={selectedPrompt}
+                      selectedModel={selectedModel}
+                      onSelect={handlePromptSelect}
+                    />
+                    {selectedPrompt && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePreviewPrompt}
+                        className="text-xs md:text-sm"
+                      >
+                        <span className="hidden sm:inline">Preview Prompt</span>
+                        <span className="sm:hidden">Preview</span>
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleGenerateWithPrompt}
+                      disabled={streaming || !selectedPrompt || !selectedModel}
+                      size="sm"
+                      className="text-xs md:text-sm"
+                    >
+                      {streaming ? (
+                        <>
+                          <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin mr-1 md:mr-2" />
+                          <span className="hidden sm:inline">Generating...</span>
+                          <span className="sm:hidden">...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="hidden sm:inline">Generate Prose</span>
+                          <span className="sm:hidden">Generate</span>
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+                {agenticMode && (
+                  <Button
+                    onClick={handleAgenticGenerate}
+                    disabled={isAgenticGenerating || !selectedPipeline || !command.trim()}
+                    size="sm"
+                    className="text-xs md:text-sm"
+                  >
+                    {isAgenticGenerating ? (
+                      <>
+                        <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin mr-1 md:mr-2" />
+                        <span className="hidden sm:inline">Running Pipeline...</span>
+                        <span className="sm:hidden">...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bot className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                        <span className="hidden sm:inline">Generate with Pipeline</span>
+                        <span className="sm:hidden">Generate</span>
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
-            )}
+
+              {streamComplete && (
+                <div className="flex gap-2 justify-end">
+                  {agenticMode && agenticStepResults.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowDiagnostics(true)}
+                      title="View pipeline diagnostics"
+                    >
+                      <Stethoscope className="h-4 w-4 mr-1" />
+                      <span className="hidden sm:inline">Diagnose</span>
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={handleAccept}>
+                    Accept
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleReject}>
+                    Reject
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1217,6 +1520,13 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         messages={previewMessages}
         isLoading={previewLoading}
         error={previewError}
+      />
+
+      <PipelineDiagnosticsDialog
+        open={showDiagnostics}
+        onOpenChange={setShowDiagnostics}
+        results={agenticStepResults}
+        pipelineName={selectedPipeline?.name}
       />
 
       {/* Matched Entries Panel */}

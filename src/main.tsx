@@ -16,6 +16,7 @@ import Chapters from "./features/chapters/pages/Chapters";
 import ChapterEditorPage from "./features/chapters/pages/ChapterEditorPage";
 import PromptsPage from "./features/prompts/pages/PromptsPage";
 import AISettingsPage from "./features/ai/pages/AISettingsPage";
+import AgentsPage from "./features/agents/pages/AgentsPage";
 import { MainLayout } from "./components/MainLayout";
 import LorebookPage from "./features/lorebook/pages/LorebookPage";
 import BrainstormPage from "./features/brainstorm/pages/BrainstormPage";
@@ -53,6 +54,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="lorebook" element={<LorebookPage />} />
               <Route path="brainstorm" element={<BrainstormPage />} />
               <Route path="notes" element={<NotesPage />} />
+              <Route path="agents" element={<AgentsPage />} />
             </Route>
           </Routes>
         </StoryProvider>

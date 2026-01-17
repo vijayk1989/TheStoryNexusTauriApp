@@ -12,7 +12,8 @@ import {
     ChevronRight,
     StickyNote,
     PenLine,
-    Menu
+    Menu,
+    Workflow
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -121,6 +122,7 @@ export default function StoryDashboard() {
                         )}
                         {navButton(<Book className="h-5 w-5" />, `/dashboard/${storyId}/lorebook`, "Lorebook")}
                         {navButton(<Sparkles className="h-5 w-5" />, `/dashboard/${storyId}/prompts`, "Prompts")}
+                        {navButton(<Workflow className="h-5 w-5" />, `/dashboard/${storyId}/agents`, "Agents")}
                         {navButton(<MessageSquare className="h-5 w-5" />, `/dashboard/${storyId}/brainstorm`, "Brainstorm")}
                         {navButton(<StickyNote className="h-5 w-5" />, `/dashboard/${storyId}/notes`, "Notes")}
                     </>

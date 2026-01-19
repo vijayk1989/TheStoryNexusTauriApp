@@ -16,6 +16,7 @@ interface AIState {
     isInitialized: boolean;
     isLoading: boolean;
     error: string | null;
+    favoriteModelIds: string[];
 
     // Initialize AI service and load settings
     initialize: () => Promise<void>;
@@ -24,6 +25,9 @@ interface AIState {
     getAvailableModels: (provider?: AIProvider, forceRefresh?: boolean) => Promise<AIModel[]>;
     updateProviderKey: (provider: AIProvider, key: string) => Promise<void>;
     updateLocalApiUrl: (url: string) => Promise<void>;
+
+    // Favorite model management
+    toggleFavoriteModel: (modelId: string) => Promise<void>;
 
     // Generation methods
     generateWithLocalModel: (
@@ -61,6 +65,7 @@ export const useAIStore = create<AIState>((set, get) => ({
     isInitialized: false,
     isLoading: false,
     error: null,
+    favoriteModelIds: [],
 
     initialize: async () => {
         set({ isLoading: true, error: null });
@@ -69,6 +74,7 @@ export const useAIStore = create<AIState>((set, get) => ({
             const settings = await db.aiSettings.toArray();
             set({
                 settings: settings[0] || null,
+                favoriteModelIds: settings[0]?.favoriteModelIds || [],
                 isInitialized: true,
                 isLoading: false
             });
@@ -114,6 +120,16 @@ export const useAIStore = create<AIState>((set, get) => ({
                 isLoading: false
             });
             throw error;
+        }
+    },
+
+    toggleFavoriteModel: async (modelId: string) => {
+        try {
+            await aiService.toggleFavoriteModel(modelId);
+            const newFavorites = aiService.getFavoriteModelIds();
+            set({ favoriteModelIds: newFavorites });
+        } catch (error) {
+            console.error('Failed to toggle favorite model:', error);
         }
     },
 
@@ -195,6 +211,17 @@ export const useAIStore = create<AIState>((set, get) => ({
                     repetition_penalty,
                     min_p
                 );
+            case 'nanogpt':
+                return aiService.generateWithNanoGPT(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty,
+                    min_p
+                );
             default:
                 throw new Error(`Unsupported provider: ${selectedModel.provider}`);
         }
@@ -258,6 +285,17 @@ export const useAIStore = create<AIState>((set, get) => ({
                 );
             case 'openrouter':
                 return aiService.generateWithOpenRouter(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty,
+                    min_p
+                );
+            case 'nanogpt':
+                return aiService.generateWithNanoGPT(
                     messages,
                     selectedModel.id,
                     temperature,

@@ -7,7 +7,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { usePromptStore } from '../store/promptStore';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import type { Prompt, PromptMessage, AIModel, AllowedModel } from '@/types/story';
-import { Plus, ArrowUp, ArrowDown, Trash2, X } from 'lucide-react';
+import { Plus, ArrowUp, ArrowDown, Trash2, X, Star } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -24,16 +24,6 @@ const PROMPT_TYPES: Array<{ value: PromptType; label: string }> = [
     { value: 'brainstorm', label: 'Brainstorm' },
     { value: 'other', label: 'Other' },
 ] as const;
-
-const MOST_USED_MODELS = [
-    'Anthropic: Claude Sonnet 4',
-    'DeepSeek: DeepSeek V3.1',
-    'DeepSeek: DeepSeek V3 0324',
-    'Mistral: Mistral Small 3.2 24B',
-    'MoonshotAI: Kimi K2 0905',
-    'Z.AI: GLM 4.5 Air',
-    'Z.AI: GLM 4.5',
-];
 
 interface ModelsByProvider {
     [key: string]: AIModel[]
@@ -64,13 +54,15 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const [minP, setMinP] = useState(
         prompt?.min_p !== undefined ? prompt.min_p : 0.0
     );
-    const [showProviderLabels, setShowProviderLabels] = useState(false);
+    const [showProviderLabels, setShowProviderLabels] = useState(true);
 
     const {
         initialize,
         getAvailableModels,
         isInitialized,
-        isLoading: isAILoading
+        isLoading: isAILoading,
+        favoriteModelIds,
+        toggleFavoriteModel
     } = useAIStore();
 
     useEffect(() => {
@@ -90,11 +82,15 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         }
     };
 
+    // Helper to create unique model key (provider:id)
+    const getModelKey = (model: { provider: string; id: string }) => `${model.provider}:${model.id}`;
+
     const modelGroups = useMemo(() => {
         const groups: ModelsByProvider = {
-            'Most Used': [],
+            'Favorites': [],
             'Local': [],
             'OpenAI Compatible': [],
+            'NanoGPT': [],
             'xAI': [],
             'Anthropic': [],
             'OpenAI': [],
@@ -105,12 +101,18 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             'Other': []
         };
         availableModels.forEach(model => {
+            const modelKey = `${model.provider}:${model.id}`;
+            // Add to Favorites if favorited
+            if (favoriteModelIds.includes(modelKey)) {
+                groups['Favorites'].push(model);
+            }
+            // Also add to provider category
             if (model.provider === 'local') {
                 groups['Local'].push(model);
             } else if (model.provider === 'openai_compatible') {
                 groups['OpenAI Compatible'].push(model);
-            } else if (MOST_USED_MODELS.some(name => model.name === name)) {
-                groups['Most Used'].push(model);
+            } else if (model.provider === 'nanogpt') {
+                groups['NanoGPT'].push(model);
             } else if (model.name.toLowerCase().includes('(free)')) {
                 groups['Free'].push(model);
             } else if (model.provider === 'openai') {
@@ -132,10 +134,11 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             }
         });
 
+        // Filter out empty groups, but keep Favorites even if empty to show hint
         return Object.fromEntries(
-            Object.entries(groups).filter(([_, models]) => models.length > 0)
+            Object.entries(groups).filter(([key, models]) => key === 'Favorites' || models.length > 0)
         );
-    }, [availableModels]);
+    }, [availableModels, favoriteModelIds]);
 
     // Simple search state for the popover-based selector (placed after modelGroups memo)
     const [modelSearch, setModelSearch] = useState('');
@@ -153,25 +156,21 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         return filtered;
     }, [modelGroups, modelSearch]);
 
-    const handleModelSelect = (modelId: string) => {
-        const selectedModel = availableModels.find(m => m.id === modelId);
-        if (selectedModel && !selectedModels.some(m => m.id === modelId)) {
+    const handleModelSelect = (model: AIModel) => {
+        const modelKey = getModelKey(model);
+        if (!selectedModels.some(m => getModelKey(m) === modelKey)) {
             const allowedModel: AllowedModel = {
-                id: selectedModel.id,
-                provider: selectedModel.provider,
-                name: selectedModel.name
+                id: model.id,
+                provider: model.provider,
+                name: model.name
             };
             setSelectedModels([...selectedModels, allowedModel]);
         }
     };
 
-    const removeModel = (modelId: string) => {
-        setSelectedModels(selectedModels.filter(m => m.id !== modelId));
-    };
-
-    const getModelDisplayName = (modelId: string): string => {
-        const model = availableModels.find(m => m.id === modelId);
-        return model?.name || modelId;
+    const removeModel = (model: AllowedModel) => {
+        const modelKey = getModelKey(model);
+        setSelectedModels(selectedModels.filter(m => getModelKey(m) !== modelKey));
     };
 
     const handleAddMessage = (role: 'system' | 'user' | 'assistant') => {
@@ -367,7 +366,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 <div className="flex flex-wrap gap-2 mb-4">
                     {selectedModels.map((model) => (
                         <Badge
-                            key={model.id}
+                            key={getModelKey(model)}
                             variant="secondary"
                             className="flex items-center gap-1 px-3 py-1" 
                         >
@@ -381,7 +380,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                             )}
                             <button
                                 type="button"
-                                onClick={() => removeModel(model.id)}
+                                onClick={() => removeModel(model)}
                                 className="ml-1 hover:text-destructive"
                             >
                                 <X className="h-3 w-3" />
@@ -413,23 +412,50 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                         <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted">
                                             {provider}
                                         </div>
-                                        {models.map((model) => (
-                                            <div
-                                                key={model.id}
-                                                className={`px-2 py-1 hover:bg-accent hover:text-accent-foreground cursor-pointer ${selectedModels.some(m => m.id === model.id) ? 'opacity-50 pointer-events-none' : ''}`}
-                                                onClick={() => { handleModelSelect(model.id); }}
-                                            >
-                                                {showProviderLabels ? (
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="text-xs opacity-60">{model.provider}</span>
-                                                        <span className="opacity-40">•</span>
-                                                        <span>{model.name}</span>
-                                                    </div>
-                                                ) : (
-                                                    model.name
-                                                )}
+                                        {provider === 'Favorites' && models.length === 0 ? (
+                                            <div className="px-2 py-1.5 text-sm text-muted-foreground italic">
+                                                Click ☆ to add favorites
                                             </div>
-                                        ))}
+                                        ) : (
+                                            models.map((model) => {
+                                                const modelKey = getModelKey(model);
+                                                const isSelected = selectedModels.some(m => getModelKey(m) === modelKey);
+                                                const isFavorite = favoriteModelIds.includes(modelKey);
+                                                return (
+                                                    <div
+                                                        key={modelKey}
+                                                        className={`px-2 py-1 hover:bg-accent hover:text-accent-foreground flex items-center gap-2 ${isSelected ? 'opacity-50' : ''}`}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleFavoriteModel(modelKey);
+                                                            }}
+                                                            className="flex-shrink-0 hover:text-yellow-500"
+                                                        >
+                                                            <Star
+                                                                className={`h-4 w-4 ${isFavorite ? 'fill-yellow-500 text-yellow-500' : ''}`}
+                                                            />
+                                                        </button>
+                                                        <div
+                                                            className={`flex-1 cursor-pointer ${isSelected ? 'pointer-events-none' : ''}`}
+                                                            onClick={() => { handleModelSelect(model); }}
+                                                        >
+                                                            {showProviderLabels ? (
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-xs opacity-60">{model.provider}</span>
+                                                                    <span className="opacity-40">•</span>
+                                                                    <span>{model.name}</span>
+                                                                </div>
+                                                            ) : (
+                                                                model.name
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
                                     </div>
                                 ))}
                             </div>

@@ -36,6 +36,9 @@ const ROLE_COLORS: Record<AgentRole, string> = {
     style_editor: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
     dialogue_specialist: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
     expander: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+    outline_generator: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
+    style_extractor: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+    scenebeat_generator: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
     custom: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
 };
 
@@ -47,6 +50,9 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     style_editor: 'Style Editor',
     dialogue_specialist: 'Dialogue Specialist',
     expander: 'Expander',
+    outline_generator: 'Outline Generator',
+    style_extractor: 'Style Extractor',
+    scenebeat_generator: 'Scene Beat Generator',
     custom: 'Custom',
 };
 

@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 export default function AISettingsPage() {
     const [openaiKey, setOpenaiKey] = useState('');
     const [openrouterKey, setOpenrouterKey] = useState('');
+    const [nanogptKey, setNanogptKey] = useState('');
     const [openaiCompatibleKey, setOpenaiCompatibleKey] = useState('');
     const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState('');
     const [openaiCompatibleModelsRoute, setOpenaiCompatibleModelsRoute] = useState('');
@@ -20,6 +21,7 @@ export default function AISettingsPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
     const [openrouterModels, setOpenrouterModels] = useState<AIModel[]>([]);
+    const [nanogptModels, setNanogptModels] = useState<AIModel[]>([]);
     const [openaiCompatibleModels, setOpenaiCompatibleModels] = useState<AIModel[]>([]);
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
@@ -35,6 +37,7 @@ export default function AISettingsPage() {
             // Set the keys using the new getter methods
             const openaiKey = aiService.getOpenAIKey();
             const openrouterKey = aiService.getOpenRouterKey();
+            const nanogptKey = aiService.getNanoGPTKey();
             const openaiCompatibleKey = aiService.getOpenAICompatibleKey();
             const openaiCompatibleUrl = aiService.getOpenAICompatibleUrl();
             const openaiCompatibleModelsRoute = aiService.getOpenAICompatibleModelsRoute();
@@ -43,6 +46,7 @@ export default function AISettingsPage() {
             console.log('[AISettingsPage] Retrieved API keys and URL from service');
             if (openaiKey) setOpenaiKey(openaiKey);
             if (openrouterKey) setOpenrouterKey(openrouterKey);
+            if (nanogptKey) setNanogptKey(nanogptKey);
             if (openaiCompatibleKey) setOpenaiCompatibleKey(openaiCompatibleKey);
             if (openaiCompatibleUrl) setOpenaiCompatibleUrl(openaiCompatibleUrl);
             if (openaiCompatibleModelsRoute) setOpenaiCompatibleModelsRoute(openaiCompatibleModelsRoute);
@@ -56,12 +60,14 @@ export default function AISettingsPage() {
             const localModels = allModels.filter(m => m.provider === 'local');
             const openaiModels = allModels.filter(m => m.provider === 'openai');
             const openrouterModels = allModels.filter(m => m.provider === 'openrouter');
+            const nanogptModels = allModels.filter(m => m.provider === 'nanogpt');
             const openaiCompatibleModels = allModels.filter(m => m.provider === 'openai_compatible');
 
-            console.log(`[AISettingsPage] Filtered models - Local: ${localModels.length}, OpenAI: ${openaiModels.length}, OpenRouter: ${openrouterModels.length}`);
+            console.log(`[AISettingsPage] Filtered models - Local: ${localModels.length}, OpenAI: ${openaiModels.length}, OpenRouter: ${openrouterModels.length}, NanoGPT: ${nanogptModels.length}`);
 
             setOpenaiModels(openaiModels);
             setOpenrouterModels(openrouterModels);
+            setNanogptModels(nanogptModels);
             setOpenaiCompatibleModels(openaiCompatibleModels);
         } catch (error) {
             console.error('Error loading AI settings:', error);
@@ -69,7 +75,7 @@ export default function AISettingsPage() {
         }
     };
 
-    const handleKeyUpdate = async (provider: 'openai' | 'openrouter' | 'local' | 'openai_compatible', key: string) => {
+    const handleKeyUpdate = async (provider: 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible', key: string) => {
         if (provider !== 'local' && !key.trim()) return;
 
         setIsLoading(true);
@@ -86,6 +92,9 @@ export default function AISettingsPage() {
             } else if (provider === 'openrouter') {
                 setOpenrouterModels(models);
                 setOpenSections(prev => ({ ...prev, openrouter: true }));
+            } else if (provider === 'nanogpt') {
+                setNanogptModels(models);
+                setOpenSections(prev => ({ ...prev, nanogpt: true }));
             } else if (provider === 'openai_compatible') {
                 setOpenaiCompatibleModels(models);
                 setOpenSections(prev => ({ ...prev, openai_compatible: true }));
@@ -101,7 +110,7 @@ export default function AISettingsPage() {
                 setOpenSections(prev => ({ ...prev, local: true }));
             }
 
-            toast.success(`${provider === 'openai' ? 'OpenAI' : provider === 'openrouter' ? 'OpenRouter' : provider === 'openai_compatible' ? 'OpenAI-compatible' : 'Local'} models updated successfully`);
+            toast.success(`${provider === 'openai' ? 'OpenAI' : provider === 'openrouter' ? 'OpenRouter' : provider === 'nanogpt' ? 'NanoGPT' : provider === 'openai_compatible' ? 'OpenAI-compatible' : 'Local'} models updated successfully`);
         } catch (error) {
             toast.error(`Failed to update ${provider} models`);
         } finally {
@@ -109,7 +118,7 @@ export default function AISettingsPage() {
         }
     };
 
-    const handleRefreshModels = async (provider: 'openai' | 'openrouter' | 'local' | 'openai_compatible') => {
+    const handleRefreshModels = async (provider: 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible') => {
         setIsLoading(true);
         console.log(`[AISettingsPage] Refreshing models for provider: ${provider}`);
         try {
@@ -125,6 +134,10 @@ export default function AISettingsPage() {
                 case 'openrouter':
                     setOpenrouterModels(models);
                     setOpenSections(prev => ({ ...prev, openrouter: true }));
+                    break;
+                case 'nanogpt':
+                    setNanogptModels(models);
+                    setOpenSections(prev => ({ ...prev, nanogpt: true }));
                     break;
                 case 'openai_compatible':
                     setOpenaiCompatibleModels(models);
@@ -439,6 +452,65 @@ export default function AISettingsPage() {
                                     </CollapsibleTrigger>
                                     <CollapsibleContent className="mt-2 space-y-2">
                                         {openrouterModels.map(model => (
+                                            <div key={model.id} className="text-sm pl-6">
+                                                {model.name}
+                                            </div>
+                                        ))}
+                                    </CollapsibleContent>
+                                </Collapsible>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* NanoGPT Section */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex justify-between items-center">
+                                NanoGPT Configuration
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRefreshModels('nanogpt')}
+                                    disabled={isLoading || !nanogptKey.trim()}
+                                >
+                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Refresh Models'}
+                                </Button>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="nanogpt-key">NanoGPT API Key</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="nanogpt-key"
+                                        type="password"
+                                        placeholder="Enter your NanoGPT API key"
+                                        value={nanogptKey}
+                                        onChange={(e) => setNanogptKey(e.target.value)}
+                                    />
+                                    <Button
+                                        onClick={() => handleKeyUpdate('nanogpt', nanogptKey)}
+                                        disabled={isLoading || !nanogptKey.trim()}
+                                    >
+                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {nanogptModels.length > 0 && (
+                                <Collapsible
+                                    open={openSections.nanogpt}
+                                    onOpenChange={() => toggleSection('nanogpt')}
+                                >
+                                    <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                                        <ChevronRight className={cn(
+                                            "h-4 w-4 transition-transform",
+                                            openSections.nanogpt && "transform rotate-90"
+                                        )} />
+                                        Available Models
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="mt-2 space-y-2">
+                                        {nanogptModels.map(model => (
                                             <div key={model.id} className="text-sm pl-6">
                                                 {model.name}
                                             </div>

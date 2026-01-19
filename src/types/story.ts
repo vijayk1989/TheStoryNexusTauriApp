@@ -112,7 +112,7 @@ export interface Template extends BaseEntity {
 }
 
 // AI Provider and Model types
-export type AIProvider = 'openai' | 'openrouter' | 'local' | 'openai_compatible';
+export type AIProvider = 'openai' | 'openrouter' | 'local' | 'openai_compatible' | 'nanogpt';
 
 export interface AIModel {
     id: string;
@@ -125,6 +125,7 @@ export interface AIModel {
 export interface AISettings extends BaseEntity {
     openaiKey?: string;
     openrouterKey?: string;
+    nanogptKey?: string;
     // OpenAI-compatible provider (custom URL + key)
     openaiCompatibleKey?: string;
     openaiCompatibleUrl?: string;
@@ -132,6 +133,7 @@ export interface AISettings extends BaseEntity {
     availableModels: AIModel[];
     lastModelsFetch?: Date;
     localApiUrl?: string;
+    favoriteModelIds?: string[]; // User's favorited model IDs
 }
 
 // Note types
@@ -227,7 +229,106 @@ export type AgentRole =
     | 'style_editor'       // Refines prose style/tone
     | 'dialogue_specialist' // Improves dialogue authenticity
     | 'expander'           // Expands brief notes into full prose
+    | 'outline_generator'  // Generates story/chapter outlines
+    | 'style_extractor'    // Extracts writing style from sample text
+    | 'scenebeat_generator' // Generates scene beat commands
     | 'custom';            // User-defined agent role
+
+// Context configuration for agents - controls what data is sent to the LLM
+export type LorebookMode = 'matched' | 'all' | 'none' | 'custom';
+export type PreviousWordsMode = 'full' | 'limited' | 'summarized' | 'none';
+
+export interface AgentContextConfig {
+    // Lorebook handling
+    lorebookMode: LorebookMode;
+    lorebookLimit?: number;                    // Max entries to include (for 'all' mode)
+    lorebookCategories?: string[];             // Filter by category (optional)
+    customLorebookEntryIds?: string[];         // Specific entries to include (for 'custom' mode)
+    
+    // Previous words handling
+    previousWordsMode: PreviousWordsMode;
+    previousWordsLimit?: number;               // Character limit when mode is 'limited'
+    
+    // Additional context toggles
+    includeChapterSummary?: boolean;
+    includePovInfo?: boolean;
+}
+
+// Default context configs by role
+export const DEFAULT_CONTEXT_CONFIG: Record<AgentRole, AgentContextConfig> = {
+    summarizer: {
+        lorebookMode: 'none',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    prose_writer: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 3000,
+        includeChapterSummary: true,
+        includePovInfo: true,
+    },
+    lore_judge: {
+        lorebookMode: 'all',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    continuity_checker: {
+        lorebookMode: 'none',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 2000,
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    style_editor: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    dialogue_specialist: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    expander: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 1000,
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    custom: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 2000,
+        includeChapterSummary: true,
+        includePovInfo: true,
+    },
+    outline_generator: {
+        lorebookMode: 'all',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 2000,
+        includeChapterSummary: true,
+        includePovInfo: true,
+    },
+    style_extractor: {
+        lorebookMode: 'none',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    scenebeat_generator: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 3000,
+        includeChapterSummary: true,
+        includePovInfo: true,
+    },
+};
 
 export interface AgentPreset extends BaseEntity {
     name: string;
@@ -240,6 +341,8 @@ export interface AgentPreset extends BaseEntity {
     isSystem?: boolean;
     // Optional: track which story this preset belongs to (null = global)
     storyId?: string | null;
+    // Context configuration - controls what data is sent to the LLM
+    contextConfig?: AgentContextConfig;
 }
 
 export interface PipelineStep {

@@ -4,7 +4,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -12,10 +11,11 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Clock, MessageSquare, Bot, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clock, MessageSquare, Bot, CheckCircle2, XCircle, AlertTriangle, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import type { AgentResult, PromptMessage } from '@/types/story';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface PipelineDiagnosticsDialogProps {
     open: boolean;
@@ -43,12 +43,62 @@ function getStatusIcon(result: AgentResult) {
     return <CheckCircle2 className="h-4 w-4 text-green-500" />;
 }
 
+function CopyButton({ text }: { text: string }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={handleCopy}
+            title="Copy to clipboard"
+        >
+            {copied ? (
+                <Check className="h-3 w-3 text-green-500" />
+            ) : (
+                <Copy className="h-3 w-3" />
+            )}
+        </Button>
+    );
+}
+
+function ContentBox({ title, icon: Icon, content }: { title: string; icon: typeof MessageSquare; content: string }) {
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Icon className="h-4 w-4" />
+                    {title}
+                </div>
+                <CopyButton text={content} />
+            </div>
+            <div className="h-[300px] w-full rounded-md border bg-muted/30 overflow-y-auto overflow-x-hidden">
+                <pre className="p-3 text-xs whitespace-pre-wrap font-mono break-words">
+                    {content || 'No data available'}
+                </pre>
+            </div>
+        </div>
+    );
+}
+
 function StepSection({ result, index }: { result: AgentResult; index: number }) {
     const [isOpen, setIsOpen] = useState(index === 0); // First step open by default
 
+    const promptContent = result.promptSent 
+        ? formatMessages(result.promptSent)
+        : 'No prompt data available';
+
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <CollapsibleTrigger className="w-full">
+            <CollapsibleTrigger className="w-full text-left">
                 <div className={cn(
                     "flex items-center gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors",
                     isOpen && "bg-accent/30"
@@ -85,38 +135,20 @@ function StepSection({ result, index }: { result: AgentResult; index: number }) 
             </CollapsibleTrigger>
 
             <CollapsibleContent>
-                <div className="px-3 pb-3 space-y-4">
+                <div className="px-3 pb-3 pt-2 space-y-4">
                     {/* Prompt Sent Section */}
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                            <MessageSquare className="h-4 w-4" />
-                            Prompt Sent
-                        </div>
-                        <div className="relative">
-                            <ScrollArea className="h-[300px] w-full rounded-md border bg-muted/30">
-                                <pre className="p-3 text-xs whitespace-pre-wrap font-mono">
-                                    {result.promptSent 
-                                        ? formatMessages(result.promptSent)
-                                        : 'No prompt data available'}
-                                </pre>
-                            </ScrollArea>
-                        </div>
-                    </div>
+                    <ContentBox 
+                        title="Prompt Sent" 
+                        icon={MessageSquare} 
+                        content={promptContent}
+                    />
 
                     {/* Response Received Section */}
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                            <Bot className="h-4 w-4" />
-                            Response Received
-                        </div>
-                        <div className="relative">
-                            <ScrollArea className="h-[300px] w-full rounded-md border bg-muted/30">
-                                <pre className="p-3 text-xs whitespace-pre-wrap font-mono">
-                                    {result.output || 'No output'}
-                                </pre>
-                            </ScrollArea>
-                        </div>
-                    </div>
+                    <ContentBox 
+                        title="Response Received" 
+                        icon={Bot} 
+                        content={result.output || 'No output'}
+                    />
 
                     {/* Error if present */}
                     {result.metadata?.error && (
@@ -151,8 +183,8 @@ export function PipelineDiagnosticsDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-                <DialogHeader>
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 gap-0">
+                <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
                     <DialogTitle className="flex items-center gap-3">
                         <Bot className="h-5 w-5" />
                         Pipeline Diagnostics
@@ -163,7 +195,7 @@ export function PipelineDiagnosticsDialog({
                 </DialogHeader>
 
                 {/* Summary Bar */}
-                <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 text-sm">
+                <div className="flex items-center gap-4 px-6 py-3 bg-muted/50 text-sm border-b flex-shrink-0">
                     <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">Steps:</span>
                         <span className="font-medium">{results.length}</span>
@@ -187,9 +219,9 @@ export function PipelineDiagnosticsDialog({
                     </div>
                 </div>
 
-                {/* Steps List */}
-                <ScrollArea className="flex-1 min-h-0">
-                    <div className="space-y-2 pr-4">
+                {/* Steps List - Main scrollable area */}
+                <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4">
+                    <div className="space-y-2">
                         {results.length === 0 ? (
                             <div className="text-center py-8 text-muted-foreground">
                                 No pipeline results to display
@@ -204,7 +236,7 @@ export function PipelineDiagnosticsDialog({
                             ))
                         )}
                     </div>
-                </ScrollArea>
+                </div>
             </DialogContent>
         </Dialog>
     );

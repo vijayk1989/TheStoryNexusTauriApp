@@ -8,7 +8,9 @@ import {
     AgentRole,
     PipelinePreset,
     PipelineExecution,
-    Chapter
+    Chapter,
+    AgentContextConfig,
+    DEFAULT_CONTEXT_CONFIG
 } from '@/types/story';
 import { db } from '../database';
 
@@ -259,67 +261,151 @@ export class AgentOrchestrator {
 
         const userMessage: PromptMessage = {
             role: 'user',
-            content: this.buildUserMessage(agent.role, input, previousResults, isRevision)
+            content: this.buildUserMessage(agent, input, previousResults, isRevision)
         };
 
         return [systemMessage, userMessage];
     }
 
     /**
+     * Get the effective context config for an agent (with defaults)
+     */
+    private getEffectiveContextConfig(agent: AgentPreset): AgentContextConfig {
+        const defaultConfig = DEFAULT_CONTEXT_CONFIG[agent.role];
+        return {
+            ...defaultConfig,
+            ...agent.contextConfig,
+        };
+    }
+
+    /**
+     * Get lorebook entries based on agent's context config
+     */
+    private getLorebookForAgent(agent: AgentPreset, input: PipelineInput): LorebookEntry[] {
+        const config = this.getEffectiveContextConfig(agent);
+        
+        switch (config.lorebookMode) {
+            case 'none':
+                return [];
+            
+            case 'all': {
+                let entries = input.allLorebookEntries || input.lorebookEntries || [];
+                // Apply limit if specified
+                if (config.lorebookLimit && entries.length > config.lorebookLimit) {
+                    entries = entries.slice(0, config.lorebookLimit);
+                }
+                return entries;
+            }
+            
+            case 'custom': {
+                if (!config.customLorebookEntryIds || config.customLorebookEntryIds.length === 0) {
+                    return [];
+                }
+                const allEntries = input.allLorebookEntries || input.lorebookEntries || [];
+                return allEntries.filter(e => config.customLorebookEntryIds!.includes(e.id));
+            }
+            
+            case 'matched':
+            default:
+                return input.lorebookEntries || [];
+        }
+    }
+
+    /**
+     * Get previous words based on agent's context config
+     */
+    private getPreviousWordsForAgent(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
+        const config = this.getEffectiveContextConfig(agent);
+        
+        switch (config.previousWordsMode) {
+            case 'none':
+                return '';
+            
+            case 'summarized': {
+                // Use summarizer output if available, otherwise fall back to limited
+                const summary = previousResults.find(r => r.role === 'summarizer')?.output;
+                if (summary) return summary;
+                // Fall through to limited if no summary
+                const limit = config.previousWordsLimit || 3000;
+                return input.previousWords?.slice(-limit) || '';
+            }
+            
+            case 'limited': {
+                const limit = config.previousWordsLimit || 3000;
+                return input.previousWords?.slice(-limit) || '';
+            }
+            
+            case 'full':
+            default:
+                return input.previousWords || '';
+        }
+    }
+
+    /**
      * Build the user message based on agent role
      */
     private buildUserMessage(
-        role: AgentRole,
+        agent: AgentPreset,
         input: PipelineInput,
         previousResults: AgentResult[],
         isRevision?: boolean
     ): string {
-        switch (role) {
+        switch (agent.role) {
             case 'summarizer':
-                return this.buildSummarizerMessage(input);
+                return this.buildSummarizerMessage(agent, input);
 
             case 'prose_writer':
-                return this.buildProseWriterMessage(input, previousResults, isRevision);
+                return this.buildProseWriterMessage(agent, input, previousResults, isRevision);
 
             case 'lore_judge':
-                return this.buildLoreJudgeMessage(input, previousResults);
+                return this.buildLoreJudgeMessage(agent, input, previousResults);
 
             case 'continuity_checker':
-                return this.buildContinuityCheckerMessage(input, previousResults);
+                return this.buildContinuityCheckerMessage(agent, input, previousResults);
 
             case 'style_editor':
-                return this.buildStyleEditorMessage(previousResults);
+                return this.buildStyleEditorMessage(agent, previousResults);
 
             case 'dialogue_specialist':
-                return this.buildDialogueSpecialistMessage(previousResults);
+                return this.buildDialogueSpecialistMessage(agent, previousResults);
 
             case 'expander':
-                return this.buildExpanderMessage(input, previousResults);
+                return this.buildExpanderMessage(agent, input, previousResults);
+
+            case 'outline_generator':
+                return this.buildOutlineGeneratorMessage(agent, input, previousResults);
+
+            case 'style_extractor':
+                return this.buildStyleExtractorMessage(agent, input, previousResults);
+
+            case 'scenebeat_generator':
+                return this.buildScenebeatGeneratorMessage(agent, input, previousResults);
 
             case 'custom':
             default:
-                return this.buildCustomMessage(input, previousResults);
+                return this.buildCustomMessage(agent, input, previousResults);
         }
     }
 
-    private buildSummarizerMessage(input: PipelineInput): string {
+    private buildSummarizerMessage(agent: AgentPreset, input: PipelineInput): string {
+        // Summarizer always uses full previous words (that's what it's summarizing)
         const text = input.previousWords || '';
         return `Summarize the following text while preserving key narrative details, character emotions, and plot points. Reduce to approximately 1000 words:\n\n${text}`;
     }
 
-    private buildProseWriterMessage(input: PipelineInput, previousResults: AgentResult[], isRevision?: boolean): string {
+    private buildProseWriterMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[], isRevision?: boolean): string {
         // Check if we're in revision mode (rewriting based on feedback)
         if (isRevision) {
-            return this.buildRevisionMessage(input, previousResults);
+            return this.buildRevisionMessage(agent, input, previousResults);
         }
 
-        const summary = previousResults.find(r => r.role === 'summarizer')?.output;
-        const contextText = summary ?? (input.previousWords?.slice(-3000) || '');
+        const config = this.getEffectiveContextConfig(agent);
+        const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
 
-        // Build compact lorebook context
-        const lorebookContext = input.lorebookEntries
-            ?.slice(0, 5)
-            .map(e => `• ${e.name}: ${e.description?.slice(0, 200)}...`)
+        // Build lorebook context with full descriptions
+        const lorebookContext = lorebookEntries
+            .map(e => `• ${e.name}: ${e.description}`)
             .join('\n') || '';
 
         let message = '';
@@ -328,7 +414,7 @@ export class AgentOrchestrator {
             message += `RELEVANT LORE:\n${lorebookContext}\n\n`;
         }
 
-        if (input.povType) {
+        if (config.includePovInfo && input.povType) {
             message += `POV: ${input.povType}`;
             if (input.povCharacter) {
                 message += ` (${input.povCharacter})`;
@@ -336,7 +422,14 @@ export class AgentOrchestrator {
             message += '\n\n';
         }
 
-        message += `STORY CONTEXT:\n${contextText}\n\n`;
+        if (config.includeChapterSummary && input.currentChapter?.summary) {
+            message += `CHAPTER SUMMARY:\n${input.currentChapter.summary}\n\n`;
+        }
+
+        if (contextText) {
+            message += `STORY CONTEXT:\n${contextText}\n\n`;
+        }
+
         message += `---\nSCENE BEAT INSTRUCTION:\n${input.scenebeat || ''}\n\nContinue the story:`;
 
         return message;
@@ -345,7 +438,9 @@ export class AgentOrchestrator {
     /**
      * Build a revision message that includes the original prose and feedback
      */
-    private buildRevisionMessage(input: PipelineInput, previousResults: AgentResult[]): string {
+    private buildRevisionMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+
         // Find the original prose output
         const proseResults = previousResults.filter(r => r.role === 'prose_writer');
         const originalProse = proseResults[proseResults.length - 1]?.output || '';
@@ -358,10 +453,9 @@ export class AgentOrchestrator {
             .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)
             .join('\n\n');
 
-        // Build lorebook context for reference
-        const lorebookContext = input.lorebookEntries
-            ?.slice(0, 5)
-            .map(e => `• ${e.name}: ${e.description?.slice(0, 200)}...`)
+        // Build lorebook context for reference (full descriptions)
+        const lorebookContext = lorebookEntries
+            .map(e => `• ${e.name}: ${e.description}`)
             .join('\n') || '';
 
         let message = 'You need to REVISE the following prose based on the feedback provided.\n\n';
@@ -378,10 +472,12 @@ export class AgentOrchestrator {
         return message;
     }
 
-    private buildLoreJudgeMessage(input: PipelineInput, previousResults: AgentResult[]): string {
+    private buildLoreJudgeMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
         const proseOutput = previousResults.find(r => r.role === 'prose_writer')?.output || '';
-        const lorebookContext = input.lorebookEntries
-            ?.map(e => `[${e.category?.toUpperCase()}] ${e.name}:\n${e.description}`)
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        
+        const lorebookContext = lorebookEntries
+            .map(e => `[${e.category?.toUpperCase()}] ${e.name}:\n${e.description}`)
             .join('\n\n') || '';
 
         return `Check the following prose for consistency with the established lore.
@@ -395,9 +491,9 @@ ${proseOutput}
 List any inconsistencies found. If everything is consistent, respond with just: CONSISTENT`;
     }
 
-    private buildContinuityCheckerMessage(input: PipelineInput, previousResults: AgentResult[]): string {
+    private buildContinuityCheckerMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
         const proseOutput = previousResults.find(r => r.role === 'prose_writer')?.output || '';
-        const contextText = input.previousWords?.slice(-2000) || '';
+        const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
 
         return `Check the following new prose for plot and character continuity with the previous context.
 
@@ -410,7 +506,7 @@ ${proseOutput}
 List any continuity issues (timeline inconsistencies, character behavior changes, forgotten plot points). If consistent, respond with: CONSISTENT`;
     }
 
-    private buildStyleEditorMessage(previousResults: AgentResult[]): string {
+    private buildStyleEditorMessage(agent: AgentPreset, previousResults: AgentResult[]): string {
         const proseOutput = previousResults.find(r => r.role === 'prose_writer')?.output || '';
 
         return `Review and polish the following prose for style, flow, and readability. Maintain the author's voice while improving clarity and impact.
@@ -421,7 +517,7 @@ ${proseOutput}
 Provide the edited version:`;
     }
 
-    private buildDialogueSpecialistMessage(previousResults: AgentResult[]): string {
+    private buildDialogueSpecialistMessage(agent: AgentPreset, previousResults: AgentResult[]): string {
         const proseOutput = previousResults.find(r => r.role === 'prose_writer' || r.role === 'style_editor')?.output || '';
 
         return `Review and improve the dialogue in the following prose. Make conversations feel more natural, give each character a distinct voice, and ensure dialogue tags are varied and appropriate.
@@ -432,26 +528,156 @@ ${proseOutput}
 Provide the improved version:`;
     }
 
-    private buildExpanderMessage(input: PipelineInput, previousResults: AgentResult[]): string {
+    private buildExpanderMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
+        const config = this.getEffectiveContextConfig(agent);
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
         const briefNotes = input.scenebeat || '';
 
-        return `Expand the following brief notes/outline into detailed prose:
+        let message = '';
 
-NOTES:
-${briefNotes}
+        // Add lorebook context if available
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => `• ${e.name}: ${e.description}`)
+                .join('\n');
+            message += `RELEVANT LORE:\n${lorebookContext}\n\n`;
+        }
 
-Write a fully expanded scene:`;
+        // Add POV info if configured
+        if (config.includePovInfo && input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) {
+                message += ` (${input.povCharacter})`;
+            }
+            message += '\n\n';
+        }
+
+        // Add previous context if available
+        if (contextText) {
+            message += `PREVIOUS CONTEXT:\n${contextText}\n\n`;
+        }
+
+        message += `Expand the following brief notes/outline into detailed prose:\n\nNOTES:\n${briefNotes}\n\nWrite a fully expanded scene:`;
+
+        return message;
     }
 
-    private buildCustomMessage(input: PipelineInput, previousResults: AgentResult[]): string {
-        // For custom agents, just pass through available context
+    private buildCustomMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
+        const config = this.getEffectiveContextConfig(agent);
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
+        
+        // For custom agents, build a flexible context
         const lastOutput = previousResults[previousResults.length - 1]?.output || '';
         const scenebeat = input.scenebeat || '';
 
-        if (lastOutput) {
-            return `Previous output:\n${lastOutput}\n\nInstruction: ${scenebeat}`;
+        let message = '';
+
+        // Add lorebook if configured
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => `• ${e.name}: ${e.description}`)
+                .join('\n');
+            message += `LORE CONTEXT:\n${lorebookContext}\n\n`;
         }
-        return scenebeat || 'Process the input as instructed.';
+
+        // Add previous text context if configured
+        if (contextText) {
+            message += `STORY CONTEXT:\n${contextText}\n\n`;
+        }
+
+        // Add previous agent output if available
+        if (lastOutput) {
+            message += `PREVIOUS OUTPUT:\n${lastOutput}\n\n`;
+        }
+
+        message += `INSTRUCTION:\n${scenebeat || 'Process the input as instructed.'}`;
+
+        return message;
+    }
+
+    private buildOutlineGeneratorMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
+        const config = this.getEffectiveContextConfig(agent);
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
+        
+        let message = '';
+
+        // Add lorebook context if available
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => `[${e.category?.toUpperCase()}] ${e.name}: ${e.description}`)
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        // Add chapter summary if configured
+        if (config.includeChapterSummary && input.currentChapter?.summary) {
+            message += `CURRENT CHAPTER SUMMARY:\n${input.currentChapter.summary}\n\n`;
+        }
+
+        // Add story context if available
+        if (contextText) {
+            message += `STORY SO FAR:\n${contextText}\n\n`;
+        }
+
+        // Add the user's request
+        const request = input.scenebeat || 'Generate an outline for the next chapter.';
+        message += `---\nOUTLINE REQUEST:\n${request}\n\nGenerate a detailed outline:`;
+
+        return message;
+    }
+
+    private buildStyleExtractorMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
+        // Style extractor primarily uses chapter content passed via previousWords or customData
+        const sampleText = input.previousWords || (input.customData?.sampleText as string) || '';
+        
+        if (!sampleText) {
+            return 'No text provided for style analysis. Please provide sample chapters or text to analyze.';
+        }
+
+        let message = `Analyze the following text and extract the author's writing style.\n\n`;
+        message += `TEXT TO ANALYZE:\n${sampleText}\n\n`;
+        message += `---\nProvide a comprehensive style guide based on this text:`;
+
+        return message;
+    }
+
+    private buildScenebeatGeneratorMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
+        const config = this.getEffectiveContextConfig(agent);
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
+        
+        let message = '';
+
+        // Add lorebook context if available
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => `• ${e.name}: ${e.description}`)
+                .join('\n');
+            message += `RELEVANT CHARACTERS & LORE:\n${lorebookContext}\n\n`;
+        }
+
+        // Add POV info if configured
+        if (config.includePovInfo && input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) {
+                message += ` (${input.povCharacter})`;
+            }
+            message += '\n\n';
+        }
+
+        // Add story context
+        if (contextText) {
+            message += `RECENT STORY CONTEXT:\n${contextText}\n\n`;
+        }
+
+        // Add the user's request
+        const request = input.scenebeat || 'Generate scene beats for the next section.';
+        message += `---\nREQUEST:\n${request}\n\nGenerate a list of scene beats:`;
+
+        return message;
     }
 
     /**

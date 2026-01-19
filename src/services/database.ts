@@ -47,6 +47,22 @@ export class StoryDatabase extends Dexie {
             pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
         });
 
+        // Version 14: AgentPreset now has contextConfig field (no schema index change needed)
+        this.version(14).stores({
+            stories: 'id, title, createdAt, language, isDemo',
+            chapters: 'id, storyId, order, createdAt, isDemo',
+            aiChats: 'id, storyId, createdAt, isDemo',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
+            templates: 'id, name, templateType, storyId, createdAt, isSystem',
+            aiSettings: 'id, lastModelsFetch',
+            lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
+            sceneBeats: 'id, storyId, chapterId',
+            notes: 'id, storyId, title, type, createdAt, updatedAt',
+            agentPresets: 'id, name, role, storyId, createdAt, isSystem',
+            pipelinePresets: 'id, name, storyId, createdAt, isSystem',
+            pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
+        });
+
         this.on('populate', async () => {
             console.log('Populating database with initial data...');
 

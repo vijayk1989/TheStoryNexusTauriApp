@@ -36,6 +36,9 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     style_editor: 'Style Editor',
     dialogue_specialist: 'Dialogue Specialist',
     expander: 'Expander',
+    outline_generator: 'Outline Generator',
+    style_extractor: 'Style Extractor',
+    scenebeat_generator: 'Scene Beat Generator',
     custom: 'Custom',
 };
 

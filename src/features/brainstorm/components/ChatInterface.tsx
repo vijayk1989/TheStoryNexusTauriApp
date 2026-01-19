@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit } from "lucide-react";
+import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit, Bot, Activity } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -19,6 +19,7 @@ import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
 import { useBrainstormStore } from "../stores/useBrainstormStore";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
+import { useAgenticGeneration } from "@/features/agents/hooks/useAgenticGeneration";
 import { db } from "@/services/database";
 import MarkdownRenderer from "./MarkdownRenderer";
 import parseLorebookJson from "@/features/brainstorm/utils/parseLorebookJson";
@@ -32,6 +33,8 @@ import {
   PromptParserConfig,
   PromptMessage,
   Chapter,
+  PipelinePreset,
+  AgentResult,
 } from "@/types/story";
 import { createPromptParser } from "@/features/prompts/services/promptParser";
 import {
@@ -85,6 +88,14 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     string[]
   >([]);
 
+  // Agentic mode state
+  const [agenticMode, setAgenticMode] = useState(false);
+  const [selectedPipeline, setSelectedPipeline] = useState<PipelinePreset | null>(null);
+  const [availablePipelines, setAvailablePipelines] = useState<PipelinePreset[]>([]);
+  const [agenticStepResults, setAgenticStepResults] = useState<AgentResult[]>([]);
+  const [showAgenticProgress, setShowAgenticProgress] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
   // Get stores
   const { loadEntries, entries: lorebookEntries } = useLorebookStore();
   const {
@@ -110,6 +121,18 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   } = useBrainstormStore();
   const { setMessageEdited } = useBrainstormStore();
   const { fetchChapters } = useChapterStore();
+
+  // Agentic generation hook
+  const {
+    isGenerating: isAgenticGenerating,
+    currentStep,
+    currentAgentName,
+    stepResults,
+    error: agenticError,
+    generateWithPipeline,
+    abortGeneration: abortAgenticGeneration,
+    getAvailablePipelines,
+  } = useAgenticGeneration();
 
   // State for AI
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
@@ -223,6 +246,22 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Load available pipelines when agentic mode is enabled
+  useEffect(() => {
+    if (agenticMode) {
+      getAvailablePipelines().then((pipelines) => {
+        setAvailablePipelines(pipelines);
+        // Auto-select first pipeline if none selected
+        if (pipelines.length > 0 && !selectedPipeline) {
+          setSelectedPipeline(pipelines[0]);
+        }
+      }).catch((error) => {
+        console.error("Error loading pipelines:", error);
+        toast.error("Failed to load AI pipelines");
+      });
+    }
+  }, [agenticMode, getAvailablePipelines, selectedPipeline]);
 
   // Get filtered entries based on enabled categories
   const getFilteredEntries = () => {
@@ -468,6 +507,139 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         error instanceof Error ? error.message : "An unknown error occurred"
       );
       setIsGenerating(false);
+    }
+  };
+
+  // Handle agentic submit using multi-agent pipeline
+  const handleAgenticSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || !selectedPipeline || isGenerating || isAgenticGenerating) return;
+
+    setAgenticStepResults([]);
+    setShowAgenticProgress(true);
+
+    try {
+      clearDraftMessage();
+
+      const userMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: input.trim(),
+        timestamp: new Date(),
+      };
+
+      const newMessages = [...messages, userMessage];
+      setMessages(newMessages);
+
+      // Create or update chat
+      let chatId = currentChatId;
+      if (!chatId) {
+        const newTitle = userMessage.content.substring(0, 40) + (userMessage.content.length > 40 ? '...' : '');
+        chatId = await addChat(storyId, newTitle, newMessages);
+        setCurrentChatId(chatId);
+      } else {
+        await updateChat(chatId, { messages: newMessages });
+      }
+
+      // Gather context for the pipeline
+      const matchedEntries = includeFullContext
+        ? getFilteredEntries()
+        : selectedItems;
+      
+      // Gather chapter content as previous words for context
+      let previousWords = "";
+      if (selectedChapterContent.length > 0) {
+        const chapterContents = await Promise.all(
+          selectedChapterContent.map(async (chapterId) => {
+            const chapter = chapters.find((c) => c.id === chapterId);
+            if (chapter) {
+              return `## ${chapter.title}\n${chapter.content || ""}`;
+            }
+            return "";
+          })
+        );
+        previousWords = chapterContents.filter(Boolean).join("\n\n");
+      }
+
+      // Create assistant message placeholder
+      const assistantMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+      setStreamingMessageId(assistantMessage.id);
+
+      let fullResponse = "";
+
+      const result = await generateWithPipeline(
+        selectedPipeline.id,
+        {
+          scenebeat: input.trim(),
+          previousWords,
+          matchedEntries,
+          allEntries: getFilteredEntries(),
+        },
+        {
+          onStepStart: (stepIndex, agentName) => {
+            console.log(`[Agentic Brainstorm] Step ${stepIndex + 1}: ${agentName}`);
+          },
+          onStepComplete: (stepResult, stepIndex) => {
+            console.log(`[Agentic Brainstorm] Step ${stepIndex + 1} complete:`, stepResult.role);
+            setAgenticStepResults((prev) => [...prev, stepResult]);
+          },
+          onToken: (token) => {
+            fullResponse += token;
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessage.id
+                  ? { ...msg, content: fullResponse }
+                  : msg
+              )
+            );
+          },
+          onComplete: async (pipelineResult) => {
+            console.log("[Agentic Brainstorm] Pipeline complete:", pipelineResult.status);
+            setStreamingMessageId(null);
+            
+            // Use the final output from the pipeline
+            const finalContent = pipelineResult.proseOutput || pipelineResult.finalOutput || fullResponse;
+            
+            // Update the chat with the final message
+            await updateChat(chatId, {
+              messages: [...newMessages, { ...assistantMessage, content: finalContent }],
+            });
+
+            // Update local state
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessage.id
+                  ? { ...msg, content: finalContent }
+                  : msg
+              )
+            );
+          },
+          onError: (error) => {
+            console.error("[Agentic Brainstorm] Pipeline error:", error);
+            setPreviewError(error.message);
+            setStreamingMessageId(null);
+          },
+        }
+      );
+
+      if (!result) {
+        setStreamingMessageId(null);
+      }
+
+      setInput("");
+    } catch (error) {
+      console.error("Error during agentic generation:", error);
+      setPreviewError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
+      setStreamingMessageId(null);
     }
   };
 
@@ -1085,6 +1257,87 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
       {/* Input area */}
       <div className="border-t p-4">
         <div className="flex flex-col gap-2">
+          {/* Agentic mode toggle and pipeline selector */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Bot className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Agentic Mode</span>
+                <Switch
+                  checked={agenticMode}
+                  onCheckedChange={setAgenticMode}
+                  className="data-[state=checked]:bg-primary"
+                />
+              </div>
+              {agenticMode && availablePipelines.length > 0 && (
+                <Select
+                  value={selectedPipeline?.id || ""}
+                  onValueChange={(value) => {
+                    const pipeline = availablePipelines.find((p) => p.id === value);
+                    setSelectedPipeline(pipeline || null);
+                  }}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Select pipeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePipelines.map((pipeline) => (
+                      <SelectItem key={pipeline.id} value={pipeline.id}>
+                        {pipeline.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            {agenticMode && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDiagnostics(!showDiagnostics)}
+                className={cn(showDiagnostics && "bg-muted")}
+              >
+                <Activity className="h-4 w-4 mr-1" />
+                Diagnostics
+              </Button>
+            )}
+          </div>
+
+          {/* Agentic progress display */}
+          {agenticMode && showAgenticProgress && isAgenticGenerating && (
+            <div className="mb-2 p-2 bg-muted/50 rounded-md">
+              <div className="flex items-center gap-2 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>
+                  Step {currentStep + 1}: {currentAgentName || "Initializing..."}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Agentic diagnostics panel */}
+          {agenticMode && showDiagnostics && agenticStepResults.length > 0 && (
+            <div className="mb-2 p-3 bg-muted/30 rounded-md border">
+              <div className="text-sm font-medium mb-2">Pipeline Execution Log</div>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {agenticStepResults.map((result, index) => (
+                  <div key={index} className="text-xs p-2 bg-background rounded border">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium">{result.role}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {result.tokensUsed?.toLocaleString() || 0} tokens
+                      </Badge>
+                    </div>
+                    <div className="text-muted-foreground truncate">
+                      {result.output.substring(0, 100)}
+                      {result.output.length > 100 && "..."}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex-1">
             <Textarea
               placeholder="Type your message..."
@@ -1095,21 +1348,27 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  handleSubmit(e);
+                  if (agenticMode) {
+                    handleAgenticSubmit(e);
+                  } else {
+                    handleSubmit(e);
+                  }
                 }
               }}
             />
           </div>
           <div className="flex gap-2">
-            <PromptSelectMenu
-              isLoading={promptsLoading}
-              error={promptsError}
-              prompts={prompts}
-              promptType="brainstorm"
-              selectedPrompt={selectedPrompt}
-              selectedModel={selectedModel}
-              onSelect={handlePromptSelect}
-            />
+            {!agenticMode && (
+              <PromptSelectMenu
+                isLoading={promptsLoading}
+                error={promptsError}
+                prompts={prompts}
+                promptType="brainstorm"
+                selectedPrompt={selectedPrompt}
+                selectedModel={selectedModel}
+                onSelect={handlePromptSelect}
+              />
+            )}
             {/* Small Select dropdown to insert helper templates */}
             <div className="ml-2">
               <Select
@@ -1185,7 +1444,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 </SelectContent>
               </Select>
             </div>
-            {selectedPrompt && (
+            {!agenticMode && selectedPrompt && (
               <>
                 <Button
                   variant="outline"
@@ -1197,12 +1456,16 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
               </>
             )}
             <div className="flex gap-2">
-              {isGenerating ? (
+              {isGenerating || isAgenticGenerating ? (
                 <Button
                   variant="destructive"
                   onClick={() => {
                     console.log("Stop button clicked");
-                    abortGeneration();
+                    if (agenticMode) {
+                      abortAgenticGeneration();
+                    } else {
+                      abortGeneration();
+                    }
                   }}
                   className="mb-[3px]"
                 >
@@ -1214,10 +1477,15 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                   type="submit"
                   disabled={
                     !input.trim() ||
-                    !selectedPrompt ||
-                    !selectedModel
+                    (agenticMode ? !selectedPipeline : (!selectedPrompt || !selectedModel))
                   }
-                  onClick={handleSubmit}
+                  onClick={(e) => {
+                    if (agenticMode) {
+                      handleAgenticSubmit(e);
+                    } else {
+                      handleSubmit(e);
+                    }
+                  }}
                   className="mb-[3px]"
                 >
                   <Send className="h-4 w-4" />

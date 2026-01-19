@@ -893,7 +893,6 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                   generatedContent: contentToSave,
                   accepted: false,
                   metadata: {
-                    ...currentChapter?.metadata,
                     agenticPipelineId: selectedPipeline.id,
                     agenticResults: pipelineResult.steps,
                   },

@@ -7,6 +7,7 @@ export class AIService {
     private settings: AISettings | null = null;
     private readonly LOCAL_API_URL = 'http://localhost:1234/v1';
     private openRouter: OpenAI | null = null;
+    private nanoGPT: OpenAI | null = null;
     private openAI: OpenAI | null = null;
     private openAICompatibleUrl: string | null = null;
     private openAICompatibleKey: string | null = null;
@@ -28,6 +29,7 @@ export class AIService {
         // Initialize provider clients/values based on loaded settings
         this.initializeOpenAI();
         this.initializeOpenRouter();
+        this.initializeNanoGPT();
         this.initializeOpenAICompatible();
     }
 
@@ -96,6 +98,20 @@ export class AIService {
         });
     }
 
+    private initializeNanoGPT() {
+        if (!this.settings?.nanogptKey) return;
+
+        this.nanoGPT = new OpenAI({
+            baseURL: 'https://nano-gpt.com/api/v1',
+            apiKey: this.settings.nanogptKey,
+            dangerouslyAllowBrowser: true,
+            defaultHeaders: {
+                'HTTP-Referer': 'http://localhost:5173',
+                'X-Title': 'Story Forge Desktop',
+            }
+        });
+    }
+
     private initializeOpenAICompatible() {
         if (!this.settings?.openaiCompatibleKey || !this.settings?.openaiCompatibleUrl) return;
 
@@ -120,8 +136,9 @@ export class AIService {
         console.log(`[AIService] Updating key for provider: ${provider}`);
         const update: Partial<AISettings> = {
             ...(provider === 'openai' && { openaiKey: key }),
-            ...(provider === 'openrouter' && { openrouterKey: key })
-            , ...(provider === 'openai_compatible' && { openaiCompatibleKey: key })
+            ...(provider === 'openrouter' && { openrouterKey: key }),
+            ...(provider === 'nanogpt' && { nanogptKey: key }),
+            ...(provider === 'openai_compatible' && { openaiCompatibleKey: key })
         };
 
         console.log(`[AIService] Updating database with new key for ${provider}`);
@@ -133,6 +150,9 @@ export class AIService {
         if (provider === 'openrouter') {
             console.log(`[AIService] Initializing OpenRouter client`);
             this.initializeOpenRouter();
+        } else if (provider === 'nanogpt') {
+            console.log(`[AIService] Initializing NanoGPT client`);
+            this.initializeNanoGPT();
         } else if (provider === 'openai') {
             console.log(`[AIService] Initializing OpenAI client`);
             this.initializeOpenAI();
@@ -168,6 +188,12 @@ export class AIService {
                     if (this.settings.openrouterKey) {
                         console.log('[AIService] Fetching OpenRouter models');
                         models = await this.fetchOpenRouterModels();
+                    }
+                    break;
+                case 'nanogpt':
+                    if (this.settings.nanogptKey) {
+                        console.log('[AIService] Fetching NanoGPT models');
+                        models = await this.fetchNanoGPTModels();
                     }
                     break;
                 case 'openai_compatible':
@@ -236,6 +262,25 @@ export class AIService {
             name: model.name,
             provider: 'openrouter' as AIProvider,
             contextLength: model.context_length,
+            enabled: true
+        }));
+    }
+
+    private async fetchNanoGPTModels(): Promise<AIModel[]> {
+        const response = await fetch('https://nano-gpt.com/api/v1/models', {
+            headers: {
+                'Authorization': `Bearer ${this.settings?.nanogptKey}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch NanoGPT models');
+        const data = await response.json();
+
+        return data.data.map((model: any) => ({
+            id: model.id,
+            name: model.name || model.id,
+            provider: 'nanogpt' as AIProvider,
+            contextLength: model.context_length || 16384,
             enabled: true
         }));
     }
@@ -561,6 +606,85 @@ export class AIService {
         }
     }
 
+    async generateWithNanoGPT(
+        messages: PromptMessage[],
+        modelId: string,
+        temperature: number = 1.0,
+        maxTokens: number = 2048,
+        top_p?: number,
+        top_k?: number,
+        repetition_penalty?: number,
+        min_p?: number
+    ): Promise<Response> {
+        if (!this.settings?.nanogptKey) {
+            throw new Error('NanoGPT API key not set');
+        }
+        if (!this.nanoGPT) {
+            this.initializeNanoGPT();
+        }
+        if (!this.nanoGPT) {
+            throw new Error('NanoGPT client not initialized');
+        }
+
+        const body: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
+            model: modelId,
+            messages: messages,
+            temperature: temperature,
+            max_tokens: maxTokens,
+            stream: true,
+        };
+
+        // Add optional parameters if they are defined and not 0
+        if (top_p !== undefined && top_p !== 0) { body.top_p = top_p; }
+        if (repetition_penalty !== undefined && repetition_penalty !== 0) { body.frequency_penalty = repetition_penalty; }
+        if (top_k !== undefined && top_k !== 0) {
+            Object.assign(body, { top_k });
+        }
+        if (min_p !== undefined && min_p !== 0) {
+            Object.assign(body, { min_p });
+        }
+
+        this.abortController = new AbortController();
+
+        try {
+            const stream = await this.nanoGPT.chat.completions.create(body, { signal: this.abortController.signal });
+
+            const responseStream = new ReadableStream({
+                async start(controller) {
+                    try {
+                        for await (const chunk of stream) {
+                            const content = chunk.choices[0]?.delta?.content || '';
+                            if (content) {
+                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                                controller.enqueue(new TextEncoder().encode(formattedChunk));
+                            }
+                        }
+                        controller.close();
+                    } catch (error) {
+                        if ((error as Error).name === 'AbortError') {
+                            console.log('NanoGPT stream aborted');
+                            controller.close();
+                        } else {
+                            controller.error(error);
+                        }
+                    }
+                }
+            });
+
+            return new Response(responseStream, {
+                headers: { 'Content-Type': 'text/event-stream' }
+            });
+
+        } catch (error) {
+            if ((error as Error).name === 'AbortError') {
+                console.log('NanoGPT generation aborted');
+                return new Response(null, { status: 204 }); // Return an empty response
+            }
+            console.error('Error generating with NanoGPT:', error);
+            throw error;
+        }
+    }
+
     async generateWithOpenAICompatible(
         messages: PromptMessage[],
         modelId: string,
@@ -624,6 +748,10 @@ export class AIService {
         return this.settings?.openrouterKey;
     }
 
+    getNanoGPTKey(): string | undefined {
+        return this.settings?.nanogptKey;
+    }
+
     getOpenAICompatibleKey(): string | undefined {
         return this.settings?.openaiCompatibleKey;
     }
@@ -672,6 +800,25 @@ export class AIService {
 
     getSettings(): AISettings | null {
         return this.settings;
+    }
+
+    getFavoriteModelIds(): string[] {
+        return this.settings?.favoriteModelIds || [];
+    }
+
+    async toggleFavoriteModel(modelId: string): Promise<void> {
+        if (!this.settings) {
+            throw new Error('Settings not initialized');
+        }
+
+        const current = this.settings.favoriteModelIds || [];
+        const newFavorites = current.includes(modelId)
+            ? current.filter(id => id !== modelId)
+            : [...current, modelId];
+
+        await db.aiSettings.update(this.settings.id, { favoriteModelIds: newFavorites });
+        this.settings.favoriteModelIds = newFavorites;
+        console.log(`[AIService] Toggled favorite for model ${modelId}, now have ${newFavorites.length} favorites`);
     }
 
     abortStream(): void {

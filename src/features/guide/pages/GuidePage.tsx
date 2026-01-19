@@ -9,6 +9,7 @@ import AdvancedGuide from "../components/AdvancedGuide";
 import LorebookGuide from "../components/LorebookGuide";
 import PromptGuide from "../components/PromptGuide";
 import BrainstormGuide from "../components/BrainstormGuide";
+import AgenticGuide from "../components/AgenticGuide";
 
 export default function GuidePage() {
     const [activeTab, setActiveTab] = useState("basics");
@@ -35,11 +36,12 @@ export default function GuidePage() {
                 <CardContent>
                     <Tabs defaultValue="basics" value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-                            <TabsList className="inline-flex w-max md:grid md:grid-cols-5 md:w-full mb-6 md:mb-8">
+                            <TabsList className="inline-flex w-max md:grid md:grid-cols-6 md:w-full mb-6 md:mb-8">
                                 <TabsTrigger value="basics" className="whitespace-nowrap">Basics</TabsTrigger>
                                 <TabsTrigger value="advanced" className="whitespace-nowrap">Advanced</TabsTrigger>
                                 <TabsTrigger value="lorebook" className="whitespace-nowrap">Lorebook</TabsTrigger>
                                 <TabsTrigger value="prompts" className="whitespace-nowrap">Prompts</TabsTrigger>
+                                <TabsTrigger value="agentic" className="whitespace-nowrap">Agentic AI</TabsTrigger>
                                 <TabsTrigger value="brainstorm" className="whitespace-nowrap">Brainstorm</TabsTrigger>
                             </TabsList>
                         </div>
@@ -58,6 +60,10 @@ export default function GuidePage() {
 
                         <TabsContent value="prompts" className="space-y-4">
                             <PromptGuide />
+                        </TabsContent>
+
+                        <TabsContent value="agentic" className="space-y-4">
+                            <AgenticGuide />
                         </TabsContent>
 
                         <TabsContent value="brainstorm" className="space-y-4">

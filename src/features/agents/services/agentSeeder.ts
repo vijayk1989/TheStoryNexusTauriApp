@@ -1,5 +1,5 @@
 import { db } from '@/services/database';
-import type { AgentPreset, PipelinePreset, AgentRole } from '@/types/story';
+import type { AgentPreset, PipelinePreset, AgentRole, AgentContextConfig } from '@/types/story';
 
 // Default models for system agents (OpenRouter)
 const DEFAULT_MODELS = {
@@ -14,6 +14,68 @@ const DEFAULT_MODELS = {
         id: 'deepseek/deepseek-chat-v3-0324',
         provider: 'openrouter' as const,
         name: 'DeepSeek: DeepSeek V3 0324',
+    },
+};
+
+// Context configs for system agents
+const CONTEXT_CONFIGS: Record<string, AgentContextConfig> = {
+    summarizer: {
+        lorebookMode: 'none',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    prose_writer: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 3000,
+        includeChapterSummary: true,
+        includePovInfo: true,
+    },
+    lore_judge: {
+        lorebookMode: 'all',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    continuity_checker: {
+        lorebookMode: 'none',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 2000,
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    style_editor: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    dialogue_specialist: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    outline_generator: {
+        lorebookMode: 'all',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 2000,
+        includeChapterSummary: true,
+        includePovInfo: true,
+    },
+    style_extractor: {
+        lorebookMode: 'none',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    scenebeat_generator: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'limited',
+        previousWordsLimit: 3000,
+        includeChapterSummary: true,
+        includePovInfo: true,
     },
 };
 
@@ -36,6 +98,7 @@ Output a concise but detailed summary that captures the essence of the narrative
         maxTokens: 2000,
         isSystem: true,
         storyId: null,
+        contextConfig: CONTEXT_CONFIGS.summarizer,
     },
     {
         name: 'System Prose Writer',
@@ -57,6 +120,7 @@ Write engaging prose that draws readers in and advances the story naturally.`,
         maxTokens: 2048,
         isSystem: true,
         storyId: null,
+        contextConfig: CONTEXT_CONFIGS.prose_writer,
     },
     {
         name: 'System Lore Judge',
@@ -84,6 +148,7 @@ Be thorough but concise. Focus on actual contradictions, not stylistic preferenc
         maxTokens: 800,
         isSystem: true,
         storyId: null,
+        contextConfig: CONTEXT_CONFIGS.lore_judge,
     },
     {
         name: 'System Continuity Checker',
@@ -111,6 +176,7 @@ Focus on narrative logic, not style preferences.`,
         maxTokens: 600,
         isSystem: true,
         storyId: null,
+        contextConfig: CONTEXT_CONFIGS.continuity_checker,
     },
     {
         name: 'System Style Editor',
@@ -132,6 +198,7 @@ Preserve the original meaning, plot, and character voice. Output the improved ve
         maxTokens: 2048,
         isSystem: true,
         storyId: null,
+        contextConfig: CONTEXT_CONFIGS.style_editor,
     },
     {
         name: 'System Dialogue Specialist',
@@ -153,6 +220,67 @@ Output the improved version directly. Preserve the original plot points and char
         maxTokens: 2048,
         isSystem: true,
         storyId: null,
+        contextConfig: CONTEXT_CONFIGS.dialogue_specialist,
+    },
+    {
+        name: 'System Outline Generator',
+        description: 'Generates structured story and chapter outlines.',
+        role: 'outline_generator',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are an expert story outliner. Generate structured outlines that include:
+- Story arc with beginning, middle, and end
+- Chapter breakdowns with key scenes
+- Character arcs and development points
+- Plot threads and their resolutions
+- Pacing notes and tension points
+
+Format the outline clearly with headers and bullet points. Consider the established lore and characters when planning.`,
+        temperature: 0.7,
+        maxTokens: 3000,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.outline_generator,
+    },
+    {
+        name: 'System Style Extractor',
+        description: 'Analyzes text to extract writing style patterns.',
+        role: 'style_extractor',
+        model: DEFAULT_MODELS.utility,
+        systemPrompt: `You are a literary analyst specializing in writing style extraction. Analyze the provided text and extract:
+
+1. **Voice & Tone**: Formal/informal, serious/playful, narrative distance
+2. **Sentence Structure**: Average length, variety, use of fragments
+3. **Word Choice**: Vocabulary level, preferred verbs/adjectives, unique phrases
+4. **Dialogue Style**: Tag usage, dialect, subtext patterns
+5. **Description Patterns**: Sensory preferences, metaphor usage, pacing
+6. **POV Quirks**: Narrative intrusion, character voice bleed, tense usage
+
+Output a concise style guide that another AI could use to mimic this writing style.`,
+        temperature: 0.3,
+        maxTokens: 2000,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.style_extractor,
+    },
+    {
+        name: 'System Scene Beat Generator',
+        description: 'Generates scene beat commands for prose generation.',
+        role: 'scenebeat_generator',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a scene planning assistant. Generate scene beat commands that guide prose generation.
+
+Each scene beat should be a brief, actionable instruction (1-3 sentences) describing:
+- The core action or event
+- Emotional beats and character reactions
+- Setting details if relevant
+- Dialogue hints if conversation is involved
+
+Format as a numbered list of scene beats. Make them specific enough to guide writing but open enough for creative interpretation.`,
+        temperature: 0.75,
+        maxTokens: 1500,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.scenebeat_generator,
     },
 ];
 

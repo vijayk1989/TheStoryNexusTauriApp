@@ -164,3 +164,17 @@
     display: none;
   }
 }
+
+/* Custom Rewrite Dialog */
+.floating-text-format-popup .custom-rewrite-dialog {
+  @apply flex flex-col;
+}
+
+.floating-text-format-popup .custom-rewrite-dialog textarea {
+  font-family: inherit;
+}
+
+/* Confirmation Dialog */
+.floating-text-format-popup .confirmation-dialog {
+  @apply flex flex-col;
+}

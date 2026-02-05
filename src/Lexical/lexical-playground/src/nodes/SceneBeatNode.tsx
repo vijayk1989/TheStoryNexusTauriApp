@@ -86,8 +86,10 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import { useAgenticGeneration } from "@/features/agents/hooks/useAgenticGeneration";
+import { useParallelGeneration } from "@/features/agents/hooks/useParallelGeneration";
 import { Progress } from "@/components/ui/progress";
 import { PipelineDiagnosticsDialog } from "@/features/agents/components/PipelineDiagnosticsDialog";
+import { ParallelResponsesDrawer } from "@/components/ui/parallel-responses-drawer";
 
 export type SerializedSceneBeatNode = Spread<
   {
@@ -160,6 +162,18 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
   const [agenticStepResults, setAgenticStepResults] = useState<AgentResult[]>([]);
   const [showAgenticProgress, setShowAgenticProgress] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  // Multi-model parallel generation state
+  const [useMultiModel, setUseMultiModel] = useState(false);
+  const [showParallelDrawer, setShowParallelDrawer] = useState(false);
+  const {
+    responses: parallelResponses,
+    isGenerating: isParallelGenerating,
+    allComplete: parallelAllComplete,
+    generateParallel,
+    abortAll: abortParallel,
+    resetResponses: resetParallelResponses,
+  } = useParallelGeneration();
 
   // Agentic generation hook
   const {
@@ -924,6 +938,59 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
     setShowAgenticProgress(false);
   };
 
+  /**
+   * Handle parallel multi-model generation using prompt's pre-configured models
+   */
+  const handleParallelGenerate = async () => {
+    if (!selectedPrompt) {
+      toast.error("Please select a prompt first");
+      return;
+    }
+
+    if (!selectedPrompt.parallelModels || selectedPrompt.parallelModels.length < 2) {
+      toast.error("This prompt needs at least 2 parallel models configured");
+      return;
+    }
+
+    try {
+      resetParallelResponses();
+      setShowParallelDrawer(true);
+
+      const config = createPromptConfig(selectedPrompt);
+      
+      console.log("Parallel generation config:", {
+        promptId: config.promptId,
+        models: selectedPrompt.parallelModels.map(m => m.name),
+      });
+
+      await generateParallel(config, selectedPrompt.parallelModels);
+    } catch (error) {
+      console.error("Error in parallel generation:", error);
+      toast.error("Failed to run parallel generation");
+    }
+  };
+
+  /**
+   * Handle accepting a response from parallel generation
+   */
+  const handleParallelAccept = (text: string, model: AllowedModel) => {
+    editor.update(() => {
+      const paragraphNode = $createParagraphNode();
+      paragraphNode.append($createTextNode(text));
+      const currentNode = $getNodeByKey(nodeKey);
+      if (currentNode) {
+        currentNode.insertAfter(paragraphNode);
+      }
+    });
+
+    // Close drawer and reset
+    setShowParallelDrawer(false);
+    resetParallelResponses();
+    toast.success(`Accepted response from ${model.name}`);
+  };
+
+
+
   const handleAccept = async () => {
     editor.update(() => {
       const paragraphNode = $createParagraphNode();
@@ -1410,6 +1477,22 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                   </SelectContent>
                 </Select>
               )}
+              
+              
+              {/* Multi-Model Compare Toggle - only shows for prompts with multiModelEnabled */}
+              {!agenticMode && selectedPrompt?.multiModelEnabled && (selectedPrompt.parallelModels?.length || 0) >= 2 && (
+                <>
+                  <div className="h-4 w-px bg-border mx-1" />
+                  <Switch
+                    checked={useMultiModel}
+                    onCheckedChange={setUseMultiModel}
+                    id="use-multi-model"
+                  />
+                  <Label htmlFor="use-multi-model" className="flex items-center gap-1 text-sm cursor-pointer">
+                    Compare {selectedPrompt.parallelModels?.length} Models
+                  </Label>
+                </>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
@@ -1437,8 +1520,10 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                       </Button>
                     )}
                     <Button
-                      onClick={handleGenerateWithPrompt}
-                      disabled={streaming || !selectedPrompt || !selectedModel}
+                      onClick={useMultiModel && selectedPrompt?.multiModelEnabled 
+                        ? handleParallelGenerate 
+                        : handleGenerateWithPrompt}
+                      disabled={streaming || isParallelGenerating || !selectedPrompt || (!useMultiModel && !selectedModel)}
                       size="sm"
                       className="text-xs md:text-sm"
                     >
@@ -1447,6 +1532,11 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                           <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin mr-1 md:mr-2" />
                           <span className="hidden sm:inline">Generating...</span>
                           <span className="sm:hidden">...</span>
+                        </>
+                      ) : useMultiModel && selectedPrompt?.multiModelEnabled ? (
+                        <>
+                          <span className="hidden sm:inline">Compare Models</span>
+                          <span className="sm:hidden">Compare</span>
                         </>
                       ) : (
                         <>
@@ -1457,6 +1547,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
                     </Button>
                   </>
                 )}
+
                 {agenticMode && (
                   <Button
                     onClick={handleAgenticGenerate}
@@ -1526,6 +1617,15 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
         onOpenChange={setShowDiagnostics}
         results={agenticStepResults}
         pipelineName={selectedPipeline?.name}
+      />
+
+      <ParallelResponsesDrawer
+        open={showParallelDrawer}
+        onOpenChange={setShowParallelDrawer}
+        responses={parallelResponses}
+        isGenerating={isParallelGenerating}
+        onAccept={handleParallelAccept}
+        onAbortAll={abortParallel}
       />
 
       {/* Matched Entries Panel */}

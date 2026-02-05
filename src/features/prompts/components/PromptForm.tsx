@@ -7,12 +7,17 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { usePromptStore } from '../store/promptStore';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import type { Prompt, PromptMessage, AIModel, AllowedModel } from '@/types/story';
-import { Plus, ArrowUp, ArrowDown, Trash2, X, Star } from 'lucide-react';
+import { Plus, ArrowUp, ArrowDown, Trash2, X, Star, Layers } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 type PromptType = Prompt['promptType'];
 
@@ -55,6 +60,11 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         prompt?.min_p !== undefined ? prompt.min_p : 0.0
     );
     const [showProviderLabels, setShowProviderLabels] = useState(true);
+    
+    // Multi-model comparison state
+    const [multiModelEnabled, setMultiModelEnabled] = useState(prompt?.multiModelEnabled || false);
+    const [parallelModels, setParallelModels] = useState<AllowedModel[]>(prompt?.parallelModels || []);
+    const [parallelModelSearch, setParallelModelSearch] = useState('');
 
     const {
         initialize,
@@ -156,6 +166,20 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         return filtered;
     }, [modelGroups, modelSearch]);
 
+    // Separate filtered groups for parallel model selector
+    const filteredParallelModelGroups = useMemo(() => {
+        if (!parallelModelSearch.trim()) return modelGroups;
+        const q = parallelModelSearch.toLowerCase();
+        const filtered: ModelsByProvider = {};
+        Object.entries(modelGroups).forEach(([provider, models]) => {
+            const matched = models.filter(m =>
+                m.name.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q)
+            );
+            if (matched.length > 0) filtered[provider] = matched;
+        });
+        return filtered;
+    }, [modelGroups, parallelModelSearch]);
+
     const handleModelSelect = (model: AIModel) => {
         const modelKey = getModelKey(model);
         if (!selectedModels.some(m => getModelKey(m) === modelKey)) {
@@ -171,6 +195,28 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const removeModel = (model: AllowedModel) => {
         const modelKey = getModelKey(model);
         setSelectedModels(selectedModels.filter(m => getModelKey(m) !== modelKey));
+    };
+
+    // Parallel model selection handlers
+    const handleParallelModelSelect = (model: AIModel) => {
+        if (parallelModels.length >= 3) {
+            toast.warning('Maximum 3 models can be selected for comparison');
+            return;
+        }
+        const modelKey = getModelKey(model);
+        if (!parallelModels.some(m => getModelKey(m) === modelKey)) {
+            const allowedModel: AllowedModel = {
+                id: model.id,
+                provider: model.provider,
+                name: model.name
+            };
+            setParallelModels([...parallelModels, allowedModel]);
+        }
+    };
+
+    const removeParallelModel = (model: AllowedModel) => {
+        const modelKey = getModelKey(model);
+        setParallelModels(parallelModels.filter(m => getModelKey(m) !== modelKey));
     };
 
     const handleAddMessage = (role: 'system' | 'user' | 'assistant') => {
@@ -226,7 +272,9 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 top_p: topP,
                 top_k: topK,
                 repetition_penalty: repetitionPenalty,
-                min_p: minP
+                min_p: minP,
+                multiModelEnabled,
+                parallelModels: multiModelEnabled ? parallelModels : [],
             };
 
             if (prompt?.id) {
@@ -463,6 +511,132 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                     </PopoverContent>
                 </Popover>
             </div>
+
+            {/* Multi-Model Comparison Section */}
+            <div className="border-t border-input pt-6">
+                <Collapsible open={multiModelEnabled}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Switch
+                                checked={multiModelEnabled}
+                                onCheckedChange={setMultiModelEnabled}
+                                id="multi-model-enabled"
+                            />
+                            <Label htmlFor="multi-model-enabled" className="flex items-center gap-2 cursor-pointer">
+                                <Layers className="h-4 w-4" />
+                                Enable Multi-Model Comparison
+                            </Label>
+                        </div>
+                        {multiModelEnabled && parallelModels.length > 0 && (
+                            <span className="text-sm text-muted-foreground">
+                                {parallelModels.length}/3 models selected
+                            </span>
+                        )}
+                    </div>
+                    
+                    <CollapsibleContent className="mt-4 space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            Select 2-3 models to compare when using this prompt. In SceneBeat, you can toggle multi-model mode to generate responses from all selected models simultaneously.
+                        </p>
+                        
+                        {/* Selected parallel models */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            {parallelModels.map((model) => (
+                                <Badge
+                                    key={getModelKey(model)}
+                                    variant="secondary"
+                                    className="flex items-center gap-1 px-3 py-1 bg-blue-500/10 border-blue-500/20" 
+                                >
+                                    {showProviderLabels ? (
+                                        <>
+                                            <span className="text-xs opacity-70">{model.provider}:</span>
+                                            <span>{model.name}</span>
+                                        </>
+                                    ) : (
+                                        model.name
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeParallelModel(model)}
+                                        className="ml-1 hover:text-destructive"
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </Badge>
+                            ))}
+                            {parallelModels.length === 0 && (
+                                <span className="text-sm text-muted-foreground italic">
+                                    No comparison models selected
+                                </span>
+                            )}
+                        </div>
+                        
+                        {/* Model selector for parallel models */}
+                        {parallelModels.length < 3 && (
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full text-left">
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add comparison model ({3 - parallelModels.length} remaining)
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[calc(100vw-2rem)] sm:w-96 max-w-96">
+                                    <div className="flex flex-col">
+                                        <Input
+                                            placeholder="Search models..."
+                                            value={parallelModelSearch}
+                                            onChange={(e) => setParallelModelSearch(e.target.value)}
+                                            className="mb-2"
+                                            autoFocus
+                                        />
+
+                                        <div className="max-h-64 overflow-auto">
+                                            {Object.keys(filteredParallelModelGroups).length === 0 && (
+                                                <div className="p-2 text-sm text-muted-foreground">No models found</div>
+                                            )}
+                                            {Object.entries(filteredParallelModelGroups).map(([provider, models]) => (
+                                                <div key={provider} className="pb-2">
+                                                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted">
+                                                        {provider}
+                                                    </div>
+                                                    {provider === 'Favorites' && models.length === 0 ? (
+                                                        <div className="px-2 py-1.5 text-sm text-muted-foreground italic">
+                                                            Click ☆ to add favorites
+                                                        </div>
+                                                    ) : (
+                                                        models.map((model) => {
+                                                            const modelKey = getModelKey(model);
+                                                            const isSelected = parallelModels.some(m => getModelKey(m) === modelKey);
+                                                            return (
+                                                                <div
+                                                                    key={modelKey}
+                                                                    className={`px-2 py-1 hover:bg-accent hover:text-accent-foreground cursor-pointer ${isSelected ? 'opacity-50 pointer-events-none' : ''}`}
+                                                                    onClick={() => handleParallelModelSelect(model)}
+                                                                >
+                                                                    {showProviderLabels ? (
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <span className="text-xs opacity-60">{model.provider}</span>
+                                                                            <span className="opacity-40">•</span>
+                                                                            <span>{model.name}</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        model.name
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    </CollapsibleContent>
+                </Collapsible>
+            </div>
+
 
             <div className="border-t border-input pt-6">
                 <h3 className="font-medium mb-4">Prompt Type</h3>

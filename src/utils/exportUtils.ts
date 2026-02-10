@@ -2,6 +2,7 @@ import { $generateHtmlFromNodes } from '@lexical/html';
 import { LexicalEditor } from 'lexical';
 import { Story, Chapter } from '@/types/story';
 import { db } from '@/services/database';
+import { saveTextAsFile } from '@/utils/fileDownload';
 
 /**
  * Converts Lexical JSON content to HTML
@@ -58,17 +59,8 @@ export async function convertLexicalToHtml(jsonContent: string): Promise<string>
  * @param filename The name of the file
  * @param contentType The MIME type of the content
  */
-export function downloadAsFile(content: string, filename: string, contentType: string) {
-    const blob = new Blob([content], { type: contentType });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-
-    // Clean up
-    URL.revokeObjectURL(url);
+export async function downloadAsFile(content: string, filename: string, contentType: string): Promise<boolean> {
+    return saveTextAsFile(content, filename, contentType);
 }
 
 /**
@@ -76,7 +68,7 @@ export function downloadAsFile(content: string, filename: string, contentType: s
  * @param storyId The ID of the story to download
  * @param format The format to download ('html' or 'text')
  */
-export async function downloadStory(storyId: string, format: 'html' | 'text') {
+export async function downloadStory(storyId: string, format: 'html' | 'text'): Promise<boolean> {
     try {
         // Get the story
         const story = await db.stories.get(storyId);
@@ -128,7 +120,7 @@ export async function downloadStory(storyId: string, format: 'html' | 'text') {
 </html>`;
 
             // Download the HTML file
-            downloadAsFile(htmlContent, `${story.title}.html`, 'text/html');
+            return await downloadAsFile(htmlContent, `${story.title}.html`, 'text/html');
         } else {
             // Create plain text content
             let textContent = `${story.title}\n`;
@@ -170,7 +162,7 @@ export async function downloadStory(storyId: string, format: 'html' | 'text') {
             }
 
             // Download the text file
-            downloadAsFile(textContent, `${story.title}.txt`, 'text/plain');
+            return await downloadAsFile(textContent, `${story.title}.txt`, 'text/plain');
         }
     } catch (error) {
         console.error('Failed to download story:', error);
@@ -183,7 +175,7 @@ export async function downloadStory(storyId: string, format: 'html' | 'text') {
  * @param chapterId The ID of the chapter to download
  * @param format The format to download ('html' or 'text')
  */
-export async function downloadChapter(chapterId: string, format: 'html' | 'text') {
+export async function downloadChapter(chapterId: string, format: 'html' | 'text'): Promise<boolean> {
     try {
         // Get the chapter
         const chapter = await db.chapters.get(chapterId);
@@ -226,7 +218,7 @@ export async function downloadChapter(chapterId: string, format: 'html' | 'text'
 </html>`;
 
             // Download the HTML file
-            downloadAsFile(htmlContent, `${story.title} - Chapter ${chapter.order}.html`, 'text/html');
+            return await downloadAsFile(htmlContent, `${story.title} - Chapter ${chapter.order}.html`, 'text/html');
         } else {
             // Create plain text content
             let textContent = `${story.title}\n`;
@@ -259,10 +251,10 @@ export async function downloadChapter(chapterId: string, format: 'html' | 'text'
             }
 
             // Download the text file
-            downloadAsFile(textContent, `${story.title} - Chapter ${chapter.order}.txt`, 'text/plain');
+            return await downloadAsFile(textContent, `${story.title} - Chapter ${chapter.order}.txt`, 'text/plain');
         }
     } catch (error) {
         console.error('Failed to download chapter:', error);
         throw error;
     }
-} 
+}

@@ -54,6 +54,21 @@ export interface SceneBeat extends BaseEntity {
     };
 }
 
+// Draft structure — persists AI-generated prose for later use
+export interface Draft extends BaseEntity {
+    storyId: string;
+    chapterId: string;
+    name: string;               // user-editable draft name
+    content: string;            // the generated prose text
+    sceneBeatCommand?: string;  // the scene beat command that produced this
+    modelName?: string;         // model that generated (e.g. "gpt-4o")
+    modelProvider?: string;     // provider (e.g. "openai")
+    promptId?: string;          // prompt ID used (for reference)
+    promptName?: string;        // snapshot of prompt name at save time
+    lorebookContext?: string[]; // names of lorebook items that were in context
+    wordCount: number;
+}
+
 // AI Chat types
 export interface AIChat extends BaseEntity {
     storyId: string;

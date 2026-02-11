@@ -9,6 +9,7 @@ import {
     LorebookEntry,
     Template,
     SceneBeat,
+    Draft,
     Note,
     AgentPreset,
     PipelinePreset,
@@ -28,6 +29,7 @@ export class StoryDatabase extends Dexie {
     agentPresets!: Table<AgentPreset>;
     pipelinePresets!: Table<PipelinePreset>;
     pipelineExecutions!: Table<PipelineExecution>;
+    drafts!: Table<Draft>;
 
     constructor() {
         super('StoryDatabase');
@@ -61,6 +63,23 @@ export class StoryDatabase extends Dexie {
             agentPresets: 'id, name, role, storyId, createdAt, isSystem',
             pipelinePresets: 'id, name, storyId, createdAt, isSystem',
             pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
+        });
+
+        // Version 15: Add drafts table for persisting AI-generated prose
+        this.version(15).stores({
+            stories: 'id, title, createdAt, language, isDemo',
+            chapters: 'id, storyId, order, createdAt, isDemo',
+            aiChats: 'id, storyId, createdAt, isDemo',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
+            templates: 'id, name, templateType, storyId, createdAt, isSystem',
+            aiSettings: 'id, lastModelsFetch',
+            lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
+            sceneBeats: 'id, storyId, chapterId',
+            notes: 'id, storyId, title, type, createdAt, updatedAt',
+            agentPresets: 'id, name, role, storyId, createdAt, isSystem',
+            pipelinePresets: 'id, name, storyId, createdAt, isSystem',
+            pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
+            drafts: 'id, storyId, chapterId, createdAt',
         });
 
         this.on('populate', async () => {
@@ -165,6 +184,29 @@ export class StoryDatabase extends Dexie {
         await this.sceneBeats.delete(id);
     }
 
+    // Helper methods for Drafts
+    async getDraftsByChapter(chapterId: string): Promise<Draft[]> {
+        return this.drafts
+            .where('chapterId')
+            .equals(chapterId)
+            .reverse()
+            .sortBy('createdAt');
+    }
+
+    async createDraft(data: Omit<Draft, 'id' | 'createdAt'>): Promise<string> {
+        const id = crypto.randomUUID();
+        await this.drafts.add({
+            id,
+            createdAt: new Date(),
+            ...data,
+        } as Draft);
+        return id;
+    }
+
+    async deleteDraft(id: string): Promise<void> {
+        await this.drafts.delete(id);
+    }
+
     /**
      * Deletes a story and all related data (chapters, lorebook entries, etc.)
      * @param storyId The ID of the story to delete
@@ -172,7 +214,7 @@ export class StoryDatabase extends Dexie {
      */
     async deleteStoryWithRelated(storyId: string): Promise<void> {
         return await this.transaction('rw',
-            [this.stories, this.chapters, this.lorebookEntries, this.aiChats, this.sceneBeats],
+            [this.stories, this.chapters, this.lorebookEntries, this.aiChats, this.sceneBeats, this.drafts],
             async () => {
                 // Delete all related chapters
                 await this.chapters
@@ -194,6 +236,12 @@ export class StoryDatabase extends Dexie {
 
                 // Delete all related SceneBeats
                 await this.sceneBeats
+                    .where('storyId')
+                    .equals(storyId)
+                    .delete();
+
+                // Delete all related Drafts
+                await this.drafts
                     .where('storyId')
                     .equals(storyId)
                     .delete();

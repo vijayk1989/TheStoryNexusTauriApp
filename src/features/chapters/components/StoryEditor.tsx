@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -17,6 +17,7 @@ import {
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { DownloadMenu } from "@/components/ui/DownloadMenu";
 import { ChapterNotesEditor } from "@/features/chapters/components/ChapterNotesEditor";
+import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
 import {
     Sheet,
     SheetContent,
@@ -33,7 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
@@ -115,6 +116,16 @@ export function StoryEditor() {
                     className="mx-2 justify-start"
                 />
             )}
+
+            <Button
+                variant={openDrawer === "drafts" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("drafts")}
+            >
+                <FileText className="h-4 w-4 mr-2" />
+                Drafts
+            </Button>
         </>
     );
 
@@ -165,6 +176,10 @@ export function StoryEditor() {
                         <DropdownMenuItem onClick={() => handleOpenDrawer("chapterNotes")}>
                             <StickyNote className="h-4 w-4 mr-2" />
                             Chapter Notes
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("drafts")}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            Drafts
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -241,6 +256,21 @@ export function StoryEditor() {
                     </SheetHeader>
                     <div className="overflow-y-auto h-[100vh]">
                         <ChapterNotesEditor onClose={() => setOpenDrawer(null)} />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Drafts Sheet */}
+            <Sheet open={openDrawer === "drafts"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Drafts</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2">
+                        <DraftsPanel />
                     </div>
                 </SheetContent>
             </Sheet>

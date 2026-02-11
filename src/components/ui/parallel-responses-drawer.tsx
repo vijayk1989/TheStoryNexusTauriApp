@@ -26,8 +26,10 @@ import {
     X, 
     Loader2,
     AlertCircle,
-    Square
+    Square,
+    Save
 } from "lucide-react";
+import { SaveDraftDialog } from "@/features/drafts/components/SaveDraftDialog";
 
 interface ParallelResponsesDrawerProps {
     open: boolean;
@@ -36,6 +38,11 @@ interface ParallelResponsesDrawerProps {
     isGenerating: boolean;
     onAccept: (text: string, model: AllowedModel) => void;
     onAbortAll: () => void;
+    // Draft context (passed from SceneBeat)
+    sceneBeatCommand?: string;
+    promptId?: string;
+    promptName?: string;
+    lorebookContext?: string[];
 }
 
 /**
@@ -49,6 +56,10 @@ export function ParallelResponsesDrawer({
     isGenerating,
     onAccept,
     onAbortAll,
+    sceneBeatCommand,
+    promptId,
+    promptName,
+    lorebookContext,
 }: ParallelResponsesDrawerProps) {
     // Track which sections are expanded (all expanded by default)
     const [expandedSections, setExpandedSections] = React.useState<Set<number>>(
@@ -71,6 +82,9 @@ export function ParallelResponsesDrawer({
             return next;
         });
     };
+
+    // Track which response index has Save Draft open
+    const [saveDraftIndex, setSaveDraftIndex] = React.useState<number | null>(null);
 
     const getStatusBadge = (status: ParallelResponse['status']) => {
         switch (status) {
@@ -110,6 +124,7 @@ export function ParallelResponsesDrawer({
     );
 
     return (
+        <>
         <Drawer open={open} onOpenChange={onOpenChange}>
             <DrawerContent className="max-h-[85vh]">
                 <DrawerHeader className="border-b">
@@ -183,7 +198,7 @@ export function ParallelResponsesDrawer({
                                     </div>
                                 </CollapsibleTrigger>
                                 <CollapsibleContent>
-                                    <div className="px-3 pb-3">
+                                    <div className="px-3 pb-3 mb-8">
                                         {response.status === 'error' ? (
                                             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
                                                 <p className="text-sm text-destructive flex items-center gap-2">
@@ -213,10 +228,22 @@ export function ParallelResponsesDrawer({
                                             </div>
                                         )}
                                         
-                                        {/* Word count for complete responses */}
+                                        {/* Word count + Save Draft for complete responses */}
                                         {response.status === 'complete' && response.text && (
-                                            <div className="mt-2 text-xs text-muted-foreground">
-                                                {response.text.split(/\s+/).filter(Boolean).length} words
+                                            <div className="mt-2 mb-8 flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>{response.text.split(/\s+/).filter(Boolean).length} words</span>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-xs h-7"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSaveDraftIndex(index);
+                                                    }}
+                                                >
+                                                    <Save className="h-3 w-3 mr-1" />
+                                                    Save Draft
+                                                </Button>
                                             </div>
                                         )}
                                     </div>
@@ -236,5 +263,21 @@ export function ParallelResponsesDrawer({
                 </DrawerFooter>
             </DrawerContent>
         </Drawer>
+
+        {/* Save Draft dialog for whichever response is selected */}
+        {saveDraftIndex !== null && responses[saveDraftIndex] && (
+            <SaveDraftDialog
+                open={true}
+                onOpenChange={(v) => { if (!v) setSaveDraftIndex(null); }}
+                content={responses[saveDraftIndex].text}
+                sceneBeatCommand={sceneBeatCommand}
+                modelName={responses[saveDraftIndex].model.name}
+                modelProvider={responses[saveDraftIndex].model.provider}
+                promptId={promptId}
+                promptName={promptName}
+                lorebookContext={lorebookContext}
+            />
+        )}
+        </>
     );
 }

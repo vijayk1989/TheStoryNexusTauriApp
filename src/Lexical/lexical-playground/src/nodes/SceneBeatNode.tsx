@@ -335,6 +335,12 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
       handleRedo();
       return;
     }
+    if (e.ctrlKey && e.key === "a") {
+      // Allow default behavior (select all in textarea) but stop propagation to Lexical
+      // Lexical would otherwise capture this as "Select All Editor Content"
+      e.stopPropagation();
+      return;
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────

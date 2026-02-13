@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -18,6 +18,15 @@ import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { DownloadMenu } from "@/components/ui/DownloadMenu";
 import { ChapterNotesEditor } from "@/features/chapters/components/ChapterNotesEditor";
 import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
+import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
+import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import BasicsGuide from "@/features/guide/components/BasicsGuide";
+import AdvancedGuide from "@/features/guide/components/AdvancedGuide";
+import LorebookGuide from "@/features/guide/components/LorebookGuide";
+import PromptGuide from "@/features/guide/components/PromptGuide";
+import BrainstormGuide from "@/features/guide/components/BrainstormGuide";
+import AgenticGuide from "@/features/guide/components/AgenticGuide";
 import {
     Sheet,
     SheetContent,
@@ -34,7 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
@@ -126,6 +135,36 @@ export function StoryEditor() {
                 <FileText className="h-4 w-4 mr-2" />
                 Drafts
             </Button>
+
+            <Button
+                variant={openDrawer === "aiSettings" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("aiSettings")}
+            >
+                <Settings className="h-4 w-4 mr-2" />
+                AI Settings
+            </Button>
+
+            <Button
+                variant={openDrawer === "guide" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("guide")}
+            >
+                <HelpCircle className="h-4 w-4 mr-2" />
+                Guide
+            </Button>
+
+            <Button
+                variant={openDrawer === "prompts" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("prompts")}
+            >
+                <ScrollText className="h-4 w-4 mr-2" />
+                Prompts
+            </Button>
         </>
     );
 
@@ -180,6 +219,18 @@ export function StoryEditor() {
                         <DropdownMenuItem onClick={() => handleOpenDrawer("drafts")}>
                             <FileText className="h-4 w-4 mr-2" />
                             Drafts
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("aiSettings")}>
+                            <Settings className="h-4 w-4 mr-2" />
+                            AI Settings
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("guide")}>
+                            <HelpCircle className="h-4 w-4 mr-2" />
+                            Guide
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("prompts")}>
+                            <ScrollText className="h-4 w-4 mr-2" />
+                            Prompts
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -271,6 +322,68 @@ export function StoryEditor() {
                     </SheetHeader>
                     <div className="overflow-y-auto h-[calc(100vh-80px)] px-2">
                         <DraftsPanel />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* AI Settings Sheet */}
+            <Sheet open={openDrawer === "aiSettings"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>AI Settings</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <AISettingsPanel />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Guide Sheet */}
+            <Sheet open={openDrawer === "guide"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[700px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>The Story Nexus Guide</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <Tabs defaultValue="basics" className="w-full">
+                            <div className="overflow-x-auto -mx-2 px-2">
+                                <TabsList className="inline-flex w-max mb-4">
+                                    <TabsTrigger value="basics" className="text-xs">Basics</TabsTrigger>
+                                    <TabsTrigger value="advanced" className="text-xs">Advanced</TabsTrigger>
+                                    <TabsTrigger value="lorebook" className="text-xs">Lorebook</TabsTrigger>
+                                    <TabsTrigger value="prompts" className="text-xs">Prompts</TabsTrigger>
+                                    <TabsTrigger value="agentic" className="text-xs">Agentic</TabsTrigger>
+                                    <TabsTrigger value="brainstorm" className="text-xs">Brainstorm</TabsTrigger>
+                                </TabsList>
+                            </div>
+                            <TabsContent value="basics"><BasicsGuide /></TabsContent>
+                            <TabsContent value="advanced"><AdvancedGuide /></TabsContent>
+                            <TabsContent value="lorebook"><LorebookGuide /></TabsContent>
+                            <TabsContent value="prompts"><PromptGuide /></TabsContent>
+                            <TabsContent value="agentic"><AgenticGuide /></TabsContent>
+                            <TabsContent value="brainstorm"><BrainstormGuide /></TabsContent>
+                        </Tabs>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Prompts Sheet */}
+            <Sheet open={openDrawer === "prompts"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[600px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Prompts</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <PromptsPanel />
                     </div>
                 </SheetContent>
             </Sheet>

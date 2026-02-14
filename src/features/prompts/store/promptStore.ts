@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { db } from '@/services/database';
 import type { Prompt, PromptMessage } from '@/types/story';
+import { saveTextAsFile } from '@/utils/fileDownload';
 
 interface PromptStore {
     prompts: Prompt[];
@@ -15,7 +16,7 @@ interface PromptStore {
     clonePrompt: (id: string) => Promise<void>;
 
     // Export/Import
-    exportPrompts: () => Promise<void>;
+    exportPrompts: () => Promise<boolean>;
     importPrompts: (jsonData: string) => Promise<void>;
 
     // Helpers
@@ -171,13 +172,8 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
                 prompts
             }, null, 2);
 
-            const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
             const exportName = `prompts-export-${new Date().toISOString().slice(0, 10)}.json`;
-
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportName);
-            linkElement.click();
+            return await saveTextAsFile(dataStr, exportName, 'application/json');
         } catch (error) {
             set({ error: (error as Error).message });
             throw error;

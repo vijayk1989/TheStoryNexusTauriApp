@@ -1,6 +1,7 @@
 import { db } from './database';
 import type { Story, Chapter, LorebookEntry, SceneBeat, AIChat } from '@/types/story';
 import { toast } from 'react-toastify';
+import { saveTextAsFile } from '@/utils/fileDownload';
 
 interface StoryExport {
     version: string;
@@ -17,7 +18,7 @@ export const storyExportService = {
     /**
      * Export a complete story with all related data
      */
-    exportStory: async (storyId: string): Promise<void> => {
+    exportStory: async (storyId: string): Promise<boolean> => {
         try {
             // Fetch the story and all related data
             const story = await db.stories.get(storyId);
@@ -44,15 +45,14 @@ export const storyExportService = {
 
             // Convert to JSON and trigger download
             const dataStr = JSON.stringify(exportData, null, 2);
-            const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
             const exportName = `story-${story.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.json`;
-
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportName);
-            linkElement.click();
+            const isSaved = await saveTextAsFile(dataStr, exportName, 'application/json');
+            if (!isSaved) {
+                return false;
+            }
 
             toast.success(`Story "${story.title}" exported successfully`);
+            return true;
         } catch (error) {
             console.error('Story export failed:', error);
             toast.error(`Export failed: ${(error as Error).message}`);

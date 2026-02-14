@@ -93,8 +93,10 @@ export function PromptsManager() {
                             size="icon"
                             onClick={async () => {
                                 try {
-                                    await exportPrompts();
-                                    toast.success('Prompts exported');
+                                    const isSaved = await exportPrompts();
+                                    if (isSaved) {
+                                        toast.success('Prompts exported');
+                                    }
                                 } catch (error) {
                                     console.error('Export failed', error);
                                     toast.error('Failed to export prompts');

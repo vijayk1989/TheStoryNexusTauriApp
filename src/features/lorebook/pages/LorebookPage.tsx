@@ -42,11 +42,13 @@ export default function LorebookPage() {
     }, {} as Record<string, number>);
 
     // Handle export functionality
-    const handleExport = () => {
+    const handleExport = async () => {
         if (storyId) {
             try {
-                exportEntries(storyId);
-                toast.success("Lorebook entries exported successfully");
+                const isSaved = await exportEntries(storyId);
+                if (isSaved) {
+                    toast.success("Lorebook entries exported successfully");
+                }
             } catch (error) {
                 console.error("Export failed:", error);
                 toast.error("Failed to export lorebook entries");

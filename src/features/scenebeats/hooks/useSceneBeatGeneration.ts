@@ -202,10 +202,6 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             toast.error('Please enter a scene beat command');
             return;
         }
-        if (!s.selectedPrompt) {
-            toast.error('Please select a prompt first');
-            return;
-        }
 
         try {
             store.setState({
@@ -216,20 +212,49 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 agenticStepResults: [],
             });
 
-            const config = createPromptConfig(s.selectedPrompt);
+            // Build context directly from store state (no prompt required for agentic mode)
+            // Read previous text from the editor
+            let previousText = '';
+            editor.getEditorState().read(() => {
+                const node = $getNodeByKey(s.nodeKey);
+                if (node) {
+                    const textNodes: string[] = [];
+                    let currentNode = node.getPreviousSibling();
+                    while (currentNode) {
+                        if ('getTextContent' in currentNode) {
+                            const isBlockNode = ['paragraph', 'heading', 'list-item'].includes(currentNode.getType());
+                            const nodeText = currentNode.getTextContent();
+                            if (nodeText.trim()) {
+                                textNodes.unshift(nodeText);
+                                if (isBlockNode) textNodes.unshift('\n');
+                            }
+                        }
+                        currentNode = currentNode.getPreviousSibling();
+                    }
+                    previousText = textNodes.join('');
+                }
+            });
 
-            // Build AgenticGenerationContext from prompt config
+            // Combine lorebook entries
+            const combinedEntries = [
+                ...(s.useMatchedChapter && chapterMatchedEntries
+                    ? Array.from(chapterMatchedEntries.values())
+                    : []),
+                ...(s.useMatchedSceneBeat && s.localMatchedEntries
+                    ? Array.from(s.localMatchedEntries.values())
+                    : []),
+            ];
+
             const { currentChapter } = useChapterStore.getState();
             const { entries } = useLorebookStore.getState();
             const context: AgenticGenerationContext = {
-                scenebeat: config.scenebeat || '',
-                previousWords: config.previousWords || '',
-                matchedEntries: config.matchedEntries ? Array.from(config.matchedEntries) : [],
+                scenebeat: s.command.trim(),
+                previousWords: previousText,
+                matchedEntries: combinedEntries,
                 allEntries: entries,
-                povType: config.povType,
-                povCharacter: config.povCharacter,
+                povType: s.povType,
+                povCharacter: s.povType !== 'Third Person Omniscient' ? s.povCharacter : undefined,
                 currentChapter,
-                storyLanguage: config.storyLanguage,
             };
 
             const callbacks: AgenticGenerationCallbacks = {
@@ -268,7 +293,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             console.error('[Agentic] Error:', error);
             toast.error('Failed to run agentic generation');
         }
-    }, [store, createPromptConfig, agenticHook]);
+    }, [store, editor, chapterMatchedEntries, agenticHook]);
 
     const handleAbortAgentic = useCallback(() => {
         agenticHook.abortGeneration();

@@ -125,7 +125,7 @@ export function SceneBeatActionBar({
                         {/* Generate with Pipeline */}
                         <Button
                             onClick={onAgenticGenerate}
-                            disabled={isAgenticGenerating || !selectedPipeline || !selectedPrompt}
+                            disabled={isAgenticGenerating || !selectedPipeline}
                             size="sm"
                             className="text-xs md:text-sm"
                         >

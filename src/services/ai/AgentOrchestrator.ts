@@ -43,6 +43,10 @@ export interface ExecutablePipelineStep {
     isRevision?: boolean;
     maxIterations?: number;
     retryFromStep?: number;
+    // Customizable push prompt text (supports {{PREVIOUS_OUTPUT}} and {{FEEDBACK}} placeholders)
+    pushPrompt?: string;
+    // Keywords to check in previous output (used with 'outputContainsAnyKeyword' condition)
+    validationKeywords?: string[];
 }
 
 export interface PipelineResult {
@@ -85,8 +89,12 @@ export class AgentOrchestrator {
         const startTime = Date.now();
         this.abortController = new AbortController();
 
+        // Track iteration counts per retry-point to enforce maxIterations
+        const iterationCounts = new Map<number, number>();
+
         try {
-            for (let i = 0; i < steps.length; i++) {
+            let i = 0;
+            while (i < steps.length) {
                 // Check if aborted
                 if (this.abortController.signal.aborted) {
                     return {
@@ -100,18 +108,37 @@ export class AgentOrchestrator {
 
                 const step = steps[i];
 
-                // Check condition if provided
-                if (step.condition && !this.evaluateCondition(step.condition, input, results)) {
+                // Check condition if provided (pass step for keyword-based conditions)
+                if (step.condition && !this.evaluateCondition(step.condition, input, results, step)) {
                     console.log(`[AgentOrchestrator] Skipping step ${i} (${step.agent.name}): condition not met`);
+
+                    i++;
                     continue;
+                }
+
+                // Handle retry loop: if this step has retryFromStep and its condition passed,
+                // we need to check if we should jump back
+                if (step.retryFromStep !== undefined && step.retryFromStep !== null && step.condition) {
+                    const maxIter = step.maxIterations ?? 1;
+                    const currentIter = iterationCounts.get(i) ?? 0;
+
+                    if (currentIter < maxIter) {
+                        iterationCounts.set(i, currentIter + 1);
+                        console.log(`[AgentOrchestrator] Retry loop: jumping from step ${i} back to step ${step.retryFromStep} (iteration ${currentIter + 1}/${maxIter})`);
+                        i = step.retryFromStep;
+                        continue; // Re-run from retryFromStep
+                    } else {
+                        console.log(`[AgentOrchestrator] Retry loop: max iterations (${maxIter}) reached at step ${i}, skipping`);
+                        i++;
+                        continue;
+                    }
                 }
 
                 callbacks?.onStepStart?.(step, i);
                 const stepStart = Date.now();
 
                 try {
-                    const messages = this.buildMessages(step.agent, input, results, step.isRevision);
-                    const isLastStep = i === steps.length - 1;
+                    const messages = this.buildMessages(step.agent, input, results, step.isRevision, step);
                     const shouldStream = step.streamOutput ?? false; // Default to NOT streaming
 
                     let output: string;
@@ -121,13 +148,17 @@ export class AgentOrchestrator {
                         output = await this.generateNonStreaming(step.agent, messages);
                     }
 
+                    const metadata: Record<string, unknown> = {};
+                    if (step.isRevision) metadata.isRevision = true;
+                    if (iterationCounts.has(i)) metadata.iteration = iterationCounts.get(i);
+
                     const result: AgentResult = {
                         role: step.agent.role,
                         agentName: step.agent.name,
                         output,
                         promptSent: messages, // Capture the prompt for diagnostics
                         duration: Date.now() - stepStart,
-                        metadata: step.isRevision ? { isRevision: true } : undefined,
+                        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
                     };
 
                     results.push(result);
@@ -155,6 +186,8 @@ export class AgentOrchestrator {
                         error: (error as Error).message
                     };
                 }
+
+                i++;
             }
 
             // Find the prose output (last prose_writer, style_editor, or dialogue_specialist)
@@ -212,6 +245,8 @@ export class AgentOrchestrator {
                 isRevision: stepConfig.isRevision,
                 maxIterations: stepConfig.maxIterations,
                 retryFromStep: stepConfig.retryFromStep,
+                pushPrompt: stepConfig.pushPrompt,
+                validationKeywords: stepConfig.validationKeywords,
             });
         }
 
@@ -252,16 +287,64 @@ export class AgentOrchestrator {
         agent: AgentPreset,
         input: PipelineInput,
         previousResults: AgentResult[],
-        isRevision?: boolean
+        isRevision?: boolean,
+        step?: ExecutablePipelineStep
     ): PromptMessage[] {
         const systemMessage: PromptMessage = {
             role: 'system',
             content: agent.systemPrompt
         };
 
+        // Push prompt mode: build multi-turn chat memory
+        // [system, originalUser, assistantRefusal, pushPromptUser]
+        if (isRevision && step?.pushPrompt && previousResults.length > 0) {
+            // Find the prose writer's original output (the refusal)
+            const proseResult = previousResults.find(r => r.role === 'prose_writer');
+            const previousOutput = proseResult?.output || previousResults[previousResults.length - 1]?.output || '';
+
+            // Feedback from the checker (e.g. refusal_checker or lore_judge)
+            const checkerResult = previousResults[previousResults.length - 1];
+            const feedback = checkerResult?.output || '';
+
+            // Build the original user message as if step 1 had sent it
+            const originalUserContent = this.buildProseWriterMessage(agent, input, [], false);
+            const originalUserMessage: PromptMessage = {
+                role: 'user',
+                content: originalUserContent
+            };
+
+            // The AI's previous response (the refusal)
+            const assistantMessage: PromptMessage = {
+                role: 'assistant',
+                content: previousOutput
+            };
+
+            // Build the push prompt with placeholders replaced
+            let pushPromptContent = step.pushPrompt;
+            pushPromptContent = pushPromptContent.replace(/\{\{PREVIOUS_OUTPUT\}\}/g, previousOutput);
+            pushPromptContent = pushPromptContent.replace(/\{\{FEEDBACK\}\}/g, feedback);
+
+            const pushPromptMessage: PromptMessage = {
+                role: 'user',
+                content: pushPromptContent
+            };
+
+            console.log('[AgentOrchestrator] Built push prompt chat memory:', {
+                systemPromptLength: systemMessage.content.length,
+                originalUserLength: originalUserContent.length,
+                assistantRefusalLength: previousOutput.length,
+                pushPromptLength: pushPromptContent.length,
+            });
+
+            return [systemMessage, originalUserMessage, assistantMessage, pushPromptMessage];
+        }
+
+        // Standard mode: [system, user]
+        const userContent = this.buildUserMessage(agent, input, previousResults, isRevision);
+
         const userMessage: PromptMessage = {
             role: 'user',
-            content: this.buildUserMessage(agent, input, previousResults, isRevision)
+            content: userContent
         };
 
         return [systemMessage, userMessage];
@@ -686,7 +769,8 @@ Provide the improved version:`;
     private evaluateCondition(
         condition: string,
         input: PipelineInput,
-        previousResults: AgentResult[]
+        previousResults: AgentResult[],
+        step?: ExecutablePipelineStep
     ): boolean {
         try {
             // Simple condition evaluator
@@ -696,7 +780,24 @@ Provide the improved version:`;
             // - hasLorebookEntries
             // - previousOutputContains:TEXT (checks last result for TEXT)
             // - roleOutputContains:ROLE:TEXT (checks specific role's output for TEXT)
+            // - outputContainsAnyKeyword (checks step.validationKeywords against last output)
             const normalizedCondition = condition.toLowerCase().trim();
+
+            // Check for outputContainsAnyKeyword — uses step-level validationKeywords array
+            if (normalizedCondition === 'outputcontainsanykeyword') {
+                const keywords = step?.validationKeywords;
+                if (!keywords || keywords.length === 0) {
+                    console.warn('[AgentOrchestrator] outputContainsAnyKeyword condition used but no validationKeywords defined on step');
+                    return false;
+                }
+                const lastOutput = previousResults[previousResults.length - 1]?.output || '';
+                const upperOutput = lastOutput.toUpperCase();
+                const matched = keywords.some(kw => upperOutput.includes(kw.toUpperCase()));
+                if (matched) {
+                    console.log(`[AgentOrchestrator] outputContainsAnyKeyword: found keyword in output`);
+                }
+                return matched;
+            }
 
             // Check for previousOutputContains:TEXT
             if (normalizedCondition.startsWith('previousoutputcontains:')) {
@@ -782,6 +883,51 @@ Provide the improved version:`;
     }
 
     /**
+     * Build a push prompt message using the step's custom pushPrompt template.
+     * Supports {{PREVIOUS_OUTPUT}} and {{FEEDBACK}} placeholders.
+     */
+    private buildPushPromptMessage(
+        pushPromptTemplate: string,
+        input: PipelineInput,
+        previousResults: AgentResult[]
+    ): string {
+        // Get the last prose output
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
+        let previousOutput = '';
+        for (let i = previousResults.length - 1; i >= 0; i--) {
+            if (proseRoles.includes(previousResults[i].role)) {
+                previousOutput = previousResults[i].output;
+                break;
+            }
+        }
+        // Fallback to last result if no prose role found
+        if (!previousOutput && previousResults.length > 0) {
+            previousOutput = previousResults[previousResults.length - 1].output;
+        }
+
+        // Collect feedback from judge/checker roles
+        const feedbackResults = previousResults.filter(r =>
+            r.role === 'lore_judge' || r.role === 'continuity_checker' ||
+            r.role.includes('judge') || r.role.includes('checker')
+        );
+        const feedback = feedbackResults.length > 0
+            ? feedbackResults.map(r => `[${r.agentName}]:\n${r.output}`).join('\n\n')
+            : 'No specific feedback available.';
+
+        // Replace placeholders
+        let message = pushPromptTemplate;
+        message = message.replace(/\{\{PREVIOUS_OUTPUT\}\}/g, previousOutput);
+        message = message.replace(/\{\{FEEDBACK\}\}/g, feedback);
+
+        // Also include the original scene beat instruction for context
+        if (input.scenebeat && !message.includes(input.scenebeat)) {
+            message = `ORIGINAL INSTRUCTION:\n${input.scenebeat}\n\n${message}`;
+        }
+
+        return message;
+    }
+
+    /**
      * Generate output without streaming (for intermediate steps)
      */
     private async generateNonStreaming(agent: AgentPreset, messages: PromptMessage[]): Promise<string> {
@@ -828,6 +974,8 @@ Provide the improved version:`;
                 return aiService.generateWithOpenRouter(messages, model.id, temperature, maxTokens);
             case 'openai_compatible':
                 return aiService.generateWithOpenAICompatible(messages, model.id, temperature, maxTokens);
+            case 'nanogpt':
+                return aiService.generateWithNanoGPT(messages, model.id, temperature, maxTokens);
             default:
                 throw new Error(`Unknown provider: ${model.provider}`);
         }

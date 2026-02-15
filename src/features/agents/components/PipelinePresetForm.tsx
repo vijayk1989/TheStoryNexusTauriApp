@@ -35,6 +35,7 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     outline_generator: 'Outline Generator',
     style_extractor: 'Style Extractor',
     scenebeat_generator: 'Scene Beat Generator',
+    refusal_checker: 'Refusal Checker',
     custom: 'Custom',
 };
 
@@ -45,6 +46,7 @@ const CONDITION_PRESETS = [
     { value: 'wordCount > 5000', label: 'Word count > 5000', actualValue: 'wordCount > 5000' },
     { value: 'wordCount > 10000', label: 'Word count > 10000', actualValue: 'wordCount > 10000' },
     { value: 'anyJudgeFoundIssues', label: '⚠️ Any Judge Found Issues', actualValue: 'anyJudgeFoundIssues' },
+    { value: 'outputContainsAnyKeyword', label: '🔍 Output Contains Any Keyword (customizable)', actualValue: 'outputContainsAnyKeyword' },
     { value: 'previousOutputContains:ISSUE', label: 'Previous output contains "ISSUE"', actualValue: 'previousOutputContains:ISSUE' },
     { value: 'previousOutputNotContains:CONSISTENT', label: 'Previous output not "CONSISTENT"', actualValue: 'previousOutputNotContains:CONSISTENT' },
     { value: 'roleOutputContains:lore_judge:ISSUE', label: 'Lore Judge found issues', actualValue: 'roleOutputContains:lore_judge:ISSUE' },
@@ -153,6 +155,11 @@ export function PipelinePresetForm({ pipeline, onSave, onCancel }: PipelinePrese
                 condition: s.condition || undefined,
                 streamOutput: s.streamOutput,
                 isRevision: s.isRevision,
+                maxIterations: s.isRevision ? (s.maxIterations || 1) : undefined,
+                retryFromStep: s.isRevision ? s.retryFromStep : undefined,
+                pushPrompt: (s.isRevision && s.pushPrompt) ? s.pushPrompt : undefined,
+                validationKeywords: (s.condition === 'outputContainsAnyKeyword' && s.validationKeywords?.length)
+                    ? s.validationKeywords : undefined,
             }));
 
             const presetData = {
@@ -382,6 +389,96 @@ export function PipelinePresetForm({ pipeline, onSave, onCancel }: PipelinePrese
                                                         }
                                                     />
                                                 </div>
+
+                                                {/* Revision Settings (shown when revision is on) */}
+                                                {step.isRevision && (
+                                                    <div className="space-y-3 pl-4 border-l-2 border-primary/30">
+                                                        {/* Max Iterations */}
+                                                        <div className="space-y-1">
+                                                            <Label className="text-xs">Max Iterations (retry attempts)</Label>
+                                                            <Input
+                                                                type="number"
+                                                                min={1}
+                                                                max={5}
+                                                                value={step.maxIterations ?? 1}
+                                                                onChange={(e) =>
+                                                                    updateStep(step.tempId, { maxIterations: parseInt(e.target.value) || 1 })
+                                                                }
+                                                                className="h-8 text-sm w-24"
+                                                            />
+                                                            <p className="text-xs text-muted-foreground">
+                                                                How many times the loop can retry. 1 = single follow-up.
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Retry From Step */}
+                                                        <div className="space-y-1">
+                                                            <Label className="text-xs">Retry From Step (jump back to)</Label>
+                                                            <Select
+                                                                value={step.retryFromStep?.toString() ?? ''}
+                                                                onValueChange={(v) =>
+                                                                    updateStep(step.tempId, { retryFromStep: parseInt(v) })
+                                                                }
+                                                            >
+                                                                <SelectTrigger className="h-8 text-sm">
+                                                                    <SelectValue placeholder="Select step to retry from" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {steps.map((s, idx) => {
+                                                                        if (idx >= index) return null;
+                                                                        const stepAgent = agentPresets.find(a => a.id === s.agentPresetId);
+                                                                        return (
+                                                                            <SelectItem key={idx} value={idx.toString()}>
+                                                                                Step {idx + 1}{stepAgent ? `: ${stepAgent.name}` : ''}
+                                                                            </SelectItem>
+                                                                        );
+                                                                    })}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                Which earlier step to jump back to when retrying.
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Push Prompt */}
+                                                        <div className="space-y-1">
+                                                            <Label className="text-xs">Push Prompt (custom follow-up message)</Label>
+                                                            <textarea
+                                                                value={step.pushPrompt ?? ''}
+                                                                onChange={(e) =>
+                                                                    updateStep(step.tempId, { pushPrompt: e.target.value })
+                                                                }
+                                                                placeholder={`Use internal reasoning: review your previous response...\n\nPREVIOUS OUTPUT:\n{{PREVIOUS_OUTPUT}}\n\nFEEDBACK:\n{{FEEDBACK}}\n\nRewrite addressing all issues:`}
+                                                                className="w-full min-h-[100px] resize-y rounded-md border bg-background px-3 py-2 text-sm"
+                                                            />
+                                                            <p className="text-xs text-muted-foreground">
+                                                                Use <code className="text-primary">{'{{PREVIOUS_OUTPUT}}'}</code> and <code className="text-primary">{'{{FEEDBACK}}'}</code> as placeholders. Leave empty to use default revision message.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Validation Keywords (shown when outputContainsAnyKeyword condition is selected) */}
+                                                {step.condition === 'outputContainsAnyKeyword' && (
+                                                    <div className="space-y-1">
+                                                        <Label className="text-xs">Validation Keywords</Label>
+                                                        <Input
+                                                            placeholder="ISSUE, INCONSISTENT, ERROR, PROBLEM"
+                                                            value={(step.validationKeywords ?? []).join(', ')}
+                                                            onChange={(e) => {
+                                                                const keywords = e.target.value
+                                                                    .split(',')
+                                                                    .map(k => k.trim())
+                                                                    .filter(k => k.length > 0);
+                                                                updateStep(step.tempId, { validationKeywords: keywords });
+                                                            }}
+                                                            className="h-8 text-sm"
+                                                        />
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Comma-separated keywords to check in the previous step's output.
+                                                        </p>
+                                                    </div>
+                                                )}
 
                                                 {/* Stream Output */}
                                                 <div className="flex items-center justify-between">

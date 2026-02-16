@@ -50,43 +50,35 @@ function assertTauriRuntime() {
 
 export async function setProviderApiKeyViaTauri(
   provider: TauriProvider,
-  apiKey: string
+  apiKey: string,
 ): Promise<void> {
   assertTauriRuntime();
   await invoke("set_provider_api_key", { provider, apiKey });
 }
 
-export async function getProviderApiKeyViaTauri(
-  provider: TauriProvider
-): Promise<string | null> {
-  assertTauriRuntime();
-  const key = await invoke<string | null>("get_provider_api_key", { provider });
-  return key ?? null;
-}
-
 export async function hasProviderApiKeyViaTauri(
-  provider: TauriProvider
+  provider: TauriProvider,
 ): Promise<boolean> {
   assertTauriRuntime();
   return invoke<boolean>("has_provider_api_key", { provider });
 }
 
 export async function removeProviderApiKeyViaTauri(
-  provider: TauriProvider
+  provider: TauriProvider,
 ): Promise<void> {
   assertTauriRuntime();
   await invoke("remove_provider_api_key", { provider });
 }
 
 export async function fetchProviderModelsViaTauri(
-  request: TauriModelsRequest
+  request: TauriModelsRequest,
 ): Promise<TauriModelInfo[]> {
   assertTauriRuntime();
   return invoke<TauriModelInfo[]>("fetch_provider_models", { request });
 }
 
 export async function generateChatCompletionViaTauri(
-  request: TauriGenerateRequest
+  request: TauriGenerateRequest,
 ): Promise<string> {
   assertTauriRuntime();
   return invoke<string>("generate_chat_completion", { request });

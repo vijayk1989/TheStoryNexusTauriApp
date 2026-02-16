@@ -165,19 +165,16 @@ fn set_provider_api_key(provider: String, api_key: String) -> Result<(), String>
 }
 
 #[tauri::command]
-fn get_provider_api_key(provider: String) -> Result<Option<String>, String> {
+fn has_provider_api_key(provider: String) -> Result<bool, String> {
     let provider = normalize_provider(&provider)?;
     let entry = keyring_entry(provider)?;
     match entry.get_password() {
-        Ok(value) => Ok(Some(value)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(error) => Err(format!("Failed to load API key for {provider}: {error}")),
+        Ok(value) => Ok(!value.trim().is_empty()),
+        Err(keyring::Error::NoEntry) => Ok(false),
+        Err(error) => Err(format!(
+            "Failed to determine API key presence for {provider}: {error}"
+        )),
     }
-}
-
-#[tauri::command]
-fn has_provider_api_key(provider: String) -> Result<bool, String> {
-    Ok(get_provider_api_key(provider)?.is_some())
 }
 
 #[tauri::command]
@@ -305,7 +302,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             set_provider_api_key,
-            get_provider_api_key,
             has_provider_api_key,
             remove_provider_api_key,
             fetch_provider_models,
@@ -313,4 +309,107 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod runtime_checks {
+    use super::*;
+
+    fn run_provider_generation_check(
+        provider: &str,
+        base_url: Option<String>,
+        models_route: Option<String>,
+    ) {
+        let has_key = has_provider_api_key(provider.to_string()).unwrap_or(false);
+        if !has_key {
+            println!("SKIP {provider}: no secure key configured");
+            return;
+        }
+
+        let models_result =
+            tauri::async_runtime::block_on(fetch_provider_models(FetchModelsRequest {
+                provider: provider.to_string(),
+                base_url: base_url.clone(),
+                models_route: models_route.clone(),
+            }));
+
+        let models = match models_result {
+            Ok(models) if !models.is_empty() => models,
+            Ok(_) => {
+                panic!("Provider {provider} returned zero models");
+            }
+            Err(error) => {
+                panic!("Provider {provider} model fetch failed: {error}");
+            }
+        };
+
+        let model_id = models
+            .first()
+            .map(|model| model.id.clone())
+            .expect("Expected at least one model");
+
+        let completion_result =
+            tauri::async_runtime::block_on(generate_chat_completion(ChatCompletionRequest {
+                provider: provider.to_string(),
+                model: model_id,
+                messages: vec![ChatMessage {
+                    role: "user".to_string(),
+                    content: "Reply with exactly one short word.".to_string(),
+                }],
+                temperature: Some(0.1),
+                max_tokens: Some(16),
+                top_p: None,
+                top_k: None,
+                repetition_penalty: None,
+                min_p: None,
+                base_url,
+            }));
+
+        match completion_result {
+            Ok(content) => {
+                assert!(
+                    !content.trim().is_empty(),
+                    "Provider {provider} returned empty completion content"
+                );
+                println!(
+                    "PASS {provider}: completion content length={}",
+                    content.len()
+                );
+            }
+            Err(error) => {
+                panic!("Provider {provider} completion failed: {error}");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn provider_runtime_openai() {
+        run_provider_generation_check("openai", None, None);
+    }
+
+    #[test]
+    #[ignore]
+    fn provider_runtime_openrouter() {
+        run_provider_generation_check("openrouter", None, None);
+    }
+
+    #[test]
+    #[ignore]
+    fn provider_runtime_nanogpt() {
+        run_provider_generation_check("nanogpt", None, None);
+    }
+
+    #[test]
+    #[ignore]
+    fn provider_runtime_openai_compatible() {
+        let base_url = std::env::var("OPENAI_COMPATIBLE_BASE_URL").ok();
+        if base_url.as_deref().map(str::trim).unwrap_or("").is_empty() {
+            println!("SKIP openai_compatible: OPENAI_COMPATIBLE_BASE_URL not set");
+            return;
+        }
+
+        let models_route = std::env::var("OPENAI_COMPATIBLE_MODELS_ROUTE").ok();
+        run_provider_generation_check("openai_compatible", base_url, models_route);
+    }
 }

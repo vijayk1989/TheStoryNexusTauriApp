@@ -36,26 +36,36 @@ export default function AISettingsPage() {
     loadInitialData();
   }, []);
 
+  const clearProviderKeyInput = (
+    provider: "openai" | "openrouter" | "nanogpt" | "openai_compatible",
+  ) => {
+    switch (provider) {
+      case "openai":
+        setOpenaiKey("");
+        break;
+      case "openrouter":
+        setOpenrouterKey("");
+        break;
+      case "nanogpt":
+        setNanogptKey("");
+        break;
+      case "openai_compatible":
+        setOpenaiCompatibleKey("");
+        break;
+    }
+  };
+
   const loadInitialData = async () => {
     try {
       console.log("[AISettingsPage] Initializing AI service");
       await aiService.initialize();
 
-      // Set the keys using the new getter methods
-      const openaiKey = aiService.getOpenAIKey();
-      const openrouterKey = aiService.getOpenRouterKey();
-      const nanogptKey = aiService.getNanoGPTKey();
-      const openaiCompatibleKey = aiService.getOpenAICompatibleKey();
       const openaiCompatibleUrl = aiService.getOpenAICompatibleUrl();
       const openaiCompatibleModelsRoute =
         aiService.getOpenAICompatibleModelsRoute();
       const localApiUrl = aiService.getLocalApiUrl();
 
-      console.log("[AISettingsPage] Retrieved API keys and URL from service");
-      if (openaiKey) setOpenaiKey(openaiKey);
-      if (openrouterKey) setOpenrouterKey(openrouterKey);
-      if (nanogptKey) setNanogptKey(nanogptKey);
-      if (openaiCompatibleKey) setOpenaiCompatibleKey(openaiCompatibleKey);
+      console.log("[AISettingsPage] Retrieved provider URLs from service");
       if (openaiCompatibleUrl) setOpenaiCompatibleUrl(openaiCompatibleUrl);
       if (openaiCompatibleModelsRoute)
         setOpenaiCompatibleModelsRoute(openaiCompatibleModelsRoute);
@@ -141,6 +151,9 @@ export default function AISettingsPage() {
           return newModels;
         });
         setOpenSections((prev) => ({ ...prev, local: true }));
+      }
+      if (provider !== "local") {
+        clearProviderKeyInput(provider);
       }
 
       toast.success(

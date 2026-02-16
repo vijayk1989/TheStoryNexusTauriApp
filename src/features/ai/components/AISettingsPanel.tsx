@@ -49,22 +49,33 @@ export function AISettingsPanel() {
     loadInitialData();
   }, []);
 
+  const clearProviderKeyInput = (provider: ProviderType) => {
+    switch (provider) {
+      case "openai":
+        setOpenaiKey("");
+        break;
+      case "openrouter":
+        setOpenrouterKey("");
+        break;
+      case "nanogpt":
+        setNanogptKey("");
+        break;
+      case "openai_compatible":
+        setOpenaiCompatibleKey("");
+        break;
+      default:
+        break;
+    }
+  };
+
   const loadInitialData = async () => {
     try {
       await aiService.initialize();
 
-      const oKey = aiService.getOpenAIKey();
-      const orKey = aiService.getOpenRouterKey();
-      const nKey = aiService.getNanoGPTKey();
-      const ocKey = aiService.getOpenAICompatibleKey();
       const ocUrl = aiService.getOpenAICompatibleUrl();
       const ocRoute = aiService.getOpenAICompatibleModelsRoute();
       const lUrl = aiService.getLocalApiUrl();
 
-      if (oKey) setOpenaiKey(oKey);
-      if (orKey) setOpenrouterKey(orKey);
-      if (nKey) setNanogptKey(nKey);
-      if (ocKey) setOpenaiCompatibleKey(ocKey);
       if (ocUrl) setOpenaiCompatibleUrl(ocUrl);
       if (ocRoute) setOpenaiCompatibleModelsRoute(ocRoute);
       if (lUrl) setLocalApiUrl(lUrl);
@@ -93,6 +104,9 @@ export function AISettingsPanel() {
       const fetched = await aiService.getAvailableModels(provider, true);
       setModels((prev) => ({ ...prev, [provider]: fetched }));
       setOpenSections((prev) => ({ ...prev, [`${provider}_models`]: true }));
+      if (provider !== "local") {
+        clearProviderKeyInput(provider);
+      }
       toast.success(`${providerLabel(provider)} models updated`);
     } catch {
       toast.error(`Failed to update ${providerLabel(provider)} models`);

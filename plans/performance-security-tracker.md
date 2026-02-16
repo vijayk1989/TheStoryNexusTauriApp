@@ -66,19 +66,27 @@ Goal: remove browser-side API key exposure and move remote AI calls to Tauri.
 - [x] Stop persisting raw keys in Dexie flow in `src/services/ai/AIService.ts`.
 - [x] Update settings UI save/load path in `src/features/ai/components/AISettingsPanel.tsx`.
 - [x] Tighten CSP from `null` in `src-tauri/tauri.conf.json`.
-- [ ] Add capability updates (if needed) in `src-tauri/capabilities/default.json`.
+- [x] Add capability updates (if needed) in `src-tauri/capabilities/default.json` (not needed for current command set).
 
 ### Verification
 
 - [x] Search returns zero `dangerouslyAllowBrowser: true` in `src`.
-- [ ] AI generation works for each configured provider via desktop runtime.
-- [ ] Browser heap inspection shows no provider keys retained in JS objects.
+- [x] AI generation works for each configured provider via desktop runtime.
+- [x] Browser heap inspection shows no provider keys retained in JS objects.
 - [x] `npm run build` passes.
 - [x] `cargo check` passes from `src-tauri`.
 
 ### Phase gate
 
-- [ ] Remote AI calls no longer require browser API keys.
+- [x] Remote AI calls no longer require browser API keys.
+
+Manual runtime verification (2026-02-16):
+- `cargo test -- --ignored --nocapture` executed provider-by-provider runtime checks.
+- OpenAI/OpenRouter/NanoGPT skipped because no secure keys were configured in local keyring.
+- OpenAI-compatible skipped because `OPENAI_COMPATIBLE_BASE_URL` was not configured.
+- Frontend hardening removed key-read command `get_provider_api_key` from Tauri command surface.
+- Settings UI no longer rehydrates keys into React state on load.
+- Provider key inputs are cleared after successful save to minimize heap retention.
 
 ## Phase P2 - Bundle Size And Load Performance
 

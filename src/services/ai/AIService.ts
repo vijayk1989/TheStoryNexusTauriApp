@@ -71,7 +71,7 @@ export class AIService {
     };
 
     const hasLegacyKey = Object.values(legacyKeys).some(
-      (value) => typeof value === "string" && value.trim().length > 0
+      (value) => typeof value === "string" && value.trim().length > 0,
     );
     if (!hasLegacyKey) return;
 
@@ -92,7 +92,7 @@ export class AIService {
 
   private async persistProviderKey(
     provider: TauriProvider,
-    key: string
+    key: string,
   ): Promise<void> {
     if (this.tauriAvailable) {
       try {
@@ -101,7 +101,7 @@ export class AIService {
         return;
       } catch (error) {
         console.warn(
-          `[AIService] Failed to store ${provider} key in Tauri secure store, using session memory fallback`
+          `[AIService] Failed to store ${provider} key in Tauri secure store, using session memory fallback`,
         );
       }
     }
@@ -132,7 +132,9 @@ export class AIService {
     }
   }
 
-  private async getProviderKey(provider: TauriProvider): Promise<string | null> {
+  private async getProviderKey(
+    provider: TauriProvider,
+  ): Promise<string | null> {
     return this.sessionKeys[provider]?.trim() || null;
   }
 
@@ -142,7 +144,7 @@ export class AIService {
       const response = await fetch(`${apiUrl}/models`);
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch local models: ${response.status} ${response.statusText}`
+          `Failed to fetch local models: ${response.status} ${response.statusText}`,
         );
       }
 
@@ -154,7 +156,7 @@ export class AIService {
           provider: "local" as AIProvider,
           contextLength: 16384,
           enabled: true,
-        })
+        }),
       );
     } catch (error) {
       console.warn("[AIService] Failed to fetch local models:", error);
@@ -187,7 +189,7 @@ export class AIService {
 
   private mapTauriModels(
     provider: TauriProvider,
-    models: TauriModelInfo[]
+    models: TauriModelInfo[],
   ): AIModel[] {
     return models.map((model) => ({
       id: model.id,
@@ -320,8 +322,8 @@ export class AIService {
     const list = Array.isArray(data.data)
       ? data.data
       : Array.isArray(data)
-      ? data
-      : [];
+        ? data
+        : [];
 
     return list.map((model: any) => ({
       id: model.id || model.name,
@@ -368,7 +370,7 @@ export class AIService {
       }
 
       const existingModels = this.settings.availableModels.filter(
-        (model) => model.provider !== provider
+        (model) => model.provider !== provider,
       );
       const updatedModels = [...existingModels, ...models];
 
@@ -387,7 +389,7 @@ export class AIService {
 
   async getAvailableModels(
     provider?: AIProvider,
-    forceRefresh = true
+    forceRefresh = true,
   ): Promise<AIModel[]> {
     if (!this.settings) throw new Error("AIService not initialized");
 
@@ -401,7 +403,9 @@ export class AIService {
     }
 
     return provider
-      ? this.settings.availableModels.filter((model) => model.provider === provider)
+      ? this.settings.availableModels.filter(
+          (model) => model.provider === provider,
+        )
       : this.settings.availableModels;
   }
 
@@ -412,7 +416,7 @@ export class AIService {
     top_p?: number,
     top_k?: number,
     repetition_penalty?: number,
-    min_p?: number
+    min_p?: number,
   ): Promise<Response> {
     const requestBody: any = {
       messages,
@@ -461,7 +465,7 @@ export class AIService {
     response: Response,
     onToken: (text: string) => void,
     onComplete: () => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
   ) {
     if (!response.body) {
       onError(new Error("Response body is null"));
@@ -525,7 +529,7 @@ export class AIService {
     top_p?: number,
     top_k?: number,
     repetition_penalty?: number,
-    min_p?: number
+    min_p?: number,
   ) {
     const payload: any = {
       model: modelId,
@@ -553,7 +557,7 @@ export class AIService {
     top_p?: number,
     top_k?: number,
     repetition_penalty?: number,
-    min_p?: number
+    min_p?: number,
   ): Promise<Response> {
     if (this.tauriAvailable) {
       const content = await generateChatCompletionViaTauri({
@@ -583,7 +587,7 @@ export class AIService {
         top_p,
         top_k,
         repetition_penalty,
-        min_p
+        min_p,
       ),
       stream: true,
     };
@@ -607,7 +611,7 @@ export class AIService {
     top_p?: number,
     top_k?: number,
     repetition_penalty?: number,
-    min_p?: number
+    min_p?: number,
   ): Promise<Response> {
     if (this.tauriAvailable) {
       const content = await generateChatCompletionViaTauri({
@@ -637,7 +641,7 @@ export class AIService {
         top_p,
         top_k,
         repetition_penalty,
-        min_p
+        min_p,
       ),
       stream: true,
     };
@@ -663,7 +667,7 @@ export class AIService {
     top_p?: number,
     top_k?: number,
     repetition_penalty?: number,
-    min_p?: number
+    min_p?: number,
   ): Promise<Response> {
     if (this.tauriAvailable) {
       const content = await generateChatCompletionViaTauri({
@@ -693,7 +697,7 @@ export class AIService {
         top_p,
         top_k,
         repetition_penalty,
-        min_p
+        min_p,
       ),
       stream: true,
     };
@@ -717,7 +721,7 @@ export class AIService {
     top_p?: number,
     top_k?: number,
     repetition_penalty?: number,
-    min_p?: number
+    min_p?: number,
   ): Promise<Response> {
     const urlBase = this.settings?.openaiCompatibleUrl;
     if (!urlBase) {
@@ -756,7 +760,7 @@ export class AIService {
         top_p,
         top_k,
         repetition_penalty,
-        min_p
+        min_p,
       ),
       stream: true,
     };
@@ -770,22 +774,6 @@ export class AIService {
       body: JSON.stringify(body),
       signal: this.abortController.signal,
     });
-  }
-
-  getOpenAIKey(): string | undefined {
-    return this.sessionKeys.openai;
-  }
-
-  getOpenRouterKey(): string | undefined {
-    return this.sessionKeys.openrouter;
-  }
-
-  getNanoGPTKey(): string | undefined {
-    return this.sessionKeys.nanogpt;
-  }
-
-  getOpenAICompatibleKey(): string | undefined {
-    return this.sessionKeys.openai_compatible;
   }
 
   getOpenAICompatibleUrl(): string | undefined {
@@ -838,7 +826,9 @@ export class AIService {
       ? current.filter((id) => id !== modelId)
       : [...current, modelId];
 
-    await db.aiSettings.update(this.settings.id, { favoriteModelIds: newFavorites });
+    await db.aiSettings.update(this.settings.id, {
+      favoriteModelIds: newFavorites,
+    });
     this.settings.favoriteModelIds = newFavorites;
   }
 

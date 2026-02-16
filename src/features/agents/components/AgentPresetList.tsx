@@ -39,6 +39,7 @@ const ROLE_COLORS: Record<AgentRole, string> = {
     outline_generator: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
     style_extractor: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
     scenebeat_generator: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
+    refusal_checker: 'bg-red-500/10 text-red-500 border-red-500/20',
     custom: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
 };
 
@@ -53,6 +54,7 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     outline_generator: 'Outline Generator',
     style_extractor: 'Style Extractor',
     scenebeat_generator: 'Scene Beat Generator',
+    refusal_checker: 'Refusal Checker',
     custom: 'Custom',
 };
 

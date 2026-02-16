@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -20,6 +20,7 @@ import { ChapterNotesEditor } from "@/features/chapters/components/ChapterNotesE
 import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
 import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
 import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
+import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BasicsGuide from "@/features/guide/components/BasicsGuide";
 import AdvancedGuide from "@/features/guide/components/AdvancedGuide";
@@ -43,7 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
@@ -137,23 +138,13 @@ export function StoryEditor() {
             </Button>
 
             <Button
-                variant={openDrawer === "aiSettings" ? "default" : "outline"}
+                variant={openDrawer === "lorebook" ? "default" : "outline"}
                 size="sm"
                 className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("aiSettings")}
+                onClick={() => handleOpenDrawer("lorebook")}
             >
-                <Settings className="h-4 w-4 mr-2" />
-                AI Settings
-            </Button>
-
-            <Button
-                variant={openDrawer === "guide" ? "default" : "outline"}
-                size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("guide")}
-            >
-                <HelpCircle className="h-4 w-4 mr-2" />
-                Guide
+                <Book className="h-4 w-4 mr-2" />
+                Lorebook
             </Button>
 
             <Button
@@ -164,6 +155,26 @@ export function StoryEditor() {
             >
                 <ScrollText className="h-4 w-4 mr-2" />
                 Prompts
+            </Button>
+
+            <Button
+                variant={openDrawer === "aiSettings" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("aiSettings")}
+            >
+                <Settings className="h-4 w-4 mr-2" />
+                AI Settings
+            </Button>
+            
+             <Button
+                variant={openDrawer === "guide" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("guide")}
+            >
+                <HelpCircle className="h-4 w-4 mr-2" />
+                Guide
             </Button>
         </>
     );
@@ -220,6 +231,14 @@ export function StoryEditor() {
                             <FileText className="h-4 w-4 mr-2" />
                             Drafts
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("lorebook")}>
+                            <Book className="h-4 w-4 mr-2" />
+                            Lorebook
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("prompts")}>
+                            <ScrollText className="h-4 w-4 mr-2" />
+                            Prompts
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDrawer("aiSettings")}>
                             <Settings className="h-4 w-4 mr-2" />
                             AI Settings
@@ -227,10 +246,6 @@ export function StoryEditor() {
                         <DropdownMenuItem onClick={() => handleOpenDrawer("guide")}>
                             <HelpCircle className="h-4 w-4 mr-2" />
                             Guide
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("prompts")}>
-                            <ScrollText className="h-4 w-4 mr-2" />
-                            Prompts
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -369,6 +384,21 @@ export function StoryEditor() {
                             <TabsContent value="agentic"><AgenticGuide /></TabsContent>
                             <TabsContent value="brainstorm"><BrainstormGuide /></TabsContent>
                         </Tabs>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Lorebook Sheet */}
+            <Sheet open={openDrawer === "lorebook"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[600px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Lorebook</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <LorebookPanel />
                     </div>
                 </SheetContent>
             </Sheet>

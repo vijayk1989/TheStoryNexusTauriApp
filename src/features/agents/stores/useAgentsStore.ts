@@ -83,15 +83,21 @@ Format the outline clearly with headers and bullet points. Consider the establis
 Output a concise style guide that another AI could use to mimic this writing style. Be specific with examples from the text.`,
 
     scenebeat_generator: `You are a scene planning assistant. Generate scene beat commands that can guide prose generation.
-
-Each scene beat should be a brief, actionable instruction (1-3 sentences) describing:
-- The core action or event
-- Emotional beats and character reactions
-- Setting details if relevant
-- Dialogue hints if conversation is involved
-
-Format as a numbered list of scene beats. Make them specific enough to guide writing but open enough for creative interpretation.`,
-
+    
+    Each scene beat should be a brief, actionable instruction (1-3 sentences) describing:
+    - The core action or event
+    - Emotional beats and character reactions
+    - Setting details if relevant
+    - Dialogue hints if conversation is involved
+    
+    Format as a numbered list of scene beats. Make them specific enough to guide writing but open enough for creative interpretation.`,
+    
+    refusal_checker: `You are a content refusal detector. Your ONLY job is to analyze AI-generated text and determine if the AI refused to write the requested content.
+    
+    Response format:
+    - If the text contains a refusal or avoidance: respond with exactly: REFUSAL_DETECTED: [brief description of what was refused]
+    - If the text is genuine creative prose (even if imperfect): respond with exactly: CONTENT_OK`,
+    
     custom: `You are a helpful AI assistant. Follow the instructions provided and assist with the writing task.`
 };
 
@@ -322,6 +328,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
             outline_generator: 'Outline Generator',
             style_extractor: 'Style Extractor',
             scenebeat_generator: 'Scene Beat Generator',
+            refusal_checker: 'Refusal Checker',
             custom: 'Custom Agent'
         };
 

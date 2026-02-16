@@ -56,25 +56,25 @@ Goal: remove browser-side API key exposure and move remote AI calls to Tauri.
 
 ### File-level checklist
 
-- [ ] Add Tauri chat completion command(s) in `src-tauri/src/lib.rs`.
-- [ ] Add HTTP client and serialization dependencies in `src-tauri/Cargo.toml`.
-- [ ] Add provider request/response DTOs in `src-tauri/src/lib.rs` (or split into `src-tauri/src/ai.rs` new).
-- [ ] Register new command handlers in `src-tauri/src/lib.rs`.
-- [ ] Introduce frontend command adapter in `src/services/ai/tauriAIClient.ts` (new).
-- [ ] Route OpenAI/OpenRouter/NanoGPT/OpenAI-compatible generation through Tauri in `src/services/ai/AIService.ts`.
-- [ ] Remove all `dangerouslyAllowBrowser: true` usage in `src/services/ai/AIService.ts`.
-- [ ] Stop persisting raw keys in Dexie flow in `src/services/ai/AIService.ts`.
-- [ ] Update settings UI save/load path in `src/features/ai/components/AISettingsPanel.tsx`.
-- [ ] Tighten CSP from `null` in `src-tauri/tauri.conf.json`.
+- [x] Add Tauri chat completion command(s) in `src-tauri/src/lib.rs`.
+- [x] Add HTTP client and serialization dependencies in `src-tauri/Cargo.toml`.
+- [x] Add provider request/response DTOs in `src-tauri/src/lib.rs` (or split into `src-tauri/src/ai.rs` new).
+- [x] Register new command handlers in `src-tauri/src/lib.rs`.
+- [x] Introduce frontend command adapter in `src/services/ai/tauriAIClient.ts` (new).
+- [x] Route OpenAI/OpenRouter/NanoGPT/OpenAI-compatible generation through Tauri in `src/services/ai/AIService.ts`.
+- [x] Remove all `dangerouslyAllowBrowser: true` usage in `src/services/ai/AIService.ts`.
+- [x] Stop persisting raw keys in Dexie flow in `src/services/ai/AIService.ts`.
+- [x] Update settings UI save/load path in `src/features/ai/components/AISettingsPanel.tsx`.
+- [x] Tighten CSP from `null` in `src-tauri/tauri.conf.json`.
 - [ ] Add capability updates (if needed) in `src-tauri/capabilities/default.json`.
 
 ### Verification
 
-- [ ] Search returns zero `dangerouslyAllowBrowser: true` in `src`.
+- [x] Search returns zero `dangerouslyAllowBrowser: true` in `src`.
 - [ ] AI generation works for each configured provider via desktop runtime.
 - [ ] Browser heap inspection shows no provider keys retained in JS objects.
-- [ ] `npm run build` passes.
-- [ ] `cargo check` passes from `src-tauri`.
+- [x] `npm run build` passes.
+- [x] `cargo check` passes from `src-tauri`.
 
 ### Phase gate
 

@@ -1,0 +1,65 @@
+{
+  "capturedAt": "2026-02-16T13:08:19.601Z",
+  "buildStatus": "pass",
+  "metrics": {
+    "tsxFiles": 203,
+    "mainChunk": {
+      "file": "dist/assets/index-CHBijzp1.js",
+      "sizeBytes": 3537802,
+      "gzipBytes": 1152306
+    },
+    "totals": {
+      "jsBytes": 3704857,
+      "jsGzipBytes": 1211690,
+      "cssBytes": 215284,
+      "cssGzipBytes": 46865
+    },
+    "topJsAssets": [
+      {
+        "file": "dist/assets/index-CHBijzp1.js",
+        "sizeBytes": 3537802,
+        "gzipBytes": 1152306
+      },
+      {
+        "file": "dist/assets/collaboration-2teCoaHu.js",
+        "sizeBytes": 110895,
+        "gzipBytes": 34701
+      },
+      {
+        "file": "dist/assets/ImageComponent-CIaeZv2h.js",
+        "sizeBytes": 39827,
+        "gzipBytes": 17182
+      },
+      {
+        "file": "dist/assets/InlineImageComponent-C5g0dQ0x.js",
+        "sizeBytes": 4389,
+        "gzipBytes": 1850
+      },
+      {
+        "file": "dist/assets/EquationComponent-B_j75uIB.js",
+        "sizeBytes": 3665,
+        "gzipBytes": 1558
+      },
+      {
+        "file": "dist/assets/StickyComponent-DV5Qy7pY.js",
+        "sizeBytes": 3068,
+        "gzipBytes": 1415
+      },
+      {
+        "file": "dist/assets/PollComponent-BVkJUBSY.js",
+        "sizeBytes": 2471,
+        "gzipBytes": 1174
+      },
+      {
+        "file": "dist/assets/LexicalNestedComposer-D-Woqvpc.js",
+        "sizeBytes": 1833,
+        "gzipBytes": 1021
+      },
+      {
+        "file": "dist/assets/LexicalCollaborationContext-rqNXRDlq.js",
+        "sizeBytes": 907,
+        "gzipBytes": 483
+      }
+    ]
+  }
+}

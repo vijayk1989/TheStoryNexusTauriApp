@@ -56,6 +56,11 @@ export interface SceneBeatInstanceState {
     streamedText: string;
     streamComplete: boolean;
 
+    // Regeneration
+    lastGenerationMessages: PromptMessage[] | undefined;
+    lastGenerationResponse: string;
+    showRegenerateDialog: boolean;
+
     // Mode
     agenticMode: boolean;
     selectedPipeline: PipelinePreset | null;
@@ -143,6 +148,11 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
         streamedText: '',
         streamComplete: false,
 
+        // Regeneration
+        lastGenerationMessages: undefined,
+        lastGenerationResponse: '',
+        showRegenerateDialog: false,
+
         // Mode
         agenticMode: false,
         selectedPipeline: null,
@@ -227,7 +237,14 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
         },
 
         resetGeneration: () => {
-            set({ streamedText: '', streamComplete: false, streaming: false });
+            set({
+                streamedText: '',
+                streamComplete: false,
+                streaming: false,
+                lastGenerationMessages: undefined,
+                lastGenerationResponse: '',
+                showRegenerateDialog: false,
+            });
         },
     }));
 }

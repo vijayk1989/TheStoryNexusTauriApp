@@ -13,7 +13,7 @@ import { toast } from 'react-toastify';
 import type { AIModel } from '@/types/story';
 import { cn } from '@/lib/utils';
 
-type ProviderType = 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible';
+type ProviderType = 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible' | 'google';
 
 export function AISettingsPanel() {
     const [openaiKey, setOpenaiKey] = useState('');
@@ -22,6 +22,7 @@ export function AISettingsPanel() {
     const [openaiCompatibleKey, setOpenaiCompatibleKey] = useState('');
     const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState('');
     const [openaiCompatibleModelsRoute, setOpenaiCompatibleModelsRoute] = useState('');
+    const [googleKey, setGoogleKey] = useState('');
     const [localApiUrl, setLocalApiUrl] = useState('http://localhost:1234/v1');
     const [loadingProvider, setLoadingProvider] = useState<ProviderType | null>(null);
     const [models, setModels] = useState<Record<string, AIModel[]>>({
@@ -30,6 +31,7 @@ export function AISettingsPanel() {
         nanogpt: [],
         local: [],
         openai_compatible: [],
+        google: [],
     });
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
@@ -47,6 +49,7 @@ export function AISettingsPanel() {
             const ocKey = aiService.getOpenAICompatibleKey();
             const ocUrl = aiService.getOpenAICompatibleUrl();
             const ocRoute = aiService.getOpenAICompatibleModelsRoute();
+            const gKey = aiService.getGoogleKey();
             const lUrl = aiService.getLocalApiUrl();
 
             if (oKey) setOpenaiKey(oKey);
@@ -55,6 +58,7 @@ export function AISettingsPanel() {
             if (ocKey) setOpenaiCompatibleKey(ocKey);
             if (ocUrl) setOpenaiCompatibleUrl(ocUrl);
             if (ocRoute) setOpenaiCompatibleModelsRoute(ocRoute);
+            if (gKey) setGoogleKey(gKey);
             if (lUrl) setLocalApiUrl(lUrl);
 
             const allModels = await aiService.getAvailableModels(undefined, false);
@@ -64,6 +68,7 @@ export function AISettingsPanel() {
                 nanogpt: allModels.filter(m => m.provider === 'nanogpt'),
                 local: allModels.filter(m => m.provider === 'local'),
                 openai_compatible: allModels.filter(m => m.provider === 'openai_compatible'),
+                google: allModels.filter(m => m.provider === 'google'),
             });
         } catch (error) {
             console.error('Error loading AI settings:', error);
@@ -408,6 +413,51 @@ export function AISettingsPanel() {
                     />
                 </div>
             </ProviderSection>
+
+            {/* Google AI */}
+            <ProviderSection
+                title="Google AI"
+                description="Gemini via Google AI Studio"
+                open={openSections.google}
+                onToggle={() => toggleSection('google')}
+            >
+                <div className="space-y-3">
+                    <div>
+                        <Label className="text-xs">API Key</Label>
+                        <div className="flex gap-2 mt-1">
+                            <Input
+                                type="password"
+                                placeholder="AIza..."
+                                value={googleKey}
+                                onChange={(e) => setGoogleKey(e.target.value)}
+                                className="text-sm"
+                            />
+                            <Button
+                                size="sm"
+                                onClick={() => handleKeyUpdate('google', googleKey)}
+                                disabled={isLoading('google') || !googleKey.trim()}
+                            >
+                                {isLoading('google') ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+                            </Button>
+                        </div>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleRefresh('google')}
+                        disabled={isLoading('google') || !googleKey.trim()}
+                    >
+                        {isLoading('google') ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                        Refresh Models
+                    </Button>
+                    <ModelList
+                        models={models.google}
+                        open={openSections.google_models}
+                        onToggle={() => toggleSection('google_models')}
+                    />
+                </div>
+            </ProviderSection>
         </div>
     );
 }
@@ -421,6 +471,7 @@ function providerLabel(provider: ProviderType): string {
         case 'nanogpt': return 'NanoGPT';
         case 'local': return 'Local';
         case 'openai_compatible': return 'OpenAI-Compatible';
+        case 'google': return 'Google AI';
     }
 }
 

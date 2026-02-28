@@ -31,7 +31,7 @@ import type { SceneBeatInstanceStoreApi } from '../stores/useSceneBeatInstanceSt
 
 export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
     const [editor] = useLexicalComposerContext();
-    const { generateWithPrompt, processStreamedResponse, abortGeneration } = useAIStore();
+    const { generateWithPrompt, generateWithParsedMessages, processStreamedResponse, abortGeneration } = useAIStore();
     const { prompts, fetchPrompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
     const { tagMap, chapterMatchedEntries } = useLorebookStore();
 
@@ -153,7 +153,22 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         try {
             store.setState({ streaming: true, streamedText: '', streamComplete: false });
             const config = createPromptConfig(selectedPrompt);
-            const response = await generateWithPrompt(config, selectedModel);
+
+            // Parse the prompt so we can capture messages for regeneration
+            const promptParser = createPromptParser();
+            const parsedPrompt = await promptParser.parse(config);
+            if (parsedPrompt.error || !parsedPrompt.messages?.length) {
+                throw new Error(parsedPrompt.error || 'Failed to parse prompt');
+            }
+
+            // Save parsed messages for potential regeneration later
+            store.setState({ lastGenerationMessages: parsedPrompt.messages });
+
+            const response = await generateWithParsedMessages(
+                parsedPrompt.messages,
+                selectedModel!,
+                selectedPrompt.id
+            );
 
             if (!response.ok && response.status !== 204) throw new Error('Failed to generate response');
             if (response.status === 204) {
@@ -164,7 +179,14 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             await processStreamedResponse(
                 response,
                 (token) => store.getState().appendStreamedText(token),
-                () => store.setState({ streamComplete: true }),
+                () => {
+                    // Save the response text for regeneration
+                    const responseText = store.getState().streamedText;
+                    store.setState({
+                        streamComplete: true,
+                        lastGenerationResponse: responseText,
+                    });
+                },
                 (error) => {
                     console.error('Error streaming response:', error);
                     toast.error('Failed to generate text');
@@ -188,7 +210,81 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         } finally {
             store.setState({ streaming: false });
         }
-    }, [store, createPromptConfig, generateWithPrompt, processStreamedResponse]);
+    }, [store, createPromptConfig, generateWithParsedMessages, processStreamedResponse]);
+
+    // ── Regeneration ───────────────────────────────────────────
+
+    const handleRegenerate = useCallback(async (customMessage: string) => {
+        const { lastGenerationMessages, lastGenerationResponse, selectedModel, selectedPrompt, sceneBeatId } = store.getState();
+        if (!lastGenerationMessages || !lastGenerationResponse) {
+            toast.error('No previous generation to regenerate from');
+            return;
+        }
+        if (!selectedModel || !selectedPrompt) {
+            toast.error('No model/prompt selected');
+            return;
+        }
+        try {
+            store.setState({
+                streaming: true,
+                streamedText: '',
+                streamComplete: false,
+                showRegenerateDialog: false,
+            });
+
+            // Build conversation: original messages + assistant response + user refinement
+            const regenMessages = [
+                ...lastGenerationMessages,
+                { role: 'assistant' as const, content: lastGenerationResponse },
+                { role: 'user' as const, content: customMessage },
+            ];
+
+            const response = await generateWithParsedMessages(
+                regenMessages,
+                selectedModel,
+                selectedPrompt.id
+            );
+
+            if (!response.ok && response.status !== 204) throw new Error('Failed to regenerate response');
+            if (response.status === 204) {
+                store.setState({ streaming: false });
+                return;
+            }
+
+            await processStreamedResponse(
+                response,
+                (token) => store.getState().appendStreamedText(token),
+                () => {
+                    const responseText = store.getState().streamedText;
+                    store.setState({
+                        streamComplete: true,
+                        lastGenerationResponse: responseText,
+                    });
+                },
+                (error) => {
+                    console.error('Error streaming regenerated response:', error);
+                    toast.error('Failed to regenerate text');
+                }
+            );
+
+            // Save regenerated content to database
+            if (sceneBeatId) {
+                try {
+                    await sceneBeatService.updateSceneBeat(sceneBeatId, {
+                        generatedContent: store.getState().streamedText,
+                        accepted: false,
+                    });
+                } catch (error) {
+                    console.error('Error saving regenerated content:', error);
+                }
+            }
+        } catch (error) {
+            console.error('Error regenerating text:', error);
+            toast.error('Failed to regenerate text');
+        } finally {
+            store.setState({ streaming: false });
+        }
+    }, [store, generateWithParsedMessages, processStreamedResponse]);
 
     // ── Agentic generation ─────────────────────────────────────
 
@@ -412,6 +508,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         handleParallelAccept,
         handleAccept,
         handleReject,
+        handleRegenerate,
         handleDelete,
         abortGeneration,
     };

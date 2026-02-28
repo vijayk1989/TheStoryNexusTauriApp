@@ -3,7 +3,7 @@
  * preview/edit buttons, generate button, accept/reject buttons.
  */
 import { useState, useMemo } from 'react';
-import { Bot, Sparkles, Stethoscope, Loader2, Pencil, Square, Save } from 'lucide-react';
+import { Bot, Sparkles, Stethoscope, Loader2, Pencil, Square, Save, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { PromptSelectMenu } from '@/components/ui/prompt-select-menu';
@@ -32,6 +32,7 @@ interface SceneBeatActionBarProps {
     onParallelGenerate: () => Promise<void>;
     onAccept: () => Promise<void>;
     onReject: () => void;
+    onRegenerate: (msg: string) => Promise<void>;
 }
 
 export function SceneBeatActionBar({
@@ -49,6 +50,7 @@ export function SceneBeatActionBar({
     onParallelGenerate,
     onAccept,
     onReject,
+    onRegenerate,
 }: SceneBeatActionBarProps) {
     const streaming = useSBStore((s) => s.streaming);
     const streamComplete = useSBStore((s) => s.streamComplete);
@@ -262,6 +264,15 @@ export function SceneBeatActionBar({
                     </Button>
                     <Button variant="outline" size="sm" onClick={onReject} className="text-xs md:text-sm">
                         Reject
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs md:text-sm"
+                        onClick={() => set({ showRegenerateDialog: true })}
+                    >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Regenerate
                     </Button>
                     <Button
                         variant="outline"

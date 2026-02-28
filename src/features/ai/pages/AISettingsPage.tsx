@@ -17,12 +17,14 @@ export default function AISettingsPage() {
     const [openaiCompatibleKey, setOpenaiCompatibleKey] = useState('');
     const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState('');
     const [openaiCompatibleModelsRoute, setOpenaiCompatibleModelsRoute] = useState('');
+    const [googleKey, setGoogleKey] = useState('');
     const [localApiUrl, setLocalApiUrl] = useState('http://localhost:1234/v1');
     const [isLoading, setIsLoading] = useState(false);
     const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
     const [openrouterModels, setOpenrouterModels] = useState<AIModel[]>([]);
     const [nanogptModels, setNanogptModels] = useState<AIModel[]>([]);
     const [openaiCompatibleModels, setOpenaiCompatibleModels] = useState<AIModel[]>([]);
+    const [googleModels, setGoogleModels] = useState<AIModel[]>([]);
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
@@ -41,6 +43,7 @@ export default function AISettingsPage() {
             const openaiCompatibleKey = aiService.getOpenAICompatibleKey();
             const openaiCompatibleUrl = aiService.getOpenAICompatibleUrl();
             const openaiCompatibleModelsRoute = aiService.getOpenAICompatibleModelsRoute();
+            const googleKey = aiService.getGoogleKey();
             const localApiUrl = aiService.getLocalApiUrl();
 
             console.log('[AISettingsPage] Retrieved API keys and URL from service');
@@ -50,6 +53,7 @@ export default function AISettingsPage() {
             if (openaiCompatibleKey) setOpenaiCompatibleKey(openaiCompatibleKey);
             if (openaiCompatibleUrl) setOpenaiCompatibleUrl(openaiCompatibleUrl);
             if (openaiCompatibleModelsRoute) setOpenaiCompatibleModelsRoute(openaiCompatibleModelsRoute);
+            if (googleKey) setGoogleKey(googleKey);
             if (localApiUrl) setLocalApiUrl(localApiUrl);
 
             console.log('[AISettingsPage] Getting all available models');
@@ -62,20 +66,22 @@ export default function AISettingsPage() {
             const openrouterModels = allModels.filter(m => m.provider === 'openrouter');
             const nanogptModels = allModels.filter(m => m.provider === 'nanogpt');
             const openaiCompatibleModels = allModels.filter(m => m.provider === 'openai_compatible');
+            const googleModels = allModels.filter(m => m.provider === 'google');
 
-            console.log(`[AISettingsPage] Filtered models - Local: ${localModels.length}, OpenAI: ${openaiModels.length}, OpenRouter: ${openrouterModels.length}, NanoGPT: ${nanogptModels.length}`);
+            console.log(`[AISettingsPage] Filtered models - Local: ${localModels.length}, OpenAI: ${openaiModels.length}, OpenRouter: ${openrouterModels.length}, NanoGPT: ${nanogptModels.length}, Google: ${googleModels.length}`);
 
             setOpenaiModels(openaiModels);
             setOpenrouterModels(openrouterModels);
             setNanogptModels(nanogptModels);
             setOpenaiCompatibleModels(openaiCompatibleModels);
+            setGoogleModels(googleModels);
         } catch (error) {
             console.error('Error loading AI settings:', error);
             toast.error('Failed to load AI settings');
         }
     };
 
-    const handleKeyUpdate = async (provider: 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible', key: string) => {
+    const handleKeyUpdate = async (provider: 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible' | 'google', key: string) => {
         if (provider !== 'local' && !key.trim()) return;
 
         setIsLoading(true);
@@ -98,6 +104,9 @@ export default function AISettingsPage() {
             } else if (provider === 'openai_compatible') {
                 setOpenaiCompatibleModels(models);
                 setOpenSections(prev => ({ ...prev, openai_compatible: true }));
+            } else if (provider === 'google') {
+                setGoogleModels(models);
+                setOpenSections(prev => ({ ...prev, google: true }));
             } else if (provider === 'local') {
                 console.log(`[AISettingsPage] Updating local models, received ${models.length} models`);
                 setOpenaiModels(prev => {
@@ -118,7 +127,7 @@ export default function AISettingsPage() {
         }
     };
 
-    const handleRefreshModels = async (provider: 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible') => {
+    const handleRefreshModels = async (provider: 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible' | 'google') => {
         setIsLoading(true);
         console.log(`[AISettingsPage] Refreshing models for provider: ${provider}`);
         try {
@@ -142,6 +151,10 @@ export default function AISettingsPage() {
                 case 'openai_compatible':
                     setOpenaiCompatibleModels(models);
                     setOpenSections(prev => ({ ...prev, openai_compatible: true }));
+                    break;
+                case 'google':
+                    setGoogleModels(models);
+                    setOpenSections(prev => ({ ...prev, google: true }));
                     break;
                 case 'local':
                     console.log(`[AISettingsPage] Updating local models, received ${models.length} models`);
@@ -511,6 +524,65 @@ export default function AISettingsPage() {
                                     </CollapsibleTrigger>
                                     <CollapsibleContent className="mt-2 space-y-2">
                                         {nanogptModels.map(model => (
+                                            <div key={model.id} className="text-sm pl-6">
+                                                {model.name}
+                                            </div>
+                                        ))}
+                                    </CollapsibleContent>
+                                </Collapsible>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Google AI Section */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex justify-between items-center">
+                                Google AI Configuration
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRefreshModels('google')}
+                                    disabled={isLoading || !googleKey.trim()}
+                                >
+                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Refresh Models'}
+                                </Button>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="google-key">Google AI Studio API Key</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="google-key"
+                                        type="password"
+                                        placeholder="Enter your Google AI Studio API key"
+                                        value={googleKey}
+                                        onChange={(e) => setGoogleKey(e.target.value)}
+                                    />
+                                    <Button
+                                        onClick={() => handleKeyUpdate('google', googleKey)}
+                                        disabled={isLoading || !googleKey.trim()}
+                                    >
+                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {googleModels.length > 0 && (
+                                <Collapsible
+                                    open={openSections.google}
+                                    onOpenChange={() => toggleSection('google')}
+                                >
+                                    <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                                        <ChevronRight className={cn(
+                                            "h-4 w-4 transition-transform",
+                                            openSections.google && "transform rotate-90"
+                                        )} />
+                                        Available Models
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="mt-2 space-y-2">
+                                        {googleModels.map(model => (
                                             <div key={model.id} className="text-sm pl-6">
                                                 {model.name}
                                             </div>

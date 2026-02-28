@@ -203,6 +203,7 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
             'Favorites': [],
             'Local': [],
             'OpenAI Compatible': [],
+            'Google AI': [],
             'OpenAI': [],
             'NanoGPT': [],
             'OpenRouter': [],
@@ -223,6 +224,8 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
                 groups['OpenAI'].push(model);
             } else if (model.provider === 'nanogpt') {
                 groups['NanoGPT'].push(model);
+            } else if (model.provider === 'google') {
+                groups['Google AI'].push(model);
             } else if (model.provider === 'openrouter') {
                 groups['OpenRouter'].push(model);
             }

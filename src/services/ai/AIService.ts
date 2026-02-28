@@ -1,6 +1,7 @@
 import { AIModel, AIProvider, AISettings, PromptMessage } from '@/types/story';
 import { db } from '../database';
 import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 
 export class AIService {
     private static instance: AIService;
@@ -11,6 +12,7 @@ export class AIService {
     private openAI: OpenAI | null = null;
     private openAICompatibleUrl: string | null = null;
     private openAICompatibleKey: string | null = null;
+    private googleAI: GoogleGenAI | null = null;
     private abortController: AbortController | null = null;
 
     private constructor() { }
@@ -31,6 +33,7 @@ export class AIService {
         this.initializeOpenRouter();
         this.initializeNanoGPT();
         this.initializeOpenAICompatible();
+        this.initializeGoogle();
     }
 
     private async createInitialSettings(): Promise<AISettings> {
@@ -130,6 +133,13 @@ export class AIService {
         });
     }
 
+    private initializeGoogle() {
+        if (!this.settings?.googleKey) return;
+
+        this.googleAI = new GoogleGenAI({ apiKey: this.settings.googleKey });
+        console.log('[AIService] Initialized Google AI client');
+    }
+
     async updateKey(provider: AIProvider, key: string) {
         if (!this.settings) throw new Error('AIService not initialized');
 
@@ -138,7 +148,8 @@ export class AIService {
             ...(provider === 'openai' && { openaiKey: key }),
             ...(provider === 'openrouter' && { openrouterKey: key }),
             ...(provider === 'nanogpt' && { nanogptKey: key }),
-            ...(provider === 'openai_compatible' && { openaiCompatibleKey: key })
+            ...(provider === 'openai_compatible' && { openaiCompatibleKey: key }),
+            ...(provider === 'google' && { googleKey: key })
         };
 
         console.log(`[AIService] Updating database with new key for ${provider}`);
@@ -159,6 +170,9 @@ export class AIService {
         } else if (provider === 'openai_compatible') {
             console.log(`[AIService] Initializing OpenAI-compatible provider`);
             this.initializeOpenAICompatible();
+        } else if (provider === 'google') {
+            console.log(`[AIService] Initializing Google AI client`);
+            this.initializeGoogle();
         }
 
         // Fetch available models when key is updated
@@ -200,6 +214,12 @@ export class AIService {
                     if (this.settings.openaiCompatibleKey && this.settings.openaiCompatibleUrl) {
                         console.log('[AIService] Fetching OpenAI-compatible models');
                         models = await this.fetchOpenAICompatibleModels();
+                    }
+                    break;
+                case 'google':
+                    if (this.settings.googleKey) {
+                        console.log('[AIService] Fetching Google AI models');
+                        models = await this.fetchGoogleModels();
                     }
                     break;
             }
@@ -321,6 +341,36 @@ export class AIService {
             contextLength: model.context_length || model.max_context || 16384,
             enabled: true
         }));
+    }
+
+    private async fetchGoogleModels(): Promise<AIModel[]> {
+        if (!this.googleAI) throw new Error('Google AI client not initialized');
+
+        try {
+            const pager = await this.googleAI.models.list({ config: { pageSize: 100 } });
+            const models: AIModel[] = [];
+
+            for await (const model of pager) {
+                // Only include generative models (skip embedding models etc.)
+                if (!model.name || !model.supportedActions?.includes('generateContent')) continue;
+
+                // model.name is like "models/gemini-2.0-flash", extract the id part
+                const modelId = model.name.replace('models/', '');
+                models.push({
+                    id: modelId,
+                    name: model.displayName || modelId,
+                    provider: 'google' as AIProvider,
+                    contextLength: model.inputTokenLimit || 32768,
+                    enabled: true
+                });
+            }
+
+            console.log(`[AIService] Fetched ${models.length} Google AI models`);
+            return models;
+        } catch (error) {
+            console.error('[AIService] Failed to fetch Google AI models:', error);
+            throw error;
+        }
     }
 
     async getAvailableModels(provider?: AIProvider, forceRefresh: boolean = true): Promise<AIModel[]> {
@@ -739,6 +789,111 @@ export class AIService {
         }
     }
 
+    async generateWithGoogle(
+        messages: PromptMessage[],
+        modelId: string,
+        temperature: number = 1.0,
+        maxTokens: number = 2048,
+        top_p?: number,
+        top_k?: number,
+        repetition_penalty?: number,
+        min_p?: number
+    ): Promise<Response> {
+        if (!this.settings?.googleKey) {
+            throw new Error('Google AI API key not set');
+        }
+        if (!this.googleAI) {
+            this.initializeGoogle();
+        }
+        if (!this.googleAI) {
+            throw new Error('Google AI client not initialized');
+        }
+
+        // Extract system instruction from messages
+        const systemMessages = messages.filter(m => m.role === 'system');
+        const systemInstruction = systemMessages.map(m => m.content).join('\n\n') || undefined;
+
+        // Convert user/assistant messages to Google's contents format
+        const contents = messages
+            .filter(m => m.role !== 'system')
+            .map(m => ({
+                role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+                parts: [{ text: m.content }]
+            }));
+
+        // Build generation config
+        const config: Record<string, any> = {
+            temperature,
+            maxOutputTokens: maxTokens,
+        };
+
+        if (systemInstruction) {
+            config.systemInstruction = systemInstruction;
+        }
+        if (top_p !== undefined && top_p !== 0) {
+            config.topP = top_p;
+        }
+        if (top_k !== undefined && top_k !== 0) {
+            config.topK = top_k;
+        }
+        // Note: repetition_penalty and min_p are not supported by Google's API
+        // They will be silently ignored
+
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
+        try {
+            const stream = await this.googleAI.models.generateContentStream({
+                model: modelId,
+                contents,
+                config,
+            });
+
+            // Wrap Google's async iterator into an SSE-formatted ReadableStream
+            // so processStreamedResponse can parse it unchanged
+            const responseStream = new ReadableStream({
+                async start(controller) {
+                    try {
+                        for await (const chunk of stream) {
+                            if (signal.aborted) {
+                                console.log('Google AI stream aborted');
+                                controller.close();
+                                return;
+                            }
+                            const text = chunk.text;
+                            if (text) {
+                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`;
+                                controller.enqueue(new TextEncoder().encode(formattedChunk));
+                            }
+                        }
+                        // Send the [DONE] marker
+                        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+                        controller.close();
+                    } catch (error) {
+                        if (signal.aborted) {
+                            console.log('Google AI stream aborted during iteration');
+                            controller.close();
+                        } else {
+                            controller.error(error);
+                        }
+                    }
+                }
+            });
+
+            return new Response(responseStream, {
+                headers: { 'Content-Type': 'text/event-stream' }
+            });
+
+        } catch (error) {
+            if ((error as Error).name === 'AbortError') {
+                console.log('Google AI generation aborted');
+                return new Response(null, { status: 204 });
+            }
+            console.error('Error generating with Google AI:', error);
+            throw error;
+        }
+    }
+
     // Add getter methods for settings
     getOpenAIKey(): string | undefined {
         return this.settings?.openaiKey;
@@ -750,6 +905,10 @@ export class AIService {
 
     getNanoGPTKey(): string | undefined {
         return this.settings?.nanogptKey;
+    }
+
+    getGoogleKey(): string | undefined {
+        return this.settings?.googleKey;
     }
 
     getOpenAICompatibleKey(): string | undefined {

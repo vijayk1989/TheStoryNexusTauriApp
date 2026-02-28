@@ -100,6 +100,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             'Favorites': [],
             'Local': [],
             'OpenAI Compatible': [],
+            'Google AI': [],
             'NanoGPT': [],
             'xAI': [],
             'Anthropic': [],
@@ -123,6 +124,8 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 groups['OpenAI Compatible'].push(model);
             } else if (model.provider === 'nanogpt') {
                 groups['NanoGPT'].push(model);
+            } else if (model.provider === 'google') {
+                groups['Google AI'].push(model);
             } else if (model.name.toLowerCase().includes('(free)')) {
                 groups['Free'].push(model);
             } else if (model.provider === 'openai') {
@@ -437,7 +440,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                     ))}
                 </div>
 
-                <Popover>
+                <Popover modal={false}>
                     <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full text-left">{selectedModels.length ? `${selectedModels.length} selected` : 'Select a model'}</Button>
                     </PopoverTrigger>
@@ -573,7 +576,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                         
                         {/* Model selector for parallel models */}
                         {parallelModels.length < 3 && (
-                            <Popover>
+                            <Popover modal={false}>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className="w-full text-left">
                                         <Plus className="h-4 w-4 mr-2" />

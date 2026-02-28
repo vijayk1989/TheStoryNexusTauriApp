@@ -168,9 +168,6 @@ function LorebookItem({
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         <div className="text-sm font-medium truncate">{entry.name}</div>
-                        {entry.isValid === false && (
-                            <span className="text-[10px] text-destructive" title="Invalid keys">⚠️</span>
-                        )}
                          {entry.isDisabled && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
                                 Disabled

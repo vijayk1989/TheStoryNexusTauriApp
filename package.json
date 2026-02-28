@@ -17,6 +17,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@excalidraw/excalidraw": "^0.17.0",
+    "@google/genai": "^1.42.0",
     "@hookform/resolvers": "^4.1.2",
     "@lexical/clipboard": "0.24.0",
     "@lexical/code": "0.24.0",

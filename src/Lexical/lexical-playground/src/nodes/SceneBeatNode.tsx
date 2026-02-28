@@ -19,8 +19,9 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { usePromptStore } from "@/features/prompts/store/promptStore";
 import type { SceneBeat, LorebookEntry } from "@/types/story";
 import { toast } from "react-toastify";
@@ -57,6 +58,7 @@ import { SceneBeatHeader } from "./scene-beat/SceneBeatHeader";
 import { SceneBeatContextPanel } from "./scene-beat/SceneBeatContextPanel";
 import { SceneBeatActionBar } from "./scene-beat/SceneBeatActionBar";
 import { SceneBeatMatchedPanel } from "./scene-beat/SceneBeatMatchedPanel";
+import { RegenerateDialog } from "./scene-beat/RegenerateDialog";
 
 // ── Serialization type ─────────────────────────────────────────
 
@@ -91,6 +93,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const showMatchedEntries = useSBStore((s) => s.showMatchedEntries);
   const showDiagnostics = useSBStore((s) => s.showDiagnostics);
   const showParallelDrawer = useSBStore((s) => s.showParallelDrawer);
+  const showRegenerateDialog = useSBStore((s) => s.showRegenerateDialog);
   const previewMessages = useSBStore((s) => s.previewMessages);
   const previewLoading = useSBStore((s) => s.previewLoading);
   const previewError = useSBStore((s) => s.previewError);
@@ -98,6 +101,8 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const selectedItems = useSBStore((s) => s.selectedItems);
   const agenticStepResults = useSBStore((s) => s.agenticStepResults);
   const selectedPipeline = useSBStore((s) => s.selectedPipeline);
+  const lastGenerationMessages = useSBStore((s) => s.lastGenerationMessages);
+  const lastGenerationResponse = useSBStore((s) => s.lastGenerationResponse);
   const set = useSBStore((s) => s.set);
 
   // Generation hook — pass the store API for imperative access
@@ -109,6 +114,19 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoRedoAction = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Speech-to-text for dictating into the command textarea
+  const stt = useSpeechToText({
+    onTranscript: (text, isFinal) => {
+      if (isFinal) {
+        const trimmed = text.trim();
+        if (trimmed) {
+          const separator = command && !command.endsWith(" ") ? " " : "";
+          handleCommandChange(command + separator + trimmed);
+        }
+      }
+    },
+  });
 
   // ── Effects ──────────────────────────────────────────────────
 
@@ -367,27 +385,48 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
               placeholder="Describe the scene beat…"
               className="min-h-[80px] md:min-h-[100px] resize-y text-sm md:text-base"
             />
-            <div className="flex justify-end mt-1 gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleUndo}
-                disabled={historyIndex <= 0}
-                className="h-6 w-6"
-                title="Undo (Ctrl+Z)"
-              >
-                <ChevronUp className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRedo}
-                disabled={historyIndex >= commandHistory.length - 1}
-                className="h-6 w-6"
-                title="Redo (Ctrl+Shift+Z)"
-              >
-                <ChevronDown className="h-3 w-3" />
-              </Button>
+            <div className="flex items-center justify-between mt-1">
+              {/* Interim transcript indicator */}
+              <div className="flex-1 min-w-0">
+                {stt.isListening && stt.interimTranscript && (
+                  <span className="text-xs text-muted-foreground italic truncate block">
+                    {stt.interimTranscript}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-1">
+                {stt.isSupported && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={stt.toggle}
+                    className={cn("h-6 w-6", stt.isListening && "text-red-500")}
+                    title={stt.isListening ? "Stop dictation" : "Start dictation"}
+                  >
+                    <Mic className={cn("h-3 w-3", stt.isListening && "animate-pulse")} />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleUndo}
+                  disabled={historyIndex <= 0}
+                  className="h-6 w-6"
+                  title="Undo (Ctrl+Z)"
+                >
+                  <ChevronUp className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleRedo}
+                  disabled={historyIndex >= commandHistory.length - 1}
+                  className="h-6 w-6"
+                  title="Redo (Ctrl+Shift+Z)"
+                >
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -422,6 +461,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
             onParallelGenerate={gen.handleParallelGenerate}
             onAccept={gen.handleAccept}
             onReject={gen.handleReject}
+            onRegenerate={gen.handleRegenerate}
           />
 
           {/* Matched entries panel */}
@@ -499,6 +539,15 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
             return [...new Set(names)];
           })()
         }
+      />
+
+      <RegenerateDialog
+        open={showRegenerateDialog}
+        onOpenChange={(v) => set({ showRegenerateDialog: v })}
+        messages={lastGenerationMessages}
+        previousResponse={lastGenerationResponse}
+        onRegenerate={gen.handleRegenerate}
+        isStreaming={streaming}
       />
     </div>
   );

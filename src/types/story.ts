@@ -142,7 +142,8 @@ export type AIProvider =
   | "openrouter"
   | "local"
   | "openai_compatible"
-  | "nanogpt";
+  | "nanogpt"
+  | "google";
 
 export interface AIModel {
   id: string;
@@ -156,6 +157,7 @@ export interface AISettings extends BaseEntity {
   openaiKey?: string;
   openrouterKey?: string;
   nanogptKey?: string;
+  googleKey?: string;
   // OpenAI-compatible provider (custom URL + key)
   openaiCompatibleKey?: string;
   openaiCompatibleUrl?: string;

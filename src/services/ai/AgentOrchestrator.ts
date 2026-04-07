@@ -268,7 +268,7 @@ export class AgentOrchestrator {
      * This is the actual content the user wants, not judge/checker outputs
      */
     private getLastProseOutput(results: AgentResult[]): string {
-        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor', 'chapter_reviewer'];
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
 
         // Find the last result from a prose-generating role
         for (let i = results.length - 1; i >= 0; i--) {
@@ -285,7 +285,7 @@ export class AgentOrchestrator {
      * Always scans backwards so revision loops return the most recent prose, not the first.
      */
     private getLastProseResult(results: AgentResult[]): AgentResult | undefined {
-        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor', 'chapter_reviewer'];
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
         for (let i = results.length - 1; i >= 0; i--) {
             if (proseRoles.includes(results[i].role)) {
                 return results[i];
@@ -327,8 +327,9 @@ export class AgentOrchestrator {
         // Push prompt mode: build multi-turn chat memory
         // [system, originalUser, assistantRefusal, pushPromptUser]
         if (isRevision && step?.pushPrompt && previousResults.length > 0) {
-            // Find the prose writer's original output (the refusal)
-            const proseResult = previousResults.find(r => r.role === 'prose_writer');
+            // Find the MOST RECENT prose writer output (last iteration, not first)
+            const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
+            const proseResult = [...previousResults].reverse().find(r => proseRoles.includes(r.role));
             const previousOutput = proseResult?.output || previousResults[previousResults.length - 1]?.output || '';
 
             // Feedback from the checker (e.g. refusal_checker or lore_judge)
@@ -476,13 +477,19 @@ export class AgentOrchestrator {
                 return this.buildContinuityCheckerMessage(agent, input, previousResults);
 
             case 'style_editor':
-                return this.buildStyleEditorMessage(agent, previousResults);
+                return isRevision
+                    ? this.buildRevisionMessage(agent, input, previousResults)
+                    : this.buildStyleEditorMessage(agent, previousResults);
 
             case 'dialogue_specialist':
-                return this.buildDialogueSpecialistMessage(agent, previousResults);
+                return isRevision
+                    ? this.buildRevisionMessage(agent, input, previousResults)
+                    : this.buildDialogueSpecialistMessage(agent, previousResults);
 
             case 'expander':
-                return this.buildExpanderMessage(agent, input, previousResults);
+                return isRevision
+                    ? this.buildRevisionMessage(agent, input, previousResults)
+                    : this.buildExpanderMessage(agent, input, previousResults);
 
             case 'outline_generator':
                 return this.buildOutlineGeneratorMessage(agent, input, previousResults);
@@ -565,9 +572,16 @@ export class AgentOrchestrator {
         const proseResults = previousResults.filter(r => r.role === 'prose_writer');
         const originalProse = proseResults[proseResults.length - 1]?.output || '';
 
-        // Find feedback from judges (lore_judge or continuity_checker)
-        const feedbackResults = previousResults.filter(r => 
-            r.role === 'lore_judge' || r.role === 'continuity_checker'
+        // Find feedback from judges that came AFTER the last prose output only.
+        // This prevents stacking feedback from earlier iterations when maxIterations > 1.
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
+        const lastProseIdx = previousResults.reduce(
+            (last, r, idx) => proseRoles.includes(r.role) ? idx : last,
+            -1
+        );
+        const feedbackResults = previousResults.filter((r, idx) =>
+            idx > lastProseIdx &&
+            (r.role === 'lore_judge' || r.role === 'continuity_checker' || r.role === 'chapter_reviewer')
         );
         const feedback = feedbackResults
             .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)
@@ -735,19 +749,20 @@ Provide the improved version:`;
         const lorebookEntries = this.getLorebookForAgent(agent, input);
         const MAX_LORE_DESC_CHARS = 300;
 
-        // Find the last chapter_editor output as the prose to revise
-        const lastEditorIdx = previousResults.reduce(
-            (last, r, idx) => r.role === 'chapter_editor' ? idx : last,
+        // Find the last prose output from any prose-producing role
+        const allProseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
+        const lastProseIdx = previousResults.reduce(
+            (last, r, idx) => allProseRoles.includes(r.role) ? idx : last,
             -1,
         );
-        const originalProse = lastEditorIdx >= 0
-            ? previousResults[lastEditorIdx].output
+        const originalProse = lastProseIdx >= 0
+            ? previousResults[lastProseIdx].output
             : input.previousWords || '';
 
-        // Collect reviewer/judge feedback from steps after the last chapter_editor output
+        // Collect reviewer/judge feedback from steps after the last prose output
         const feedbackRoles: AgentRole[] = ['chapter_reviewer', 'lore_judge', 'continuity_checker'];
         const feedbackResults = previousResults.filter(
-            (r, idx) => idx > lastEditorIdx && feedbackRoles.includes(r.role),
+            (r, idx) => idx > lastProseIdx && feedbackRoles.includes(r.role),
         );
         const feedback = feedbackResults
             .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)

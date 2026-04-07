@@ -268,8 +268,8 @@ export class AgentOrchestrator {
      * This is the actual content the user wants, not judge/checker outputs
      */
     private getLastProseOutput(results: AgentResult[]): string {
-        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander'];
-        
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor', 'chapter_reviewer'];
+
         // Find the last result from a prose-generating role
         for (let i = results.length - 1; i >= 0; i--) {
             if (proseRoles.includes(results[i].role)) {
@@ -278,6 +278,35 @@ export class AgentOrchestrator {
         }
         
         return '';
+    }
+
+    /**
+     * Get the last prose AgentResult (not just the output string).
+     * Always scans backwards so revision loops return the most recent prose, not the first.
+     */
+    private getLastProseResult(results: AgentResult[]): AgentResult | undefined {
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor', 'chapter_reviewer'];
+        for (let i = results.length - 1; i >= 0; i--) {
+            if (proseRoles.includes(results[i].role)) {
+                return results[i];
+            }
+        }
+        return undefined;
+    }
+
+    /**
+     * Determine whether a judge/checker output contains reported issues.
+     * Handles both the new sentinel token format (##LORE_ISSUE##, ##CONTINUITY_ISSUE##)
+     * and the legacy free-text "ISSUE:" format for backward compatibility with existing presets.
+     */
+    private hasJudgeIssues(output: string): boolean {
+        const upper = output.toUpperCase();
+        // New sentinel tokens — unambiguous
+        if (upper.includes('##LORE_ISSUE##') || upper.includes('##CONTINUITY_ISSUE##')) return true;
+        // If the output starts with CONSISTENT it is clean — check this before legacy scan
+        if (upper.trimStart().startsWith('CONSISTENT')) return false;
+        // Legacy: bare ISSUE keyword but not negated
+        return upper.includes('ISSUE') && !upper.includes('NO ISSUE') && !upper.includes('WITHOUT ISSUE');
     }
 
     /**
@@ -464,6 +493,14 @@ export class AgentOrchestrator {
             case 'scenebeat_generator':
                 return this.buildScenebeatGeneratorMessage(agent, input, previousResults);
 
+            case 'chapter_reviewer':
+                return this.buildChapterReviewerMessage(agent, input);
+
+            case 'chapter_editor':
+                return isRevision
+                    ? this.buildChapterEditorRevisionMessage(agent, input, previousResults)
+                    : this.buildChapterEditorMessage(agent, input);
+
             case 'custom':
             default:
                 return this.buildCustomMessage(agent, input, previousResults);
@@ -642,6 +679,147 @@ Provide the improved version:`;
         }
 
         message += `Expand the following brief notes/outline into detailed prose:\n\nNOTES:\n${briefNotes}\n\nWrite a fully expanded scene:`;
+
+        return message;
+    }
+
+    private buildChapterEditorMessage(agent: AgentPreset, input: PipelineInput): string {
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const chapterText = input.previousWords || '';
+        const editInstructions = input.scenebeat || '';
+
+        // Cap each lorebook description to avoid token overflow when editing long chapters.
+        // The model must output the full chapter back, so we budget tightly for lore context.
+        const MAX_LORE_DESC_CHARS = 300;
+
+        let message = '';
+
+        // Include lorebook so the editor can preserve lore-accurate details
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => {
+                    const desc = e.description.length > MAX_LORE_DESC_CHARS
+                        ? e.description.slice(0, MAX_LORE_DESC_CHARS) + '…'
+                        : e.description;
+                    return `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${desc}`;
+                })
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        // Add POV info so voice is preserved
+        if (input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) {
+                message += ` (${input.povCharacter})`;
+            }
+            message += '\n\n';
+        }
+
+        message += `CHAPTER TO EDIT:\n${chapterText}\n\n`;
+
+        if (editInstructions) {
+            message += `EDITING INSTRUCTIONS:\n${editInstructions}\n\n`;
+        }
+
+        message += `---\nReturn the complete edited chapter text and nothing else:`;
+
+        return message;
+    }
+
+    private buildChapterEditorRevisionMessage(
+        agent: AgentPreset,
+        input: PipelineInput,
+        previousResults: AgentResult[],
+    ): string {
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const MAX_LORE_DESC_CHARS = 300;
+
+        // Find the last chapter_editor output as the prose to revise
+        const lastEditorIdx = previousResults.reduce(
+            (last, r, idx) => r.role === 'chapter_editor' ? idx : last,
+            -1,
+        );
+        const originalProse = lastEditorIdx >= 0
+            ? previousResults[lastEditorIdx].output
+            : input.previousWords || '';
+
+        // Collect reviewer/judge feedback from steps after the last chapter_editor output
+        const feedbackRoles: AgentRole[] = ['chapter_reviewer', 'lore_judge', 'continuity_checker'];
+        const feedbackResults = previousResults.filter(
+            (r, idx) => idx > lastEditorIdx && feedbackRoles.includes(r.role),
+        );
+        const feedback = feedbackResults
+            .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)
+            .join('\n\n');
+
+        let message = 'You need to REVISE the following chapter based on the feedback provided.\n\n';
+
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => {
+                    const desc = e.description.length > MAX_LORE_DESC_CHARS
+                        ? e.description.slice(0, MAX_LORE_DESC_CHARS) + '…'
+                        : e.description;
+                    return `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${desc}`;
+                })
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        if (input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) message += ` (${input.povCharacter})`;
+            message += '\n\n';
+        }
+
+        message += `CHAPTER TO REVISE:\n${originalProse}\n\n`;
+        message += `---\n${feedback}\n\n`;
+        message += `---\nPlease rewrite the complete chapter, addressing ALL issues from the feedback while maintaining the original intent and style. Return the full revised chapter text and nothing else:`;
+
+        return message;
+    }
+
+    private buildChapterReviewerMessage(agent: AgentPreset, input: PipelineInput): string {
+        const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const chapterText = input.previousWords || '';
+        const reviewFocus = input.scenebeat || '';
+
+        const MAX_LORE_DESC_CHARS = 300;
+
+        let message = '';
+
+        // Add lorebook context so the reviewer can check for lore consistency
+        if (lorebookEntries.length > 0) {
+            const lorebookContext = lorebookEntries
+                .map(e => {
+                    const desc = e.description.length > MAX_LORE_DESC_CHARS
+                        ? e.description.slice(0, MAX_LORE_DESC_CHARS) + '…'
+                        : e.description;
+                    return `[${e.category?.toUpperCase() ?? 'LORE'}] ${e.name}: ${desc}`;
+                })
+                .join('\n\n');
+            message += `ESTABLISHED LORE & CHARACTERS:\n${lorebookContext}\n\n`;
+        }
+
+        // Add POV info if available
+        if (input.povType) {
+            message += `POV: ${input.povType}`;
+            if (input.povCharacter) {
+                message += ` (${input.povCharacter})`;
+            }
+            message += '\n\n';
+        }
+
+        // Add the chapter text to review
+        message += `CHAPTER TEXT TO REVIEW:\n${chapterText}\n\n`;
+
+        // Add optional reviewer focus/instructions
+        if (reviewFocus) {
+            message += `REVIEW FOCUS:\n${reviewFocus}\n\n`;
+        }
+
+        message += `---\nPlease provide a detailed review of the chapter above.`;
 
         return message;
     }

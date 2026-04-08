@@ -83,6 +83,36 @@ const CONTEXT_CONFIGS: Record<string, AgentContextConfig> = {
         includeChapterSummary: false,
         includePovInfo: false,
     },
+    chapter_reviewer: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    chapter_editor: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    lore_writer: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    lore_refiner: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    judge_aggregator: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
 };
 
 // System agent presets with template variables
@@ -158,10 +188,10 @@ Be thorough but concise. Focus on actual contradictions, not stylistic preferenc
     },
     {
         name: 'System Continuity Checker',
-        description: 'Checks for plot holes and character consistency.',
+        description: 'Checks for plot holes, character consistency, and in-scene physical detail drift.',
         role: 'continuity_checker',
         model: DEFAULT_MODELS.utility,
-        systemPrompt: `You are a continuity expert for fiction writing. Check for plot holes, timeline issues, and character consistency.
+        systemPrompt: `You are a continuity expert for fiction writing. Check for plot holes, timeline issues, character consistency, and in-scene physical detail drift.
 
 Review for:
 - Timeline inconsistencies (events happening out of order)
@@ -169,20 +199,49 @@ Review for:
 - Forgotten plot threads or unresolved setups
 - Physical impossibilities (character in two places at once)
 - Emotional continuity (reactions matching previous scenes)
+- In-scene appearance drift: clothing, jewellery, accessories, tattoos, hairstyle, injuries, or skin marks that change within the scene without explanation
+- Object state continuity: items placed, held, drawn, or described in one paragraph that are forgotten or contradicted later in the same scene
+- Physical state persistence: wounds, blood, mud, wet clothing, or dishevelled appearance that should persist across paragraphs unless explicitly addressed
+- Environmental state: doors open/closed, candles lit/unlit, weather or lighting established mid-scene that silently changes
 
-Response format:
-- If consistent, respond with exactly: CONSISTENT
-- If there are issues:
-  CONTINUITY ISSUE: [Description]
-  CONTEXT: [What was established earlier]
-  SUGGESTION: [How to resolve]
+Response format — FOLLOW EXACTLY:
+- If consistent: respond with only: CONSISTENT
+- If there are issues, use this exact format for each:
+  ##CONTINUITY_ISSUE##
+  DESCRIPTION: [what contradicts earlier content or changes without explanation]
+  CONTEXT: [what was previously established]
+  SUGGESTION: [how to resolve]
 
-Focus on narrative logic, not style preferences.`,
+Do NOT use the word "issue" outside of ##CONTINUITY_ISSUE## blocks.
+Focus on narrative logic and physical consistency, not style preferences.`,
         temperature: 0.2,
-        maxTokens: 600,
+        maxTokens: 800,
         isSystem: true,
         storyId: null,
         contextConfig: CONTEXT_CONFIGS.continuity_checker,
+    },
+    {
+        name: 'System Judge Aggregator',
+        description: 'Synthesises outputs from all judges since the last prose step into a single PASS or ISSUES_FOUND decision.',
+        role: 'judge_aggregator',
+        model: DEFAULT_MODELS.utility,
+        systemPrompt: `You are a judge aggregator for fiction writing. Your job is to review the outputs from multiple judge agents (lore judge, continuity checker, etc.) and produce a single clear verdict.
+
+Rules:
+- If ALL judges found no issues (each returned CONSISTENT or similar): respond with only: PASS
+- If ANY judge found issues: respond with ISSUES_FOUND on the first line, then a concise, prioritised list of the problems to fix and how to fix them.
+
+Format when issues exist:
+ISSUES_FOUND
+[Numbered list of issues, most critical first. For each: what is wrong and the suggested fix.]
+
+Be concise and actionable. Merge duplicate issues from different judges. Omit style preferences — only flag factual contradictions and continuity errors.
+Do NOT use the word "issue" outside of the ISSUES_FOUND block.`,
+        temperature: 0.2,
+        maxTokens: 800,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.judge_aggregator,
     },
     {
         name: 'System Style Editor',
@@ -351,6 +410,49 @@ const SYSTEM_PIPELINE_PRESETS: {
             { role: 'lore_judge' },
             // Revision step: only runs if lore judge found issues
             { role: 'prose_writer', condition: 'roleOutputContains:lore_judge:ISSUE', isRevision: true, streamOutput: true },
+        ],
+    },
+    {
+        name: 'Quality Prose with Verification',
+        description: 'Writes prose, checks lore, revises up to twice if issues found, then re-checks to confirm all issues were resolved.',
+        agentRoles: [
+            { role: 'summarizer', condition: 'wordCount > 3000' },  // 0
+            { role: 'prose_writer', streamOutput: true },            // 1
+            { role: 'lore_judge' },                                  // 2
+            // Revision step: executes up to 2 times when lore issues found,
+            // then jumps back to the lore_judge (step 2) to re-check the revised prose.
+            {
+                role: 'prose_writer',
+                condition: 'roleOutputContains:lore_judge:ISSUE',
+                isRevision: true,
+                streamOutput: true,
+                retryFromStep: 2,
+                maxIterations: 2,
+            },                                                       // 3
+            // Verification pass: re-runs the lore judge on the final revision to confirm resolution
+            { role: 'lore_judge' },                                  // 4
+        ],
+    },
+    {
+        name: 'Quality Prose with Judge Loop',
+        description: 'Writes prose, runs lore + continuity judges, aggregates feedback, then revises in a loop until all issues are resolved or the iteration limit is reached.',
+        agentRoles: [
+            { role: 'summarizer', condition: 'wordCount > 3000' },  // 0
+            { role: 'prose_writer', streamOutput: true },            // 1
+            { role: 'lore_judge' },                                  // 2
+            { role: 'continuity_checker' },                          // 3
+            { role: 'judge_aggregator' },                            // 4
+            // Revision step: executes up to 3 times when the aggregator finds issues,
+            // then jumps back to the lore_judge (step 2) so all judges re-check the
+            // revised prose before the next revision pass.
+            {
+                role: 'prose_writer',
+                condition: 'roleOutputContains:judge_aggregator:ISSUES_FOUND',
+                isRevision: true,
+                streamOutput: true,
+                retryFromStep: 2,
+                maxIterations: 3,
+            },                                                       // 5
         ],
     },
     {

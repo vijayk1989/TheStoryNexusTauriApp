@@ -1,4 +1,5 @@
 import { aiService } from './AIService';
+import { splitThinkingContent } from '@/lib/thinking';
 import {
     PromptMessage,
     AllowedModel,
@@ -57,6 +58,12 @@ export interface PipelineResult {
     totalDuration: number;
     status: 'completed' | 'failed' | 'aborted';
     error?: string;
+    // Whether the final judge pass confirmed all issues were resolved
+    verificationStatus?: 'passed' | 'failed' | 'skipped';
+    // Raw output from the last judge, if issues remain
+    unresolvedIssues?: string;
+    // True when a revision loop exhausted its maxIterations while the condition was still active
+    loopLimitReached?: boolean;
 }
 
 export class AgentOrchestrator {
@@ -89,8 +96,10 @@ export class AgentOrchestrator {
         const startTime = Date.now();
         this.abortController = new AbortController();
 
-        // Track iteration counts per retry-point to enforce maxIterations
+        // Track completed iteration counts per retry-point step index to enforce maxIterations.
+        // A value of N means the revision step has already executed N times.
         const iterationCounts = new Map<number, number>();
+        let loopLimitReached = false;
 
         try {
             let i = 0;
@@ -111,27 +120,8 @@ export class AgentOrchestrator {
                 // Check condition if provided (pass step for keyword-based conditions)
                 if (step.condition && !this.evaluateCondition(step.condition, input, results, step)) {
                     console.log(`[AgentOrchestrator] Skipping step ${i} (${step.agent.name}): condition not met`);
-
                     i++;
                     continue;
-                }
-
-                // Handle retry loop: if this step has retryFromStep and its condition passed,
-                // we need to check if we should jump back
-                if (step.retryFromStep !== undefined && step.retryFromStep !== null && step.condition) {
-                    const maxIter = step.maxIterations ?? 1;
-                    const currentIter = iterationCounts.get(i) ?? 0;
-
-                    if (currentIter < maxIter) {
-                        iterationCounts.set(i, currentIter + 1);
-                        console.log(`[AgentOrchestrator] Retry loop: jumping from step ${i} back to step ${step.retryFromStep} (iteration ${currentIter + 1}/${maxIter})`);
-                        i = step.retryFromStep;
-                        continue; // Re-run from retryFromStep
-                    } else {
-                        console.log(`[AgentOrchestrator] Retry loop: max iterations (${maxIter}) reached at step ${i}, skipping`);
-                        i++;
-                        continue;
-                    }
                 }
 
                 callbacks?.onStepStart?.(step, i);
@@ -141,16 +131,25 @@ export class AgentOrchestrator {
                     const messages = this.buildMessages(step.agent, input, results, step.isRevision, step);
                     const shouldStream = step.streamOutput ?? false; // Default to NOT streaming
 
-                    let output: string;
+                    let rawOutput: string;
                     if (shouldStream && callbacks?.onToken) {
-                        output = await this.generateStreaming(step.agent, messages, callbacks.onToken);
+                        rawOutput = await this.generateStreaming(step.agent, messages, callbacks.onToken);
                     } else {
-                        output = await this.generateNonStreaming(step.agent, messages);
+                        rawOutput = await this.generateNonStreaming(step.agent, messages);
                     }
+
+                    // Strip <think>...</think> blocks from ALL step outputs so that judge feedback
+                    // and prose passed between steps is never contaminated by reasoning tokens.
+                    // The thinking text is preserved in metadata for diagnostics.
+                    const { proseText: output, thinkingText } = splitThinkingContent(rawOutput);
+
+                    const completedIter = (iterationCounts.get(i) ?? 0) + 1;
+                    iterationCounts.set(i, completedIter);
 
                     const metadata: Record<string, unknown> = {};
                     if (step.isRevision) metadata.isRevision = true;
-                    if (iterationCounts.has(i)) metadata.iteration = iterationCounts.get(i);
+                    metadata.iteration = completedIter;
+                    if (thinkingText) metadata.thinkingText = thinkingText;
 
                     const result: AgentResult = {
                         role: step.agent.role,
@@ -163,6 +162,22 @@ export class AgentOrchestrator {
 
                     results.push(result);
                     callbacks?.onStepComplete?.(result, i);
+
+                    // Retry loop (evaluated AFTER execution so the step always runs at least once
+                    // when its condition is met). retryFromStep points to an earlier step index
+                    // that begins the next iteration (e.g. the lore_judge that should re-check
+                    // the revised prose).
+                    if (step.retryFromStep !== undefined && step.retryFromStep !== null && step.condition) {
+                        const maxIter = step.maxIterations ?? 1;
+                        if (completedIter < maxIter) {
+                            console.log(`[AgentOrchestrator] Retry loop: jumping from step ${i} back to step ${step.retryFromStep} (iteration ${completedIter}/${maxIter})`);
+                            i = step.retryFromStep;
+                            continue; // Re-run from retryFromStep
+                        } else {
+                            console.log(`[AgentOrchestrator] Retry loop: max iterations (${maxIter}) reached at step ${i}`);
+                            loopLimitReached = true;
+                        }
+                    }
 
                 } catch (error) {
                     console.error(`[AgentOrchestrator] Error in step ${i}:`, error);
@@ -193,12 +208,30 @@ export class AgentOrchestrator {
             // Find the prose output (last prose_writer, style_editor, or dialogue_specialist)
             const proseOutput = this.getLastProseOutput(results);
 
+            // Determine verification status from the last judge/aggregator result
+            const lastJudgeResult = [...results].reverse().find(r =>
+                r.role === 'lore_judge' || r.role === 'continuity_checker' || r.role === 'judge_aggregator'
+            );
+            let verificationStatus: PipelineResult['verificationStatus'] = 'skipped';
+            let unresolvedIssues: string | undefined;
+            if (lastJudgeResult) {
+                if (this.hasJudgeIssues(lastJudgeResult.output)) {
+                    verificationStatus = 'failed';
+                    unresolvedIssues = lastJudgeResult.output;
+                } else {
+                    verificationStatus = 'passed';
+                }
+            }
+
             return {
                 finalOutput: results[results.length - 1]?.output ?? '',
                 proseOutput,
                 steps: results,
                 totalDuration: Date.now() - startTime,
-                status: 'completed'
+                status: 'completed',
+                verificationStatus,
+                unresolvedIssues,
+                loopLimitReached: loopLimitReached || undefined,
             };
 
         } catch (error) {
@@ -296,15 +329,19 @@ export class AgentOrchestrator {
 
     /**
      * Determine whether a judge/checker output contains reported issues.
-     * Handles both the new sentinel token format (##LORE_ISSUE##, ##CONTINUITY_ISSUE##)
-     * and the legacy free-text "ISSUE:" format for backward compatibility with existing presets.
+     * Handles sentinel token formats from all judge roles:
+     *   - ##LORE_ISSUE##, ##CONTINUITY_ISSUE## (lore_judge / continuity_checker)
+     *   - ISSUES_FOUND (judge_aggregator)
+     *   - Legacy free-text "ISSUE:" format for backward compatibility.
      */
     private hasJudgeIssues(output: string): boolean {
-        const upper = output.toUpperCase();
+        const upper = output.toUpperCase().trim();
         // New sentinel tokens — unambiguous
         if (upper.includes('##LORE_ISSUE##') || upper.includes('##CONTINUITY_ISSUE##')) return true;
-        // If the output starts with CONSISTENT it is clean — check this before legacy scan
-        if (upper.trimStart().startsWith('CONSISTENT')) return false;
+        // Judge aggregator sentinel
+        if (upper.startsWith('ISSUES_FOUND')) return true;
+        // Clean-state markers — check before legacy scan
+        if (upper.startsWith('CONSISTENT') || upper.startsWith('PASS')) return false;
         // Legacy: bare ISSUE keyword but not negated
         return upper.includes('ISSUE') && !upper.includes('NO ISSUE') && !upper.includes('WITHOUT ISSUE');
     }
@@ -508,6 +545,9 @@ export class AgentOrchestrator {
                     ? this.buildChapterEditorRevisionMessage(agent, input, previousResults)
                     : this.buildChapterEditorMessage(agent, input);
 
+            case 'judge_aggregator':
+                return this.buildJudgeAggregatorMessage(previousResults);
+
             case 'custom':
             default:
                 return this.buildCustomMessage(agent, input, previousResults);
@@ -579,13 +619,25 @@ export class AgentOrchestrator {
             (last, r, idx) => proseRoles.includes(r.role) ? idx : last,
             -1
         );
-        const feedbackResults = previousResults.filter((r, idx) =>
-            idx > lastProseIdx &&
-            (r.role === 'lore_judge' || r.role === 'continuity_checker' || r.role === 'chapter_reviewer')
-        );
-        const feedback = feedbackResults
-            .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)
-            .join('\n\n');
+
+        // Prefer judge_aggregator synthesis (cleaner, de-duplicated feedback) when present.
+        // Fall back to raw judge outputs if no aggregator ran.
+        const aggregatorResult = [...previousResults].slice(lastProseIdx + 1)
+            .reverse()
+            .find(r => r.role === 'judge_aggregator');
+
+        let feedback: string;
+        if (aggregatorResult) {
+            feedback = `[JUDGE AGGREGATOR FEEDBACK]:\n${aggregatorResult.output}`;
+        } else {
+            const feedbackResults = previousResults.filter((r, idx) =>
+                idx > lastProseIdx &&
+                (r.role === 'lore_judge' || r.role === 'continuity_checker' || r.role === 'chapter_reviewer')
+            );
+            feedback = feedbackResults
+                .map(r => `[${r.role.toUpperCase()} FEEDBACK]:\n${r.output}`)
+                .join('\n\n');
+        }
 
         // Build lorebook context for reference (full descriptions)
         const lorebookContext = lorebookEntries
@@ -638,6 +690,38 @@ NEW PROSE:
 ${proseOutput}
 
 List any continuity issues (timeline inconsistencies, character behavior changes, forgotten plot points). If consistent, respond with: CONSISTENT`;
+    }
+
+    /**
+     * Build the user message for the judge_aggregator role.
+     * Collects all judge/checker outputs since the last prose step and formats them
+     * so the aggregator can synthesise a single PASS or ISSUES_FOUND decision.
+     */
+    private buildJudgeAggregatorMessage(previousResults: AgentResult[]): string {
+        const proseRoles: AgentRole[] = ['prose_writer', 'style_editor', 'dialogue_specialist', 'expander', 'chapter_editor'];
+        const lastProseIdx = previousResults.reduce(
+            (last, r, idx) => proseRoles.includes(r.role) ? idx : last,
+            -1
+        );
+
+        const judgeResults = previousResults.filter((r, idx) =>
+            idx > lastProseIdx &&
+            (r.role === 'lore_judge' || r.role === 'continuity_checker' || r.role === 'chapter_reviewer')
+        );
+
+        if (judgeResults.length === 0) {
+            return 'No judge outputs are available to review. Respond with: PASS';
+        }
+
+        const judgeOutputs = judgeResults
+            .map(r => `[${r.agentName.toUpperCase()}]:\n${r.output}`)
+            .join('\n\n---\n\n');
+
+        return `Review the following judge outputs and determine whether the prose has any issues that need to be addressed.
+
+${judgeOutputs}
+
+Provide your assessment.`;
     }
 
     private buildStyleEditorMessage(agent: AgentPreset, previousResults: AgentResult[]): string {
@@ -1007,6 +1091,15 @@ Provide the improved version:`;
                     const searchText = parts.slice(1).join(':').trim();
                     const roleResult = previousResults.find(r => r.role.toLowerCase() === role);
                     if (roleResult) {
+                        // When checking raw judge roles for "ISSUE", use the robust hasJudgeIssues helper.
+                        // judge_aggregator uses ISSUES_FOUND (not ISSUE), so let it use plain text matching.
+                        const isRawJudgeRole = role !== 'judge_aggregator' && (
+                            role === 'lore_judge' || role === 'continuity_checker' ||
+                            role.includes('judge') || role.includes('checker')
+                        );
+                        if (isRawJudgeRole && searchText.toUpperCase() === 'ISSUE') {
+                            return this.hasJudgeIssues(roleResult.output);
+                        }
                         return roleResult.output.toUpperCase().includes(searchText.toUpperCase());
                     }
                     return false;
@@ -1020,23 +1113,16 @@ Provide the improved version:`;
                 return !lastOutput.toUpperCase().includes(searchText.toUpperCase());
             }
 
-            // Check if ANY judge role found issues (lore_judge, continuity_checker, or any role with 'judge' or 'checker')
+            // Check if ANY judge role found issues (lore_judge, continuity_checker, or any role with 'judge' or 'checker').
+            // judge_aggregator is excluded here — use roleOutputContains:judge_aggregator:ISSUES_FOUND instead.
             if (normalizedCondition === 'anyjudgefoundissues') {
                 const judgeRoles = ['lore_judge', 'continuity_checker'];
                 return previousResults.some(r => {
-                    const isJudgeRole = judgeRoles.includes(r.role) || 
-                                       r.role.includes('judge') || 
-                                       r.role.includes('checker');
-                    if (isJudgeRole) {
-                        // Check for common issue markers
-                        const output = r.output.toUpperCase();
-                        return output.includes('ISSUE') || 
-                               output.includes('INCONSISTEN') || 
-                               output.includes('ERROR') ||
-                               output.includes('PROBLEM') ||
-                               output.includes('CONFLICT');
-                    }
-                    return false;
+                    const isJudgeRole = r.role !== 'judge_aggregator' && (
+                        r.role === 'lore_judge' || r.role === 'continuity_checker' ||
+                        r.role.includes('judge') || r.role.includes('checker')
+                    );
+                    return isJudgeRole && this.hasJudgeIssues(r.output);
                 });
             }
 
@@ -1098,11 +1184,14 @@ Provide the improved version:`;
             previousOutput = previousResults[previousResults.length - 1].output;
         }
 
-        // Collect feedback from judge/checker roles
-        const feedbackResults = previousResults.filter(r =>
-            r.role === 'lore_judge' || r.role === 'continuity_checker' ||
-            r.role.includes('judge') || r.role.includes('checker')
-        );
+        // Collect feedback from judge/checker roles (prefer aggregator if present)
+        const aggregator = [...previousResults].reverse().find(r => r.role === 'judge_aggregator');
+        const feedbackResults = aggregator
+            ? [aggregator]
+            : previousResults.filter(r =>
+                r.role === 'lore_judge' || r.role === 'continuity_checker' ||
+                (r.role !== 'judge_aggregator' && (r.role.includes('judge') || r.role.includes('checker')))
+            );
         const feedback = feedbackResults.length > 0
             ? feedbackResults.map(r => `[${r.agentName}]:\n${r.output}`).join('\n\n')
             : 'No specific feedback available.';

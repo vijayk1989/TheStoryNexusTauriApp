@@ -40,6 +40,11 @@ const ROLE_COLORS: Record<AgentRole, string> = {
     style_extractor: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
     scenebeat_generator: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
     refusal_checker: 'bg-red-500/10 text-red-500 border-red-500/20',
+    chapter_reviewer: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
+    chapter_editor: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    lore_writer: 'bg-lime-500/10 text-lime-500 border-lime-500/20',
+    lore_refiner: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    judge_aggregator: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
     custom: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
 };
 
@@ -55,6 +60,11 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     style_extractor: 'Style Extractor',
     scenebeat_generator: 'Scene Beat Generator',
     refusal_checker: 'Refusal Checker',
+    chapter_reviewer: 'Chapter Reviewer',
+    chapter_editor: 'Chapter Editor',
+    lore_writer: 'Lore Writer',
+    lore_refiner: 'Lore Refiner',
+    judge_aggregator: 'Judge Aggregator',
     custom: 'Custom',
 };
 

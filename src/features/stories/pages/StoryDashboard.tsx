@@ -44,6 +44,7 @@ export default function StoryDashboard() {
     });
 
     const { getLastEditedChapterId, chapters } = useChapterStore();
+    const isCollection = currentStory?.storyFormat === 'short_story_collection';
 
     // Check if the last edited chapter still exists
     const lastEditedChapterId = storyId ? getLastEditedChapterId(storyId) : null;
@@ -112,7 +113,7 @@ export default function StoryDashboard() {
             )}>
                 {storyId && (
                     <>
-                        {navButton(<BookOpen className="h-5 w-5" />, `/dashboard/${storyId}/chapters`, "Chapters")}
+                        {navButton(<BookOpen className="h-5 w-5" />, `/dashboard/${storyId}/chapters`, isCollection ? "Stories" : "Chapters")}
                         {lastEditedChapterId && lastEditedChapterExists && (
                             navButton(
                                 <PenLine className="h-5 w-5" />,

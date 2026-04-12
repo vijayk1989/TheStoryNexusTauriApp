@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router";
-import { Home, BookOpen, Bot, HelpCircle } from "lucide-react";
+import { Home, BookOpen, Bot, HelpCircle, Library } from "lucide-react";
 import { Button } from "./ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
     { to: "/", icon: Home, label: "Home" },
     { to: "/stories", icon: BookOpen, label: "Stories" },
+    { to: "/lorebooks", icon: Library, label: "Lore Books" },
     { to: "/ai-settings", icon: Bot, label: "AI" },
     { to: "/guide", icon: HelpCircle, label: "Guide" },
 ];
@@ -41,8 +42,11 @@ export function MainLayout() {
                     ))}
                 </div>
 
-                {/* Theme Toggle at Bottom */}
-                <div className="pb-4">
+                {/* Build date + Theme Toggle at Bottom */}
+                <div className="pb-4 flex flex-col items-center gap-2">
+                    <span className="text-[9px] text-muted-foreground/50 writing-mode-vertical rotate-180 select-none" style={{writingMode:'vertical-rl'}}>
+                        {__BUILD_DATE__}
+                    </span>
                     <ThemeToggle />
                 </div>
             </div>

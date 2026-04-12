@@ -3,6 +3,7 @@ import { AllowedModel, PromptMessage, PromptParserConfig } from '@/types/story';
 import { aiService } from '@/services/ai/AIService';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { db } from '@/services/database';
+import { splitThinkingContent } from '@/lib/thinking';
 
 export interface ParallelResponse {
     model: AllowedModel;
@@ -64,7 +65,7 @@ export function useParallelGeneration(): UseParallelGenerationReturn {
             switch (model.provider) {
                 case 'local':
                     response = await aiService.generateWithLocalModel(
-                        messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p
+                        messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p, model.id
                     );
                     break;
                 case 'openai':
@@ -106,17 +107,20 @@ export function useParallelGeneration(): UseParallelGenerationReturn {
             }
 
             // Process streaming response
+            let rawText = '';
             await aiService.processStreamedResponse(
                 response,
                 (token) => {
                     // Check if aborted
                     if (abortController.signal.aborted) return;
-                    
+
+                    rawText += token;
+                    const { proseText } = splitThinkingContent(rawText);
                     setResponses(prev => {
                         const copy = [...prev];
-                        copy[index] = { 
-                            ...copy[index], 
-                            text: copy[index].text + token 
+                        copy[index] = {
+                            ...copy[index],
+                            text: proseText
                         };
                         return copy;
                     });

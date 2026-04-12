@@ -48,6 +48,24 @@ export function parseLorebookJson(message: string): ParseResult {
   const wholeParsed = tryParse(message.trim());
   if (wholeParsed) return { entries: sanitizeResults(wholeParsed) };
 
+  // 4) scan for the first balanced { ... } block (handles prose wrapping JSON without fences)
+  const firstBrace = message.indexOf('{');
+  if (firstBrace !== -1) {
+    let depth = 0;
+    for (let i = firstBrace; i < message.length; i++) {
+      if (message[i] === '{') depth++;
+      else if (message[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          const candidate = message.slice(firstBrace, i + 1);
+          const parsed = tryParse(candidate);
+          if (parsed) return { entries: sanitizeResults(parsed) };
+          break;
+        }
+      }
+    }
+  }
+
   return { entries: [], error: 'No valid JSON detected' };
 }
 

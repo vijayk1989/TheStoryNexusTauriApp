@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, Microscope, Loader2, Check } from "lucide-react";
+import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -18,6 +19,7 @@ import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { DownloadMenu } from "@/components/ui/DownloadMenu";
 import { ChapterNotesEditor } from "@/features/chapters/components/ChapterNotesEditor";
 import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
+import { AIEditorialPanel } from "@/features/chapters/components/AIEditorialPanel";
 import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
 import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
 import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
@@ -44,14 +46,52 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "chapterReview" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
+    const EDITORIAL_WIDTH_KEY = 'editorial-panel-width';
+    const [editorialWidth, setEditorialWidth] = useState(() => {
+        try {
+            const saved = localStorage.getItem(EDITORIAL_WIDTH_KEY);
+            if (saved) {
+                const n = parseInt(saved, 10);
+                if (!isNaN(n) && n >= 320) return Math.min(n, window.innerWidth - 80);
+            }
+        } catch { /* localStorage unavailable */ }
+        return Math.round(window.innerWidth * 0.6);
+    });
+    const dragWidthRef = useRef(editorialWidth);
     const { currentChapterId, currentStoryId } = useStoryContext();
+    const saveStatus = useChapterStore((s) => s.saveStatus);
     const isMobile = useIsMobile();
     const navigate = useNavigate();
+
+    const startEditorialDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        const el = e.currentTarget;
+        el.setPointerCapture(e.pointerId);
+        const startX = e.clientX;
+        const startWidth = editorialWidth;
+        const onPointerMove = (ev: PointerEvent) => {
+            // dragging left increases width (panel is on the right)
+            const next = Math.min(
+                Math.max(startWidth + (startX - ev.clientX), 320),
+                window.innerWidth - 80
+            );
+            dragWidthRef.current = next;
+            setEditorialWidth(next);
+        };
+        const onPointerUp = (ev: PointerEvent) => {
+            el.releasePointerCapture(ev.pointerId);
+            el.removeEventListener('pointermove', onPointerMove);
+            el.removeEventListener('pointerup', onPointerUp);
+            try { localStorage.setItem(EDITORIAL_WIDTH_KEY, String(dragWidthRef.current)); } catch { /* ignore */ }
+        };
+        el.addEventListener('pointermove', onPointerMove);
+        el.addEventListener('pointerup', onPointerUp);
+    }, [editorialWidth]);
 
     const handleOpenDrawer = (drawer: DrawerType) => {
         setOpenDrawer(drawer === openDrawer ? null : drawer);
@@ -71,6 +111,18 @@ export function StoryEditor() {
             {isMaximized ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </Button>
     );
+
+    const saveIndicator = saveStatus === 'saving' ? (
+        <span className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Saving…
+        </span>
+    ) : saveStatus === 'saved' ? (
+        <span className="flex items-center gap-1 text-xs text-green-600 px-2">
+            <Check className="h-3 w-3" />
+            Saved
+        </span>
+    ) : null;
 
     // Sidebar content for both desktop and mobile dropdown
     const sidebarButtons = (
@@ -158,6 +210,16 @@ export function StoryEditor() {
             </Button>
 
             <Button
+                variant={openDrawer === "chapterReview" ? "default" : "outline"}
+                size="sm"
+                className="mx-2 justify-start"
+                onClick={() => handleOpenDrawer("chapterReview")}
+            >
+                <Microscope className="h-4 w-4 mr-2" />
+                AI Editorial
+            </Button>
+
+            <Button
                 variant={openDrawer === "aiSettings" ? "default" : "outline"}
                 size="sm"
                 className="mx-2 justify-start"
@@ -190,6 +252,12 @@ export function StoryEditor() {
 
             {/* Desktop: Right Sidebar with Buttons */}
             <div className="hidden md:flex w-48 border-l h-full flex-col py-4 space-y-2 bg-muted/20 flex-shrink-0">
+                {/* Save status indicator */}
+                {saveIndicator && (
+                    <div className="mx-2 pb-1 border-b">
+                        {saveIndicator}
+                    </div>
+                )}
                 {sidebarButtons}
             </div>
 
@@ -238,6 +306,10 @@ export function StoryEditor() {
                         <DropdownMenuItem onClick={() => handleOpenDrawer("prompts")}>
                             <ScrollText className="h-4 w-4 mr-2" />
                             Prompts
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterReview")}>
+                            <Microscope className="h-4 w-4 mr-2" />
+                            AI Editorial
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDrawer("aiSettings")}>
                             <Settings className="h-4 w-4 mr-2" />
@@ -417,6 +489,34 @@ export function StoryEditor() {
                     </div>
                 </SheetContent>
             </Sheet>
-        </div>
+
+            {/* AI Editorial Sheet */}
+            <Sheet open={openDrawer === "chapterReview"} onOpenChange={(open) => { if (!open) { setOpenDrawer(null); } }}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full max-w-none overflow-hidden"
+                    style={{ width: `${editorialWidth}px`, maxWidth: 'none' }}
+                >
+                    {/* Drag handle on the left edge */}
+                    <div
+                        className="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize z-10 bg-border/30 hover:bg-primary/40 active:bg-primary/60 transition-colors"
+                        onPointerDown={startEditorialDrag}
+                    />
+                    <SheetHeader>
+                        <SheetTitle>AI Editorial</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-4 pt-2">
+                        <AIEditorialPanel
+                            isExpanded={editorialWidth > 750}
+                            onExpandChange={(expand) =>
+                                setEditorialWidth(expand
+                                    ? Math.round(window.innerWidth * 0.9)
+                                    : Math.round(window.innerWidth * 0.6)
+                                )
+                            }
+                        />
+                    </div>
+                </SheetContent>
+            </Sheet>        </div>
     );
 }

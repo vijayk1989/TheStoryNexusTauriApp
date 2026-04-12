@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePromptStore } from '../store/promptStore';
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { Prompt } from '@/types/story';
@@ -10,6 +11,8 @@ interface PromptsListProps {
     onPromptSelect: (prompt: Prompt) => void;
     selectedPromptId?: string;
     onPromptDelete: (promptId: string) => void;
+    selectedPromptIds?: string[];
+    onSelectionChange?: (ids: string[]) => void;
 }
 
 const getPromptTypeLabel = (type: Prompt['promptType']) => {
@@ -24,10 +27,26 @@ const getPromptTypeLabel = (type: Prompt['promptType']) => {
     return labels[type];
 };
 
-export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }: PromptsListProps) {
+export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete, selectedPromptIds = [], onSelectionChange }: PromptsListProps) {
     const { prompts, fetchPrompts, deletePrompt, clonePrompt, isLoading, error } = usePromptStore();
     // Track which groups are expanded (default all expanded)
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+    const handleToggleSelect = (promptId: string) => {
+        const newSelection = selectedPromptIds.includes(promptId)
+            ? selectedPromptIds.filter(id => id !== promptId)
+            : [...selectedPromptIds, promptId];
+        onSelectionChange?.(newSelection);
+    };
+
+    const handleSelectAllInGroup = (groupPrompts: Prompt[]) => {
+        const promptIdsInGroup = groupPrompts.map(p => p.id);
+        const allSelected = promptIdsInGroup.every(id => selectedPromptIds.includes(id));
+        const newSelection = allSelected
+            ? selectedPromptIds.filter(id => !promptIdsInGroup.includes(id))
+            : [...new Set([...selectedPromptIds, ...promptIdsInGroup])];
+        onSelectionChange?.(newSelection);
+    };
 
     useEffect(() => {
         fetchPrompts().catch(error => {
@@ -127,6 +146,8 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
                 if (promptsInGroup.length === 0) return null;
 
                 const isExpanded = expandedGroups[promptType] ?? true;
+                const allSelected = promptsInGroup.every(p => selectedPromptIds.includes(p.id));
+                const someSelected = promptsInGroup.some(p => selectedPromptIds.includes(p.id));
 
                 return (
                     <div key={promptType} className="mb-2">
@@ -134,10 +155,16 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
                             onClick={() => toggleGroup(promptType)}
                             className="w-full px-4 py-2.5 bg-slate-300 dark:bg-slate-700 font-medium text-sm sticky top-0 shadow-sm border-b border-slate-500 dark:border-slate-600 flex items-center justify-between z-10 text-slate-800 dark:text-white hover:bg-slate-500 dark:hover:bg-slate-600 transition-colors cursor-pointer"
                         >
-                            <div className="flex items-center">
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    checked={allSelected}
+                                    onCheckedChange={() => handleSelectAllInGroup(promptsInGroup)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    aria-label={`Select all ${promptType} prompts`}
+                                />
                                 {isExpanded ?
-                                    <ChevronDown className="h-4 w-4 mr-1.5" /> :
-                                    <ChevronRight className="h-4 w-4 mr-1.5" />
+                                    <ChevronDown className="h-4 w-4" /> :
+                                    <ChevronRight className="h-4 w-4" />
                                 }
                                 {getPromptTypeLabel(promptType)}
                                 <span className="ml-2 px-2 py-0.5 text-xs bg-slate-200 dark:bg-slate-500 text-slate-800 dark:text-white rounded-full font-semibold">
@@ -152,35 +179,47 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
                                         key={prompt.id}
                                         className={cn(
                                             "group relative",
-                                            selectedPromptId === prompt.id && "bg-muted border-l-2 border-emerald-600 dark:border-emerald-400"
+                                            selectedPromptId === prompt.id && "bg-muted border-l-2 border-emerald-600 dark:border-emerald-400",
+                                            selectedPromptIds.includes(prompt.id) && "bg-primary/5"
                                         )}
                                     >
                                         <button
-                                            onClick={() => onPromptSelect(prompt)}
+                                            onClick={() => {
+                                                handleToggleSelect(prompt.id);
+                                                onPromptSelect(prompt);
+                                            }}
                                             className={cn(
-                                                "w-full text-left p-4 hover:bg-muted transition-colors",
+                                                "w-full text-left p-4 hover:bg-muted transition-colors flex items-center gap-3",
                                                 "focus:outline-none focus:bg-muted",
                                             )}
                                         >
-                                            <div className="flex items-center">
-                                                <h3 className={cn(
-                                                    "font-medium",
-                                                    selectedPromptId === prompt.id
-                                                        ? "text-emerald-600 dark:text-emerald-400 font-semibold"
-                                                        : "text-foreground"
-                                                )}>
-                                                    {prompt.name}
-                                                </h3>
-                                                {prompt.isSystem && (
-                                                    <span className="ml-2 px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
-                                                        System
+                                            <Checkbox
+                                                checked={selectedPromptIds.includes(prompt.id)}
+                                                onCheckedChange={() => handleToggleSelect(prompt.id)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                aria-label={`Select ${prompt.name}`}
+                                            />
+                                            <div className="flex-1">
+                                                <div className="flex items-center">
+                                                    <h3 className={cn(
+                                                        "font-medium",
+                                                        selectedPromptId === prompt.id
+                                                            ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                                                            : "text-foreground"
+                                                    )}>
+                                                        {prompt.name}
+                                                    </h3>
+                                                    {prompt.isSystem && (
+                                                        <span className="ml-2 px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
+                                                            System
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {prompt.messages.length} messages
                                                     </span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-xs text-muted-foreground">
-                                                    {prompt.messages.length} messages
-                                                </span>
+                                                </div>
                                             </div>
                                         </button>
 
@@ -216,4 +255,4 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
             })}
         </div>
     );
-} 
+}

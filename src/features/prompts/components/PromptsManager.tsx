@@ -4,7 +4,8 @@ import { PromptForm } from './PromptForm';
 import { PromptsList } from './PromptList';
 import { Plus, ArrowLeft, RefreshCw, Menu } from 'lucide-react';
 import { Upload, Download } from 'lucide-react';
-import type { Prompt } from '@/types/story';
+import { BulkUpdatePanel } from '@/components/BulkUpdatePanel';
+import type { Prompt, AllowedModel } from '@/types/story';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-toastify';
 import { dbSeeder } from '@/services/dbSeed';
@@ -23,7 +24,10 @@ export function PromptsManager() {
     const [showMobileForm, setShowMobileForm] = useState(false);
     const [mobileListOpen, setMobileListOpen] = useState(false);
     const [isReseeding, setIsReseeding] = useState(false);
-    const { fetchPrompts } = usePromptStore();
+    const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>([]);
+    const [showBulkUpdate, setShowBulkUpdate] = useState(false);
+    const [isApplyingBulkUpdate, setIsApplyingBulkUpdate] = useState(false);
+    const { fetchPrompts, bulkUpdatePrompts } = usePromptStore();
     const { exportPrompts, importPrompts } = usePromptStore();
     const [isImporting, setIsImporting] = useState(false);
     const fileInputRef = useState<HTMLInputElement | null>(null);
@@ -72,6 +76,21 @@ export function PromptsManager() {
             console.error('Error reseeding system prompts:', error);
         } finally {
             setIsReseeding(false);
+        }
+    };
+
+    const handleBulkUpdateModel = async (model: AllowedModel) => {
+        if (selectedPromptIds.length === 0) return;
+        
+        setIsApplyingBulkUpdate(true);
+        try {
+            await bulkUpdatePrompts(selectedPromptIds, {
+                allowedModels: [model]
+            });
+            setSelectedPromptIds([]);
+            setShowBulkUpdate(false);
+        } finally {
+            setIsApplyingBulkUpdate(false);
         }
     };
 
@@ -165,6 +184,13 @@ export function PromptsManager() {
                     onPromptSelect={handlePromptSelect}
                     selectedPromptId={selectedPrompt?.id}
                     onPromptDelete={handlePromptDelete}
+                    selectedPromptIds={selectedPromptIds}
+                    onSelectionChange={(ids) => {
+                        setSelectedPromptIds(ids);
+                        if (ids.length > 0) {
+                            setShowBulkUpdate(true);
+                        }
+                    }}
                 />
             </div>
         </>
@@ -233,32 +259,45 @@ export function PromptsManager() {
 
     // Desktop layout
     return (
-        <div className="flex h-full">
+        <div className="flex h-full flex-col">
             {/* Left panel - Fixed Sidebar */}
-            <div className="w-[300px] h-full border-r border-input bg-muted flex flex-col flex-shrink-0">
-                {sidebarContent}
-            </div>
+            <div className="flex-1 flex">
+                <div className="w-[300px] h-full border-r border-input bg-muted flex flex-col flex-shrink-0">
+                    {sidebarContent}
+                </div>
 
-            {/* Right panel - Content Area */}
-            <div className="flex-1 h-full overflow-auto">
-                <div className="max-w-3xl mx-auto p-6">
-                    {(isCreating || selectedPrompt) ? (
-                        <PromptForm
-                            key={selectedPrompt?.id || 'new'}
-                            prompt={selectedPrompt}
-                            onSave={handleSave}
-                            onCancel={() => {
-                                setIsCreating(false);
-                                setShowMobileForm(false);
-                            }}
-                        />
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-muted-foreground">
-                            <p>Select a prompt to edit or create a new one</p>
-                        </div>
-                    )}
+                {/* Right panel - Content Area */}
+                <div className="flex-1 h-full overflow-auto">
+                    <div className="max-w-3xl mx-auto p-6">
+                        {(isCreating || selectedPrompt) ? (
+                            <PromptForm
+                                key={selectedPrompt?.id || 'new'}
+                                prompt={selectedPrompt}
+                                onSave={handleSave}
+                                onCancel={() => {
+                                    setIsCreating(false);
+                                    setShowMobileForm(false);
+                                }}
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                <p>Select a prompt to edit or create a new one</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
+
+            <BulkUpdatePanel
+                selectedCount={selectedPromptIds.length}
+                isVisible={showBulkUpdate}
+                onClose={() => {
+                    setShowBulkUpdate(false);
+                    setSelectedPromptIds([]);
+                }}
+                onApplyModel={handleBulkUpdateModel}
+                isApplying={isApplyingBulkUpdate}
+            />
         </div>
     );
 } 

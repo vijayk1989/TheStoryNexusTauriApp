@@ -36,6 +36,11 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     style_extractor: 'Style Extractor',
     scenebeat_generator: 'Scene Beat Generator',
     refusal_checker: 'Refusal Checker',
+    chapter_reviewer: 'Chapter Reviewer',
+    chapter_editor: 'Chapter Editor',
+    lore_writer: 'Lore Writer',
+    lore_refiner: 'Lore Refiner',
+    judge_aggregator: 'Judge Aggregator',
     custom: 'Custom',
 };
 
@@ -51,6 +56,7 @@ const CONDITION_PRESETS = [
     { value: 'previousOutputNotContains:CONSISTENT', label: 'Previous output not "CONSISTENT"', actualValue: 'previousOutputNotContains:CONSISTENT' },
     { value: 'roleOutputContains:lore_judge:ISSUE', label: 'Lore Judge found issues', actualValue: 'roleOutputContains:lore_judge:ISSUE' },
     { value: 'roleOutputContains:continuity_checker:ISSUE', label: 'Continuity Checker found issues', actualValue: 'roleOutputContains:continuity_checker:ISSUE' },
+    { value: 'roleOutputContains:judge_aggregator:ISSUES_FOUND', label: 'Judge Aggregator found issues', actualValue: 'roleOutputContains:judge_aggregator:ISSUES_FOUND' },
     { value: 'hasLorebookEntries', label: 'Has lorebook entries', actualValue: 'hasLorebookEntries' },
     { value: 'hasPreviousOutput', label: 'Has previous step output', actualValue: 'hasPreviousOutput' },
     { value: 'custom', label: 'Custom condition...', actualValue: '' },

@@ -17,6 +17,8 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { SceneBeatErrorBoundary } from "@/components/SceneBeatErrorBoundary";
+import { ChevronDown as ChevronDownIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ChevronUp, ChevronDown } from "lucide-react";
@@ -40,6 +42,7 @@ import { SceneBeatMatchedEntries } from "./SceneBeatMatchedEntries";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { sceneBeatService } from "@/features/scenebeats/services/sceneBeatService";
 import { PipelineDiagnosticsDialog } from "@/features/agents/components/PipelineDiagnosticsDialog";
+import { JudgeFeedbackBanner } from "@/features/agents/components/JudgeFeedbackBanner";
 import { ParallelResponsesDrawer } from "@/components/ui/parallel-responses-drawer";
 
 // Per-instance store
@@ -84,6 +87,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const isLoaded = useSBStore((s) => s.isLoaded);
   const streaming = useSBStore((s) => s.streaming);
   const streamedText = useSBStore((s) => s.streamedText);
+  const thinkingText = useSBStore((s) => s.thinkingText);
   const streamComplete = useSBStore((s) => s.streamComplete);
   const selectedPrompt = useSBStore((s) => s.selectedPrompt);
   const showPreviewDialog = useSBStore((s) => s.showPreviewDialog);
@@ -98,11 +102,19 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const selectedItems = useSBStore((s) => s.selectedItems);
   const agenticStepResults = useSBStore((s) => s.agenticStepResults);
   const selectedPipeline = useSBStore((s) => s.selectedPipeline);
+  const showJudgeFeedback = useSBStore((s) => s.showJudgeFeedback);
+  const latestJudgeFeedback = useSBStore((s) => s.latestJudgeFeedback);
+  const agenticJudgeResults = useSBStore((s) => s.agenticJudgeResults);
+  const rejectionFeedback = useSBStore((s) => s.rejectionFeedback);
+  const showRejectionInput = useSBStore((s) => s.showRejectionInput);
   const set = useSBStore((s) => s.set);
 
   // Generation hook — pass the store API for imperative access
   const storeApi = useSBStoreApi();
   const gen = useSceneBeatGeneration(storeApi);
+
+  // Local-only state: thinking block collapsed
+  const [thinkingExpanded, setThinkingExpanded] = useState(false);
 
   // Local-only state: command undo/redo history
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -112,13 +124,19 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
 
   // ── Effects ──────────────────────────────────────────────────
 
-  // Fetch prompts on mount
+  const hydrateFromDefaults = useSBStore((s) => s.hydrateFromDefaults);
+
+  // Fetch prompts on mount, then hydrate defaults from localStorage
   useEffect(() => {
-    gen.fetchPrompts().catch((error: unknown) => {
+    gen.fetchPrompts().then(() => {
+      // After prompts are loaded, restore last-used selection
+      const loadedPrompts = usePromptStore.getState().prompts;
+      hydrateFromDefaults(loadedPrompts, []);
+    }).catch((error: unknown) => {
       toast.error("Failed to load prompts");
       console.error("Error loading prompts:", error);
     });
-  }, [gen.fetchPrompts]);
+  }, [gen.fetchPrompts, hydrateFromDefaults]);
 
   // Load available pipelines when agentic mode is enabled
   const agenticMode = useSBStore((s) => s.agenticMode);
@@ -126,7 +144,11 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
     if (agenticMode) {
       gen.getAvailablePipelines().then((pipelines: any) => {
         set({ availablePipelines: pipelines });
-        if (pipelines.length > 0 && !selectedPipeline) {
+        // Hydrate pipeline default now that we have the list
+        const loadedPrompts = usePromptStore.getState().prompts;
+        hydrateFromDefaults(loadedPrompts, pipelines);
+        // If still no pipeline selected after hydration, pick the first
+        if (pipelines.length > 0 && !storeApi.getState().selectedPipeline) {
           set({ selectedPipeline: pipelines[0] });
         }
       }).catch((error: unknown) => {
@@ -134,7 +156,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
         toast.error("Failed to load AI pipelines");
       });
     }
-  }, [agenticMode, gen.getAvailablePipelines]);
+  }, [agenticMode, gen.getAvailablePipelines, hydrateFromDefaults]);
 
   // Get sceneBeatId from node
   useEffect(() => {
@@ -391,8 +413,42 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
             </div>
           </div>
 
+          {/* Thinking box — shown when the model emits <think>...</think> blocks */}
+          {(streaming || streamComplete) && thinkingText && (
+            <div className="px-3 md:px-4 pb-1">
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setThinkingExpanded((v) => !v)}
+              >
+                {thinkingExpanded ? (
+                  <ChevronDownIcon className="h-3 w-3" />
+                ) : (
+                  <ChevronRightIcon className="h-3 w-3" />
+                )}
+                Thinking…
+              </button>
+              {thinkingExpanded && (
+                <div className="mt-1 rounded-md border border-dashed p-2 md:p-3 bg-muted/10 text-xs text-muted-foreground whitespace-pre-wrap max-h-[200px] overflow-y-auto leading-relaxed">
+                  {thinkingText}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Inline judge feedback banner — shown when a judge step found issues */}
+          {showJudgeFeedback && latestJudgeFeedback && (streaming || streamComplete) && (
+            <div className="px-3 md:px-4">
+              <JudgeFeedbackBanner
+                feedback={latestJudgeFeedback}
+                agentName={agenticJudgeResults[agenticJudgeResults.length - 1]?.agentName}
+                onDismiss={() => set({ showJudgeFeedback: false })}
+              />
+            </div>
+          )}
+
           {/* Streamed text preview */}
-          {(streaming || streamComplete) && streamedText && (
+          {(streaming || streamComplete) && (streamedText || (!thinkingText && streaming)) && (
             <div className="px-3 md:px-4 pb-3">
               <div className="rounded-md border p-3 md:p-4 bg-muted/20 text-sm md:text-base whitespace-pre-wrap max-h-[300px] md:max-h-[400px] overflow-y-auto">
                 {streamedText}
@@ -422,6 +478,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
             onParallelGenerate={gen.handleParallelGenerate}
             onAccept={gen.handleAccept}
             onReject={gen.handleReject}
+            onRejectWithFeedback={gen.handleRejectWithFeedback}
           />
 
           {/* Matched entries panel */}
@@ -574,9 +631,11 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
 
   decorate(): JSX.Element {
     return (
-      <Suspense fallback={null}>
-        <SceneBeatComponent nodeKey={this.__key} />
-      </Suspense>
+      <SceneBeatErrorBoundary nodeKey={this.__key}>
+        <Suspense fallback={null}>
+          <SceneBeatComponent nodeKey={this.__key} />
+        </Suspense>
+      </SceneBeatErrorBoundary>
     );
   }
 }

@@ -27,6 +27,7 @@ import {
 import { useForm } from "react-hook-form";
 import { toast } from "react-toastify";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
+import { useStoryStore } from "@/features/stories/stores/useStoryStore";
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
 import {
   DndContext,
@@ -54,6 +55,8 @@ interface CreateChapterForm {
 export default function Chapters() {
   const { storyId } = useParams();
   const { setCurrentStoryId } = useStoryContext();
+  const currentStory = useStoryStore((state) => state.currentStory);
+  const isCollection = currentStory?.storyFormat === 'short_story_collection';
   const {
     chapters,
     loading,
@@ -130,7 +133,7 @@ export default function Chapters() {
         povType: "Third Person Omniscient",
         povCharacter: undefined,
       });
-      toast.success("Chapter created successfully");
+      toast.success(isCollection ? "Story added to collection" : "Chapter created successfully");
     } catch (error) {
       console.error("Failed to create chapter:", error);
       toast.error("Failed to create chapter");
@@ -191,21 +194,22 @@ export default function Chapters() {
   return (
     <div className="container mx-auto max-w-4xl p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Chapters</h1>
+        <h1 className="text-3xl font-bold">{isCollection ? 'Stories in Collection' : 'Chapters'}</h1>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              New Chapter
+              {isCollection ? 'New Story' : 'New Chapter'}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <form onSubmit={form.handleSubmit(handleCreateChapter)}>
               <DialogHeader>
-                <DialogTitle>Create New Chapter</DialogTitle>
+                <DialogTitle>{isCollection ? 'Add Story to Collection' : 'Create New Chapter'}</DialogTitle>
                 <DialogDescription>
-                  Add a new chapter to your story. You can edit the content
-                  after creating it.
+                  {isCollection
+                    ? 'Add a new story to your collection. You can edit the content after creating it.'
+                    : 'Add a new chapter to your story. You can edit the content after creating it.'}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">

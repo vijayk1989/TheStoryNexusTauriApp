@@ -60,6 +60,9 @@ interface AIState {
     abortGeneration: () => void;
 }
 
+// Singleton init promise — prevents concurrent calls from duplicating work
+let _initPromise: Promise<void> | null = null;
+
 export const useAIStore = create<AIState>((set, get) => ({
     settings: null,
     isInitialized: false,
@@ -68,22 +71,33 @@ export const useAIStore = create<AIState>((set, get) => ({
     favoriteModelIds: [],
 
     initialize: async () => {
-        set({ isLoading: true, error: null });
-        try {
-            await aiService.initialize();
-            const settings = await db.aiSettings.toArray();
-            set({
-                settings: settings[0] || null,
-                favoriteModelIds: settings[0]?.favoriteModelIds || [],
-                isInitialized: true,
-                isLoading: false
-            });
-        } catch (error) {
-            set({
-                error: error instanceof Error ? error.message : 'Failed to initialize AI',
-                isLoading: false
-            });
-        }
+        // Already initialized — nothing to do
+        if (get().isInitialized) return;
+        // A concurrent init is in flight — share it
+        if (_initPromise) return _initPromise;
+
+        _initPromise = (async () => {
+            set({ isLoading: true, error: null });
+            try {
+                await aiService.initialize();
+                const settings = await db.aiSettings.toArray();
+                set({
+                    settings: settings[0] || null,
+                    favoriteModelIds: settings[0]?.favoriteModelIds || [],
+                    isInitialized: true,
+                    isLoading: false
+                });
+            } catch (error) {
+                set({
+                    error: error instanceof Error ? error.message : 'Failed to initialize AI',
+                    isLoading: false
+                });
+            } finally {
+                _initPromise = null;
+            }
+        })();
+
+        return _initPromise;
     },
 
     getAvailableModels: async (provider?: AIProvider, forceRefresh: boolean = false) => {
@@ -176,7 +190,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    selectedModel.id
                 );
             case 'openai':
                 return aiService.generateWithOpenAI(
@@ -259,7 +274,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    selectedModel.id
                 );
             case 'openai':
                 return aiService.generateWithOpenAI(

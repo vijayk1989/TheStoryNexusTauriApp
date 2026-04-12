@@ -16,7 +16,7 @@ interface LorebookState {
     setChapterMatchedEntries: (entries: Map<string, LorebookEntry>) => void;
 
     // Actions
-    loadEntries: (storyId: string) => Promise<void>;
+    loadEntries: (lorebookIds: string[]) => Promise<void>;
     createEntry: (entry: Omit<LorebookEntry, 'id' | 'createdAt'>) => Promise<void>;
     updateEntry: (id: string, data: Partial<LorebookEntry>) => Promise<void>;
     deleteEntry: (id: string) => Promise<void>;
@@ -45,8 +45,8 @@ interface LorebookState {
     getEntriesByCustomField: (field: string, value: unknown) => LorebookEntry[];
 
     // Export/Import functions
-    exportEntries: (storyId: string) => void;
-    importEntries: (jsonData: string, targetStoryId: string) => Promise<void>;
+    exportEntries: (lorebookId: string) => void;
+    importEntries: (jsonData: string, targetLorebookId: string) => Promise<void>;
 }
 
 export const useLorebookStore = create<LorebookState>((set, get) => ({
@@ -95,10 +95,10 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         set({ tagMap: newTagMap });
     },
 
-    loadEntries: async (storyId: string) => {
+    loadEntries: async (lorebookIds: string[]) => {
         set({ isLoading: true, error: null });
         try {
-            const entries = await db.getLorebookEntriesByStory(storyId);
+            const entries = await db.getLorebookEntriesByLoreBooks(lorebookIds);
             set({ entries, isLoading: false });
         } catch (error) {
             set({ error: (error as Error).message, isLoading: false });
@@ -319,19 +319,17 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         );
     },
 
-    // Export lorebook entries
-    exportEntries: (storyId: string) => {
+    // Export lorebook entries for a given lore book
+    exportEntries: (lorebookId: string) => {
         const { entries } = get();
-        const storyEntries = entries.filter(entry => entry.storyId === storyId);
+        const bookEntries = entries.filter(entry => entry.lorebookId === lorebookId);
 
-        // Create a JSON file
         const dataStr = JSON.stringify({
-            version: "1.0",
+            version: "1.1",
             type: "lorebook",
-            entries: storyEntries
+            entries: bookEntries
         }, null, 2);
 
-        // Create and trigger download
         const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
         const exportName = `lorebook-export-${new Date().toISOString().slice(0, 10)}.json`;
 
@@ -341,37 +339,38 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         linkElement.click();
     },
 
-    // Import lorebook entries
-    importEntries: async (jsonData: string, targetStoryId: string) => {
+    // Import lorebook entries into a target lore book
+    importEntries: async (jsonData: string, targetLorebookId: string) => {
         try {
             const data = JSON.parse(jsonData);
 
-            // Validate the data format
             if (!data.type || data.type !== "lorebook" || !Array.isArray(data.entries)) {
                 throw new Error("Invalid lorebook data format");
             }
 
-            // Process each entry
             for (const entry of data.entries) {
-                // Create a new ID for the entry
                 const newId = crypto.randomUUID();
-
-                // Create a new entry with the target storyId
                 const newEntry: LorebookEntry = {
                     ...entry,
                     id: newId,
-                    storyId: targetStoryId,
-                    createdAt: new Date()
+                    lorebookId: targetLorebookId,
+                    createdAt: new Date(),
+                    // Remove stale storyId from v1.0 exports if present
+                    storyId: undefined,
                 };
-
-                // Add to database
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                delete (newEntry as any).storyId;
                 await db.lorebookEntries.add(newEntry);
             }
 
-            // Reload entries after import
-            await get().loadEntries(targetStoryId);
-
-            // Rebuild tag map
+            // Reload entries for the lorebook
+            const updatedEntries = await db.getLorebookEntriesByLoreBook(targetLorebookId);
+            set(state => ({
+                entries: [
+                    ...state.entries.filter(e => e.lorebookId !== targetLorebookId),
+                    ...updatedEntries,
+                ],
+            }));
             get().buildTagMap();
 
         } catch (error) {

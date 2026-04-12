@@ -14,6 +14,9 @@ interface PromptStore {
     deletePrompt: (id: string) => Promise<void>;
     clonePrompt: (id: string) => Promise<void>;
 
+    // Bulk Operations
+    bulkUpdatePrompts: (ids: string[], data: Partial<Prompt>) => Promise<void>;
+
     // Export/Import
     exportPrompts: () => Promise<void>;
     importPrompts: (jsonData: string) => Promise<void>;
@@ -152,6 +155,39 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
             set({ prompts, error: null });
         } catch (error) {
             set({ error: (error as Error).message });
+            throw error;
+        }
+    },
+
+    // Bulk update multiple prompts with partial data
+    bulkUpdatePrompts: async (ids, data) => {
+        try {
+            if (data.messages && !get().validatePromptData(data.messages)) {
+                throw new Error('Invalid prompt data structure');
+            }
+
+            // If name is being updated, check for duplicates
+            if (data.name) {
+                for (const id of ids) {
+                    const existingPrompt = await db.prompts
+                        .where('name')
+                        .equals(data.name)
+                        .and(item => item.id !== id)
+                        .first();
+
+                    if (existingPrompt) {
+                        throw new Error(`A prompt with the name "${data.name}" already exists`);
+                    }
+                }
+            }
+
+            await db.prompts.bulkUpdate(
+                ids.map(id => ({ key: id, changes: data }))
+            );
+            const prompts = await db.prompts.toArray();
+            set({ prompts, error: null });
+        } catch (error) {
+            set({ error: null });
             throw error;
         }
     }

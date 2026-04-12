@@ -35,10 +35,8 @@ export function MatchedTagEntries() {
     };
 
     const handleEdit = (entry: LorebookEntry) => {
-        // Ensure we pass the complete entry object
         setEditingEntry({
             ...entry,
-            storyId: currentStoryId, // Make sure storyId is included
             metadata: {
                 importance: entry.metadata?.importance || 'minor',
                 status: entry.metadata?.status || 'active',
@@ -94,7 +92,7 @@ export function MatchedTagEntries() {
                 <CreateEntryDialog
                     open={!!editingEntry}
                     onOpenChange={(open) => !open && setEditingEntry(null)}
-                    storyId={currentStoryId}
+                    lorebookId={editingEntry.lorebookId}
                     entry={editingEntry}
                 />
             )}

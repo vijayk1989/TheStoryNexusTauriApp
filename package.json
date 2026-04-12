@@ -57,6 +57,8 @@
     "@radix-ui/react-toggle-group": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.8",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-fs": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@types/prismjs": "^1.26.5",
     "class-variance-authority": "^0.7.1",

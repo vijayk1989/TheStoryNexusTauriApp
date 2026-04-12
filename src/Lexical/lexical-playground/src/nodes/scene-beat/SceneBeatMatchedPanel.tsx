@@ -97,11 +97,11 @@ export function SceneBeatMatchedPanel() {
             )}
 
             {/* Lorebook entry edit dialog */}
-            {editingEntry && currentStoryId && (
+            {editingEntry && (
                 <CreateEntryDialog
                     open={true}
                     onOpenChange={handleEditDialogClose}
-                    storyId={currentStoryId}
+                    lorebookId={editingEntry.lorebookId}
                     entry={editingEntry}
                 />
             )}

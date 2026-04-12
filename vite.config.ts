@@ -5,6 +5,9 @@ import path from "node:path";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+// Bake build timestamp into the bundle so it's visible in the UI
+const buildDate = new Date().toISOString().slice(0, 16).replace('T', ' '); // "2026-03-17 17:45"
+
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
@@ -22,6 +25,9 @@ export default defineConfig(async () => ({
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent vite from obscuring rust errors
+  define: {
+    __BUILD_DATE__: JSON.stringify(buildDate),
+  },
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {

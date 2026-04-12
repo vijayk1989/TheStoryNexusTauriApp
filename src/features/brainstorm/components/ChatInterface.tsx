@@ -19,12 +19,14 @@ import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
 import { useBrainstormStore } from "../stores/useBrainstormStore";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
+import { useStoryStore } from "@/features/stories/stores/useStoryStore";
 import { useAgenticGeneration } from "@/features/agents/hooks/useAgenticGeneration";
 import { db } from "@/services/database";
 import MarkdownRenderer from "./MarkdownRenderer";
 import parseLorebookJson from "@/features/brainstorm/utils/parseLorebookJson";
 import { CreateEntryDialog } from '@/features/lorebook/components/CreateEntryDialog';
 import { cn } from '@/lib/utils';
+import { splitThinkingContent } from '@/lib/thinking';
 import {
   LorebookEntry,
   ChatMessage,
@@ -98,6 +100,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
   // Get stores
   const { loadEntries, entries: lorebookEntries } = useLorebookStore();
+  const { currentStory } = useStoryStore();
   const {
     fetchPrompts,
     prompts,
@@ -185,7 +188,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   // Initialize
   useEffect(() => {
     const loadData = async () => {
-      await loadEntries(storyId);
+      await loadEntries(currentStory?.lorebookIds ?? []);
       await fetchPrompts();
       // load persisted templates used by the Insert dropdown
       try {
@@ -326,6 +329,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     return {
       promptId: prompt.id,
       storyId,
+      lorebookIds: currentStory?.lorebookIds ?? [],
       scenebeat: input.trim(),
       additionalContext: {
         chatHistory: messages.map((msg) => ({
@@ -479,10 +483,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         response,
         (token) => {
           fullResponse += token;
+          const { proseText } = splitThinkingContent(fullResponse);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
-                ? { ...msg, content: fullResponse }
+                ? { ...msg, content: proseText }
                 : msg
             )
           );
@@ -490,8 +495,9 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         () => {
           setIsGenerating(false);
           setStreamingMessageId(null);
+          const { proseText } = splitThinkingContent(fullResponse);
           updateChat(chatId, {
-            messages: [...newMessages, { ...assistantMessage, content: fullResponse }],
+            messages: [...newMessages, { ...assistantMessage, content: proseText }],
           });
         },
         (error) => {
@@ -592,10 +598,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           },
           onToken: (token) => {
             fullResponse += token;
+            const { proseText } = splitThinkingContent(fullResponse);
             setMessages((prev) =>
               prev.map((msg) =>
                 msg.id === assistantMessage.id
-                  ? { ...msg, content: fullResponse }
+                  ? { ...msg, content: proseText }
                   : msg
               )
             );
@@ -603,9 +610,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           onComplete: async (pipelineResult) => {
             console.log("[Agentic Brainstorm] Pipeline complete:", pipelineResult.status);
             setStreamingMessageId(null);
-            
-            // Use the final output from the pipeline
-            const finalContent = pipelineResult.proseOutput || pipelineResult.finalOutput || fullResponse;
+
+            // Use the final output from the pipeline (strip think blocks from raw output)
+            const rawFinal = pipelineResult.proseOutput || pipelineResult.finalOutput || fullResponse;
+            const finalContent = splitThinkingContent(rawFinal).proseText;
             
             // Update the chat with the final message
             await updateChat(chatId, {
@@ -697,7 +705,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         // createEntry expects Omit<LorebookEntry, 'id' | 'createdAt'>
         await useLorebookStore.getState().createEntry({
           ...item,
-          storyId,
+          lorebookId: currentStory?.lorebookIds?.[0] ?? '',
           tags: item.tags || [],
           description: item.description || '',
           category: (item.category as any) || 'note',
@@ -707,7 +715,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
       }
       toast.success(`Created ${parsed.entries.length} lorebook entr${parsed.entries.length === 1 ? 'y' : 'ies'}`);
       // reload entries
-      await loadEntries(storyId);
+      await loadEntries(currentStory?.lorebookIds ?? []);
     } catch (err) {
       console.error('Failed to import entries', err);
       toast.error('Failed to create lorebook entries');
@@ -1511,7 +1519,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           setCreateDialogOpen(false);
           setDialogEntry(null);
         }}
-        storyId={storyId}
+        lorebookId={currentStory?.lorebookIds?.[0] ?? ''}
         entry={dialogEntry as any}
       />
       {/* Create / Edit Template Dialog */}

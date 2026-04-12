@@ -40,7 +40,6 @@ export function SceneBeatMatchedEntries({
     const handleEdit = (entry: LorebookEntry) => {
         setEditingEntry({
             ...entry,
-            storyId: currentStoryId,
             metadata: {
                 importance: entry.metadata?.importance || 'minor',
                 status: entry.metadata?.status || 'active',
@@ -101,7 +100,7 @@ export function SceneBeatMatchedEntries({
                     <CreateEntryDialog
                         open={!!editingEntry}
                         onOpenChange={(open) => !open && setEditingEntry(null)}
-                        storyId={currentStoryId}
+                        lorebookId={editingEntry.lorebookId}
                         entry={editingEntry}
                     />
                 )}

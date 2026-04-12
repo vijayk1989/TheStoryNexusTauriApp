@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -20,12 +21,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { MoreVertical, Edit, Trash2, Copy, Bot } from 'lucide-react';
 import { useAgentsStore } from '../stores/useAgentsStore';
-import type { AgentPreset, AgentRole } from '@/types/story';
+import type { AgentPreset, AgentRole, AllowedModel } from '@/types/story';
 import { toast } from 'react-toastify';
 
 interface AgentPresetListProps {
     agents: AgentPreset[];
     onEdit: (agent: AgentPreset) => void;
+    selectedAgentIds?: string[];
+    onSelectionChange?: (ids: string[]) => void;
 }
 
 const ROLE_COLORS: Record<AgentRole, string> = {
@@ -40,6 +43,11 @@ const ROLE_COLORS: Record<AgentRole, string> = {
     style_extractor: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
     scenebeat_generator: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
     refusal_checker: 'bg-red-500/10 text-red-500 border-red-500/20',
+    chapter_reviewer: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
+    chapter_editor: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    lore_writer: 'bg-lime-500/10 text-lime-500 border-lime-500/20',
+    lore_refiner: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    judge_aggregator: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
     custom: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
 };
 
@@ -55,13 +63,34 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     style_extractor: 'Style Extractor',
     scenebeat_generator: 'Scene Beat Generator',
     refusal_checker: 'Refusal Checker',
+    chapter_reviewer: 'Chapter Reviewer',
+    chapter_editor: 'Chapter Editor',
+    lore_writer: 'Lore Writer',
+    lore_refiner: 'Lore Refiner',
+    judge_aggregator: 'Judge Aggregator',
     custom: 'Custom',
 };
 
-export function AgentPresetList({ agents, onEdit }: AgentPresetListProps) {
+export function AgentPresetList({ agents, onEdit, selectedAgentIds = [], onSelectionChange }: AgentPresetListProps) {
     const { deleteAgentPreset, createAgentPreset } = useAgentsStore();
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [agentToDelete, setAgentToDelete] = useState<AgentPreset | null>(null);
+
+    const handleToggleSelect = (agentId: string) => {
+        const newSelection = selectedAgentIds.includes(agentId)
+            ? selectedAgentIds.filter(id => id !== agentId)
+            : [...selectedAgentIds, agentId];
+        onSelectionChange?.(newSelection);
+    };
+
+    const handleSelectAllInGroup = (roleAgents: AgentPreset[]) => {
+        const agentIdsInGroup = roleAgents.map(a => a.id);
+        const allSelected = agentIdsInGroup.every(id => selectedAgentIds.includes(id));
+        const newSelection = allSelected
+            ? selectedAgentIds.filter(id => !agentIdsInGroup.includes(id))
+            : [...new Set([...selectedAgentIds, ...agentIdsInGroup])];
+        onSelectionChange?.(newSelection);
+    };
 
     const handleDelete = async () => {
         if (!agentToDelete) return;
@@ -121,35 +150,64 @@ export function AgentPresetList({ agents, onEdit }: AgentPresetListProps) {
     return (
         <>
             <div className="space-y-6">
-                {Object.entries(agentsByRole).map(([role, roleAgents]) => (
-                    <div key={role}>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                            <Badge variant="outline" className={ROLE_COLORS[role as AgentRole]}>
-                                {ROLE_LABELS[role as AgentRole]}
-                            </Badge>
-                            <span className="text-xs">({roleAgents.length})</span>
-                        </h3>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {roleAgents.map((agent) => (
-                                <Card key={agent.id} className="relative">
+                {Object.entries(agentsByRole).map(([role, roleAgents]) => {
+                    const allSelected = roleAgents.every(a => selectedAgentIds.includes(a.id));
+                    const someSelected = roleAgents.some(a => selectedAgentIds.includes(a.id));
+                    
+                    return (
+                        <div key={role}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <Checkbox
+                                    checked={allSelected}
+                                    onCheckedChange={() => handleSelectAllInGroup(roleAgents)}
+                                    aria-label={`Select all ${role} agents`}
+                                />
+                                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2 flex-1">
+                                    <Badge variant="outline" className={ROLE_COLORS[role as AgentRole]}>
+                                        {ROLE_LABELS[role as AgentRole]}
+                                    </Badge>
+                                    <span className="text-xs">({roleAgents.length})</span>
+                                </h3>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {roleAgents.map((agent) => (
+                                    <Card
+                                        key={agent.id}
+                                        className={`relative cursor-pointer transition-all ${
+                                            selectedAgentIds.includes(agent.id) ? 'ring-2 ring-primary bg-primary/5' : ''
+                                        }`}
+                                        onClick={() => handleToggleSelect(agent.id)}
+                                    >
                                     <CardHeader className="pb-3">
                                         <div className="flex items-start justify-between">
-                                            <div className="space-y-1">
-                                                <CardTitle className="text-base flex items-center gap-2">
-                                                    {agent.name}
-                                                    {agent.isSystem && (
-                                                        <Badge variant="secondary" className="text-xs">
-                                                            System
-                                                        </Badge>
-                                                    )}
-                                                </CardTitle>
+                                            <div
+                                                className="space-y-1 flex-1"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        checked={selectedAgentIds.includes(agent.id)}
+                                                        onCheckedChange={() => handleToggleSelect(agent.id)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        aria-label={`Select ${agent.name}`}
+                                                    />
+                                                    <CardTitle className="text-base flex items-center gap-2">
+                                                        {agent.name}
+                                                        {agent.isSystem && (
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                System
+                                                            </Badge>
+                                                        )}
+                                                    </CardTitle>
+                                                </div>
                                                 {agent.description && (
                                                     <CardDescription className="text-xs line-clamp-2">
                                                         {agent.description}
                                                     </CardDescription>
                                                 )}
                                             </div>
-                                            <DropdownMenu>
+                                            <div onClick={(e) => e.stopPropagation()}>
+                                                <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8">
                                                         <MoreVertical className="h-4 w-4" />
@@ -175,6 +233,7 @@ export function AgentPresetList({ agents, onEdit }: AgentPresetListProps) {
                                                     )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
+                                            </div>
                                         </div>
                                     </CardHeader>
                                     <CardContent>
@@ -199,7 +258,8 @@ export function AgentPresetList({ agents, onEdit }: AgentPresetListProps) {
                             ))}
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

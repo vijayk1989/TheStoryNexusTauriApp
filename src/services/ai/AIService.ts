@@ -34,7 +34,13 @@ export class AIService {
     }
 
     private async createInitialSettings(): Promise<AISettings> {
-        const localModels = await this.fetchLocalModels();
+        let localModels: AIModel[] = [];
+        try {
+            localModels = await this.fetchLocalModels();
+        } catch (error) {
+            // LMStudio may not be running on first launch — that's fine, store empty list
+            console.warn('[AIService] Could not fetch local models on init (LMStudio may not be running):', error);
+        }
         const settings: AISettings = {
             id: crypto.randomUUID(),
             createdAt: new Date(),
@@ -46,42 +52,40 @@ export class AIService {
     }
 
     private async fetchLocalModels(): Promise<AIModel[]> {
+        // Always use the URL from settings if available, otherwise fall back to default
+        const apiUrl = this.settings?.localApiUrl || this.LOCAL_API_URL;
+        console.log(`[AIService] Fetching local models from: ${apiUrl}`);
+
+        let response: Response;
         try {
-            // Always use the URL from settings if available, otherwise fall back to default
-            const apiUrl = this.settings?.localApiUrl || this.LOCAL_API_URL;
-            console.log(`[AIService] Fetching local models from: ${apiUrl}`);
-
-            const response = await fetch(`${apiUrl}/models`);
-            if (!response.ok) {
-                console.error(`[AIService] Failed to fetch local models: ${response.status} ${response.statusText}`);
-                throw new Error('Failed to fetch local models');
-            }
-
-            const result = await response.json();
-            console.log(`[AIService] Received ${result.data.length} local models from API`);
-
-            const models = result.data.map((model: { id: string, object: string, owned_by: string }) => ({
-                id: `local/${model.id}`,
-                name: model.id, // We could prettify this name if needed
-                provider: 'local' as AIProvider,
-                contextLength: 16384, // Default value since not provided by API
-                enabled: true
-            }));
-
-            console.log(`[AIService] Mapped ${models.length} local models`);
-            return models;
-        } catch (error) {
-            console.warn('[AIService] Failed to fetch local models:', error);
-            // Fallback to default model if fetch fails
-            console.log('[AIService] Using fallback local model');
-            return [{
-                id: 'local',
-                name: 'Local Model',
-                provider: 'local',
-                contextLength: 16384,
-                enabled: true
-            }];
+            response = await fetch(`${apiUrl}/models`);
+        } catch {
+            // Network error — LMStudio not running, or CORS is blocking the request
+            throw new Error(
+                `Could not connect to LMStudio at ${apiUrl}. ` +
+                `Make sure LMStudio is running and CORS is enabled: ` +
+                `open LMStudio → Settings → Server → enable "Enable CORS".`
+            );
         }
+
+        if (!response.ok) {
+            console.error(`[AIService] Failed to fetch local models: ${response.status} ${response.statusText}`);
+            throw new Error(`LMStudio returned an error (${response.status} ${response.statusText}). Check that the server is running correctly.`);
+        }
+
+        const result = await response.json();
+        console.log(`[AIService] Received ${result.data.length} local models from API`);
+
+        const models = result.data.map((model: { id: string, object: string, owned_by: string }) => ({
+            id: `local/${model.id}`,
+            name: model.id,
+            provider: 'local' as AIProvider,
+            contextLength: 16384,
+            enabled: true
+        }));
+
+        console.log(`[AIService] Mapped ${models.length} local models`);
+        return models;
     }
 
     private initializeOpenRouter() {
@@ -356,33 +360,54 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        modelId?: string
     ): Promise<Response> {
+        // Strip the "local/" prefix — LMStudio expects bare model IDs (e.g. "llama-3.2-3b-instruct")
+        const bareModelId = modelId
+            ? modelId.replace(/^local\//, '')
+            : (this.settings?.availableModels?.find(m => m.provider === 'local')?.id ?? 'local').replace(/^local\//, '');
+
         // Create request body with optional parameters
         const requestBody: any = {
             messages,
             stream: true,
-            model: 'local/llama-3.2-3b-instruct',
+            model: bareModelId,
             temperature,
             max_tokens: maxTokens,
         };
 
-        // Only add parameters if they are defined and not 0 (disabled)
-        if (top_p !== undefined && top_p !== 0) {
+        // Only include optional sampling parameters when they carry meaningful signal.
+        // top_p=1.0 means "consider all tokens" (equivalent to omitting it entirely).
+        // top_k=0 and repetition_penalty=0 are treated as "disabled" throughout the app.
+        if (top_p !== undefined && top_p > 0 && top_p < 1.0) {
             requestBody.top_p = top_p;
         }
 
-        if (top_k !== undefined && top_k !== 0) {
+        if (top_k !== undefined && top_k > 0) {
             requestBody.top_k = top_k;
         }
 
-        if (repetition_penalty !== undefined && repetition_penalty !== 0) {
+        // 1.0 = neutral (no penalty), which overrides LMStudio's default (usually 1.1).
+        // Only send when the user has explicitly set a meaningful non-neutral value.
+        if (repetition_penalty !== undefined && repetition_penalty > 0 && repetition_penalty !== 1.0) {
             requestBody.repetition_penalty = repetition_penalty;
         }
 
-        if (min_p !== undefined && min_p !== 0) {
+        if (min_p !== undefined && min_p > 0) {
             requestBody.min_p = min_p;
         }
+
+        console.log('[AIService] Local model request params:', {
+            model: bareModelId,
+            temperature,
+            max_tokens: maxTokens,
+            top_p: requestBody.top_p,
+            top_k: requestBody.top_k,
+            repetition_penalty: requestBody.repetition_penalty,
+            min_p: requestBody.min_p,
+            messageCount: messages.length,
+        });
 
         this.abortController = new AbortController();
 
@@ -407,6 +432,13 @@ export class AIService {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        // Buffer incomplete SSE lines across chunk boundaries.
+        // WebKitGTK (Tauri AppImage) delivers raw HTTP data frames that can split a
+        // "data: {...}\n" SSE line mid-JSON. Without this buffer, the two halves each
+        // fail JSON.parse() and are silently dropped — producing word-salad output.
+        // Chrome buffers to line boundaries before delivering to JS, so this never
+        // manifests in the web app.
+        let lineBuffer = '';
 
         try {
             while (true) {
@@ -416,10 +448,13 @@ export class AIService {
                     break;
                 }
 
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                lineBuffer += decoder.decode(value, { stream: true });
+                const lines = lineBuffer.split('\n');
+                // Last element may be an incomplete line — hold it for the next chunk.
+                lineBuffer = lines.pop() ?? '';
 
                 for (const line of lines) {
+                    if (line.trim() === '') continue;
                     if (line.startsWith('data: ')) {
                         const data = line.substring(6);
                         if (data === '[DONE]') {
@@ -432,8 +467,8 @@ export class AIService {
                             if (text) {
                                 onToken(text);
                             }
-                        } catch (e) {
-                            // Ignore parsing errors for non-JSON lines
+                        } catch {
+                            // Incomplete or non-JSON line — silently skip
                         }
                     }
                 }

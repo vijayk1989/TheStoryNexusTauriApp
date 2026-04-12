@@ -31,13 +31,22 @@ function formatMessages(messages: PromptMessage[]): string {
     }).join('\n\n' + '─'.repeat(50) + '\n\n');
 }
 
+function judgeHasIssues(output: string): boolean {
+    const upper = output.toUpperCase().trim();
+    if (upper.includes('##LORE_ISSUE##') || upper.includes('##CONTINUITY_ISSUE##')) return true;
+    if (upper.startsWith('ISSUES_FOUND')) return true;
+    if (upper.startsWith('CONSISTENT') || upper.startsWith('PASS')) return false;
+    return upper.includes('ISSUE') && !upper.includes('NO ISSUE') && !upper.includes('WITHOUT ISSUE');
+}
+
 function getStatusIcon(result: AgentResult) {
     if (result.metadata?.error) {
         return <XCircle className="h-4 w-4 text-destructive" />;
     }
-    if (result.output.toUpperCase().includes('ISSUE') || 
-        result.output.toUpperCase().includes('INCONSISTENT') ||
-        result.output.toUpperCase().includes('ERROR')) {
+    const isJudgeRole = result.role === 'lore_judge' || result.role === 'continuity_checker' ||
+        result.role === 'judge_aggregator' ||
+        result.role.includes('judge') || result.role.includes('checker');
+    if (isJudgeRole && judgeHasIssues(result.output)) {
         return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
     }
     return <CheckCircle2 className="h-4 w-4 text-green-500" />;

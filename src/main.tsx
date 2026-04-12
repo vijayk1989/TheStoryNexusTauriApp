@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { ThemeProvider } from "./lib/theme-provider";
 import { ToastContainer } from "react-toastify";
 import { StoryProvider } from "@/features/stories/context/StoryContext";
+import { useAIStore } from "@/features/ai/stores/useAIStore";
 import App from "./app";
 // Styles
 import "./index.css";
@@ -19,9 +20,20 @@ import AISettingsPage from "./features/ai/pages/AISettingsPage";
 import AgentsPage from "./features/agents/pages/AgentsPage";
 import { MainLayout } from "./components/MainLayout";
 import LorebookPage from "./features/lorebook/pages/LorebookPage";
+import LoreBooksPage from "./features/lorebook/pages/LoreBooksPage";
+import StandaloneLorebookPage from "./features/lorebook/pages/StandaloneLorebookPage";
 import BrainstormPage from "./features/brainstorm/pages/BrainstormPage";
 import GuidePage from "./features/guide/pages/GuidePage";
 import NotesPage from "./features/notes/pages/NotesPage";
+// Initializes the AI service singleton on mount so local models are ready
+// without requiring the user to visit AI Settings first.
+function AppInitializer() {
+    useEffect(() => {
+        useAIStore.getState().initialize();
+    }, []);
+    return null;
+}
+
 // biome-ignore lint/style/noNonNullAssertion: <explanation>
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -29,6 +41,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ThemeProvider defaultTheme="dark" storageKey="app-theme">
       <BrowserRouter>
         <StoryProvider>
+          <AppInitializer />
           <Routes>
             {/* Landing page */}
             <Route path="/" element={<App />} />
@@ -37,6 +50,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route element={<MainLayout />}>
               {/* Stories section */}
               <Route path="/stories" element={<Home />} />
+              {/* Lore Books global management */}
+              <Route path="/lorebooks" element={<LoreBooksPage />} />
+              <Route path="/lorebooks/:lorebookId" element={<StandaloneLorebookPage />} />
               {/* AI Settings */}
               <Route path="/ai-settings" element={<AISettingsPage />} />
               {/* Guide */}

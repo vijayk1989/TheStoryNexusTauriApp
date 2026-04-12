@@ -32,7 +32,12 @@ dist-ssr
 .cursorrules
 .cursor/
 
+# Claude Code
+CLAUDE.md
+.claude/
+
 # Doc files
 docs/
 src-tauri/gen/
 
+bugs.md

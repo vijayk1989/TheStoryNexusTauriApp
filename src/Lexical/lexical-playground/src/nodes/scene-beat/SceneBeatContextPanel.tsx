@@ -3,7 +3,7 @@
  * custom context selection, lorebook item picker + badges.
  */
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, X, Pencil } from 'lucide-react';
+import { ChevronRight, ChevronDown, X, Pencil, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -12,13 +12,15 @@ import {
     CollapsibleTrigger,
     CollapsibleContent,
 } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
 import { useSBStore } from '@/features/scenebeats/stores/useSceneBeatInstanceStore';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
@@ -41,6 +43,7 @@ export function SceneBeatContextPanel() {
     const { currentStoryId } = useStoryContext();
 
     const [editingEntry, setEditingEntry] = useState<LorebookEntry | null>(null);
+    const [open, setOpen] = useState(false);
 
     // After edit dialog closes, sync updated entry back into instance store
     const handleEditDialogClose = (open: boolean) => {
@@ -158,40 +161,48 @@ export function SceneBeatContextPanel() {
                             <div className="mb-4">
                                 <div className="w-full">
                                     <div className="text-xs font-medium mb-1">Lorebook Items</div>
-                                    <Select
-                                        onValueChange={(value) => {
-                                            handleItemSelect(value);
-                                            const el = document.querySelector('[data-lorebook-select="true"]');
-                                            if (el) (el as HTMLSelectElement).value = '';
-                                        }}
-                                        value=""
-                                    >
-                                        <SelectTrigger className="w-full" data-lorebook-select="true">
-                                            <SelectValue placeholder="Select lorebook item" />
-                                        </SelectTrigger>
-                                        <SelectContent className="max-h-[300px]">
-                                            {['character', 'location', 'item', 'event', 'note'].map((category) => {
-                                                const categoryItems = entries.filter((e) => e.category === category);
-                                                if (categoryItems.length === 0) return null;
-                                                return (
-                                                    <div key={category}>
-                                                        <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted capitalize">
-                                                            {category}s
-                                                        </div>
-                                                        {categoryItems.map((entry) => (
-                                                            <SelectItem
-                                                                key={entry.id}
-                                                                value={entry.id}
-                                                                disabled={selectedItems.some((i) => i.id === entry.id)}
-                                                            >
-                                                                {entry.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </div>
-                                                );
-                                            })}
-                                        </SelectContent>
-                                    </Select>
+                                    <Popover open={open} onOpenChange={setOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={open}
+                                                className="w-full justify-between font-normal"
+                                            >
+                                                <span className="text-muted-foreground">Select lorebook item</span>
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0" align="start">
+                                            <Command>
+                                                <CommandInput placeholder="Search lorebook items..." />
+                                                <CommandList>
+                                                    <CommandEmpty>No items found.</CommandEmpty>
+                                                    {['character', 'location', 'item', 'event', 'note'].map((category) => {
+                                                        const categoryItems = entries.filter((e) => e.category === category);
+                                                        if (categoryItems.length === 0) return null;
+                                                        return (
+                                                            <CommandGroup key={category} heading={`${category}s`}>
+                                                                {categoryItems.map((entry) => (
+                                                                    <CommandItem
+                                                                        key={entry.id}
+                                                                        value={entry.name}
+                                                                        disabled={selectedItems.some((i) => i.id === entry.id)}
+                                                                        onSelect={() => {
+                                                                            handleItemSelect(entry.id);
+                                                                            setOpen(false);
+                                                                        }}
+                                                                    >
+                                                                        {entry.name}
+                                                                    </CommandItem>
+                                                                ))}
+                                                            </CommandGroup>
+                                                        );
+                                                    })}
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </div>
 
@@ -236,11 +247,11 @@ export function SceneBeatContextPanel() {
             </Collapsible>
 
             {/* Lorebook entry edit dialog */}
-            {editingEntry && currentStoryId && (
+            {editingEntry && (
                 <CreateEntryDialog
                     open={true}
                     onOpenChange={handleEditDialogClose}
-                    storyId={currentStoryId}
+                    lorebookId={editingEntry.lorebookId}
                     entry={editingEntry}
                 />
             )}

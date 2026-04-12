@@ -5,12 +5,26 @@ interface BaseEntity {
   isDemo?: boolean; // Flag to identify demo content
 }
 
+export type StoryFormat = 'novel' | 'short_story_collection';
+export type UniverseType = 'shared_universe' | 'standalone';
+
 // Core story type
 export interface Story extends BaseEntity {
   title: string;
   author: string;
   language: string;
   synopsis?: string;
+  saveFilePath?: string; // Tauri: absolute path to linked .json file; Browser: filename only
+  saveFileHandle?: FileSystemFileHandle; // Browser File System Access API handle (non-Tauri)
+  storyFormat?: StoryFormat; // defaults to 'novel' for existing stories
+  universeType?: UniverseType; // only relevant when storyFormat === 'short_story_collection'
+  lorebookIds?: string[]; // IDs of associated LoreBook entities (many-to-many)
+}
+
+// LoreBook — a named collection of lorebook entries that can be shared across stories
+export interface LoreBook extends BaseEntity {
+  name: string;
+  description?: string;
 }
 
 // Chapter structure
@@ -177,7 +191,7 @@ export interface Note extends BaseEntity {
 
 // Lorebook types
 export interface LorebookEntry extends BaseEntity {
-  storyId: string;
+  lorebookId: string;
   name: string;
   description: string;
   category:
@@ -203,11 +217,13 @@ export interface LorebookEntry extends BaseEntity {
     customFields?: Record<string, unknown>;
   };
   isDisabled?: boolean;
+  isValid?: boolean;
 }
 
 // Prompt Parser types
 export interface PromptParserConfig {
   storyId: string;
+  lorebookIds?: string[]; // IDs of lore books associated with the story
   chapterId?: string;
   promptId: string;
   scenebeat?: string;
@@ -230,6 +246,7 @@ export interface PromptParserConfig {
 
 export interface PromptContext {
   storyId: string;
+  lorebookIds?: string[]; // IDs of lore books associated with the story
   chapterId?: string;
   scenebeat?: string;
   cursorPosition?: number;
@@ -274,6 +291,11 @@ export type AgentRole =
   | "style_extractor" // Extracts writing style from sample text
   | "scenebeat_generator" // Generates scene beat commands
   | "refusal_checker" // Detects if the LLM refused to generate content
+  | "chapter_reviewer" // Reviews an entire chapter for quality, consistency, and suggestions
+  | "chapter_editor" // Rewrites/edits an entire chapter based on instructions
+  | "lore_writer" // Creates new lorebook entries from a seed concept
+  | "lore_refiner" // Iteratively refines existing lorebook entries
+  | "judge_aggregator" // Synthesises outputs from all judges since the last prose step
   | "custom"; // User-defined agent role
 
 // Context configuration for agents - controls what data is sent to the LLM
@@ -371,6 +393,36 @@ export const DEFAULT_CONTEXT_CONFIG: Record<AgentRole, AgentContextConfig> = {
     includePovInfo: true,
   },
   refusal_checker: {
+    lorebookMode: "none",
+    previousWordsMode: "none",
+    includeChapterSummary: false,
+    includePovInfo: false,
+  },
+  chapter_reviewer: {
+    lorebookMode: "all",
+    previousWordsMode: "full",
+    includeChapterSummary: false,
+    includePovInfo: true,
+  },
+  chapter_editor: {
+    lorebookMode: "all",
+    previousWordsMode: "full",
+    includeChapterSummary: false,
+    includePovInfo: true,
+  },
+  lore_writer: {
+    lorebookMode: "none",
+    previousWordsMode: "none",
+    includeChapterSummary: false,
+    includePovInfo: false,
+  },
+  lore_refiner: {
+    lorebookMode: "none",
+    previousWordsMode: "none",
+    includeChapterSummary: false,
+    includePovInfo: false,
+  },
+  judge_aggregator: {
     lorebookMode: "none",
     previousWordsMode: "none",
     includeChapterSummary: false,

@@ -17,6 +17,7 @@ import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { usePromptStore } from '@/features/prompts/store/promptStore';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
+import { useStoryStore } from '@/features/stories/stores/useStoryStore';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { sceneBeatService } from '@/features/scenebeats/services/sceneBeatService';
 import { useAgenticGeneration, type AgenticGenerationContext, type AgenticGenerationCallbacks } from '@/features/agents/hooks/useAgenticGeneration';
@@ -87,10 +88,13 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         // For now, we read them from the loaded SceneBeat
         const storyId = currentChapter?.storyId || '';
         const chapterId = currentChapter?.id || '';
+        const { currentStory } = useStoryStore.getState();
+        const lorebookIds = currentStory?.lorebookIds ?? [];
 
         return {
             promptId: prompt.id,
             storyId,
+            lorebookIds,
             chapterId,
             scenebeat: s.command.trim(),
             previousWords: previousText,
@@ -164,7 +168,10 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             await processStreamedResponse(
                 response,
                 (token) => store.getState().appendStreamedText(token),
-                () => store.setState({ streamComplete: true }),
+                () => {
+                    store.setState({ streamComplete: true });
+                    toast.success('Generation complete', { autoClose: 3000 });
+                },
                 (error) => {
                     console.error('Error streaming response:', error);
                     toast.error('Failed to generate text');
@@ -203,6 +210,10 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             return;
         }
 
+        // Capture and clear rejection feedback before building context (single-use)
+        const { rejectionFeedback, rejectedOutput } = store.getState();
+        store.setState({ rejectionFeedback: null, rejectedOutput: null });
+
         try {
             store.setState({
                 streaming: true,
@@ -210,6 +221,9 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 streamComplete: false,
                 showAgenticProgress: true,
                 agenticStepResults: [],
+                agenticJudgeResults: [],
+                latestJudgeFeedback: null,
+                showJudgeFeedback: false,
             });
 
             // Build context directly from store state (no prompt required for agentic mode)
@@ -245,16 +259,43 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                     : []),
             ];
 
-            const { currentChapter } = useChapterStore.getState();
+            const { currentChapter, getChapterSummaries, getAllChapterSummaries } = useChapterStore.getState();
             const { entries } = useLorebookStore.getState();
+            const { currentStory } = useStoryStore.getState();
+
+            // Build cross-chapter summaries based on story format
+            const storyFormat = currentStory?.storyFormat ?? 'novel';
+            const universeType = currentStory?.universeType;
+            let chapterSummaries: string | undefined;
+
+            if (currentChapter) {
+                if (storyFormat === 'novel') {
+                    // Novels: pass previous chapter summaries as "story so far"
+                    const summaries = await getChapterSummaries(currentChapter.storyId, currentChapter.order);
+                    chapterSummaries = summaries || undefined;
+                } else if (storyFormat === 'short_story_collection' && universeType === 'shared_universe') {
+                    // Shared universe: all other stories' summaries provide world context
+                    const summaries = await getAllChapterSummaries(currentChapter.storyId);
+                    chapterSummaries = summaries || undefined;
+                }
+                // standalone: chapterSummaries remains undefined — no cross-story context
+            }
+
             const context: AgenticGenerationContext = {
                 scenebeat: s.command.trim(),
                 previousWords: previousText,
                 matchedEntries: combinedEntries,
                 allEntries: entries,
+                chapterSummaries,
                 povType: s.povType,
                 povCharacter: s.povType !== 'Third Person Omniscient' ? s.povCharacter : undefined,
                 currentChapter,
+                storyLanguage: currentStory?.language,
+                storyFormat,
+                universeType,
+                // Pass rejection feedback so the first prose step uses a multi-turn conversation
+                rejectionFeedback: rejectionFeedback ?? undefined,
+                rejectedOutput: rejectedOutput ?? undefined,
             };
 
             const callbacks: AgenticGenerationCallbacks = {
@@ -265,11 +306,43 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                     store.setState((prev) => ({
                         agenticStepResults: [...prev.agenticStepResults, stepResult],
                     }));
+                    // Surface judge feedback inline (Area 4)
+                    const isJudge = stepResult.role === 'lore_judge' || stepResult.role === 'continuity_checker' ||
+                        stepResult.role === 'judge_aggregator';
+                    if (isJudge) {
+                        const upper = stepResult.output.toUpperCase().trim();
+                        const hasSentinel = upper.includes('##LORE_ISSUE##') || upper.includes('##CONTINUITY_ISSUE##');
+                        const hasAggregatorIssues = upper.startsWith('ISSUES_FOUND');
+                        const isConsistent = upper.startsWith('CONSISTENT') || upper.startsWith('PASS');
+                        const hasLegacyIssue = !isConsistent && upper.includes('ISSUE') &&
+                            !upper.includes('NO ISSUE') && !upper.includes('WITHOUT ISSUE');
+                        const hasIssues = hasSentinel || hasAggregatorIssues || hasLegacyIssue;
+                        store.setState((prev) => ({
+                            agenticJudgeResults: [...prev.agenticJudgeResults, stepResult],
+                            latestJudgeFeedback: hasIssues ? stepResult.output : null,
+                            showJudgeFeedback: hasIssues,
+                        }));
+                    }
                 },
+                onNewStreamingStep: () => store.setState({ rawStreamedText: '', streamedText: '', thinkingText: '' }),
                 onToken: (token) => store.getState().appendStreamedText(token),
                 onComplete: (pipelineResult) => {
                     console.log('[Agentic] Pipeline complete:', pipelineResult);
-                    store.setState({ streamComplete: true, showAgenticProgress: false });
+                    store.setState({ streaming: false, streamComplete: true, showAgenticProgress: false });
+
+                    // Completion toast (Area 5)
+                    const pipelineName = s.selectedPipeline?.name || 'Pipeline';
+                    const stepCount = pipelineResult.steps.length;
+                    if (pipelineResult.loopLimitReached) {
+                        toast.warn(
+                            `${pipelineName} — revision loop limit reached. Output provided but issues may remain. Check diagnostics for details.`,
+                            { autoClose: 8000 }
+                        );
+                    } else if (pipelineResult.verificationStatus === 'failed') {
+                        toast.warn(`${pipelineName} complete — issues remain (${stepCount} steps)`, { autoClose: 5000 });
+                    } else {
+                        toast.success(`${pipelineName} complete (${stepCount} steps)`, { autoClose: 3000 });
+                    }
 
                     if (s.sceneBeatId) {
                         sceneBeatService.updateSceneBeat(s.sceneBeatId, {
@@ -280,6 +353,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 },
                 onError: (error) => {
                     console.error('[Agentic] Error:', error);
+                    store.setState({ streaming: false, showAgenticProgress: false });
                     toast.error('Pipeline generation failed');
                 },
             };
@@ -292,6 +366,9 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         } catch (error) {
             console.error('[Agentic] Error:', error);
             toast.error('Failed to run agentic generation');
+        } finally {
+            // Guard: always clear streaming flag in case onComplete/onError wasn't called
+            store.setState((prev) => prev.streaming ? { streaming: false, showAgenticProgress: false } : {});
         }
     }, [store, editor, chapterMatchedEntries, agenticHook]);
 
@@ -358,6 +435,15 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
     }, [store, editor]);
 
     const handleReject = useCallback(() => {
+        // Plain reject: clear rejection feedback too (user changed their mind)
+        store.setState({ rejectedOutput: null, rejectionFeedback: null });
+        store.getState().resetGeneration();
+    }, [store]);
+
+    const handleRejectWithFeedback = useCallback((feedback: string) => {
+        const { streamedText } = store.getState();
+        // Store the rejected output and user's feedback for next generation run
+        store.setState({ rejectedOutput: streamedText, rejectionFeedback: feedback });
         store.getState().resetGeneration();
     }, [store]);
 
@@ -412,6 +498,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         handleParallelAccept,
         handleAccept,
         handleReject,
+        handleRejectWithFeedback,
         handleDelete,
         abortGeneration,
     };

@@ -4,6 +4,7 @@
  */
 import { useState } from 'react';
 import { useLorebookStore } from '../stores/useLorebookStore';
+import { useLoreBooksStore } from '../stores/useLoreBooksStore';
 import { CreateEntryDialog } from './CreateEntryDialog';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -23,10 +24,15 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
+import { useStoryStore } from '@/features/stories/stores/useStoryStore';
+import { Badge } from '@/components/ui/badge';
 
 export function LorebookPanel() {
     const { entries, deleteEntry, updateEntry } = useLorebookStore();
     const { currentStoryId } = useStoryContext();
+    const { currentStory } = useStoryStore();
+    const { loreBooks } = useLoreBooksStore();
+    const showLorebookBadge = loreBooks.length > 1;
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [showNewDialog, setShowNewDialog] = useState(false);
     const [editingEntry, setEditingEntry] = useState<LorebookEntry | null>(null);
@@ -81,7 +87,8 @@ export function LorebookPanel() {
                             setEditingEntry(null);
                         }
                     }}
-                    storyId={currentStoryId}
+                    lorebookId={editingEntry?.lorebookId ?? currentStory?.lorebookIds?.[0] ?? ''}
+                    availableLoreBooks={loreBooks}
                     entry={editingEntry || undefined}
                 />
             )}
@@ -118,6 +125,7 @@ export function LorebookPanel() {
                                 }}
                                 onDelete={handleDelete}
                                 onToggleDisabled={handleToggleDisabled}
+                                lorebookName={showLorebookBadge ? loreBooks.find(b => b.id === entry.lorebookId)?.name : undefined}
                             />
                         ))}
                     </CollapsibleContent>
@@ -142,6 +150,7 @@ function LorebookItem({
     onEdit,
     onDelete,
     onToggleDisabled,
+    lorebookName,
 }: {
     entry: LorebookEntry;
     isExpanded: boolean;
@@ -149,6 +158,7 @@ function LorebookItem({
     onEdit: (e: React.MouseEvent) => void;
     onDelete: (e: React.MouseEvent, id: string) => void;
     onToggleDisabled: (e: React.MouseEvent, entry: LorebookEntry) => void;
+    lorebookName?: string;
 }) {
     return (
         <div className={cn(
@@ -171,10 +181,15 @@ function LorebookItem({
                         {entry.isValid === false && (
                             <span className="text-[10px] text-destructive" title="Invalid keys">⚠️</span>
                         )}
-                         {entry.isDisabled && (
+                        {entry.isDisabled && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
                                 Disabled
                             </span>
+                        )}
+                        {lorebookName && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                                {lorebookName}
+                            </Badge>
                         )}
                     </div>
                 </div>

@@ -65,7 +65,7 @@ export default function AISettingsPage() {
 
             console.log(`[AISettingsPage] Filtered models - Local: ${localModels.length}, OpenAI: ${openaiModels.length}, OpenRouter: ${openrouterModels.length}, NanoGPT: ${nanogptModels.length}`);
 
-            setOpenaiModels(openaiModels);
+            setOpenaiModels([...openaiModels, ...localModels]);
             setOpenrouterModels(openrouterModels);
             setNanogptModels(nanogptModels);
             setOpenaiCompatibleModels(openaiCompatibleModels);
@@ -112,7 +112,16 @@ export default function AISettingsPage() {
 
             toast.success(`${provider === 'openai' ? 'OpenAI' : provider === 'openrouter' ? 'OpenRouter' : provider === 'nanogpt' ? 'NanoGPT' : provider === 'openai_compatible' ? 'OpenAI-compatible' : 'Local'} models updated successfully`);
         } catch (error) {
-            toast.error(`Failed to update ${provider} models`);
+            if (provider === 'local') {
+                toast.error(
+                    error instanceof Error
+                        ? error.message
+                        : 'Failed to connect to LMStudio. Make sure it is running and CORS is enabled.',
+                    { autoClose: 8000 }
+                );
+            } else {
+                toast.error(`Failed to update ${provider} models`);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -159,7 +168,16 @@ export default function AISettingsPage() {
             toast.success(`${provider === 'openai' ? 'OpenAI' : provider === 'openrouter' ? 'OpenRouter' : 'Local'} models refreshed`);
         } catch (error) {
             console.error(`Error refreshing ${provider} models:`, error);
-            toast.error(`Failed to refresh ${provider} models`);
+            if (provider === 'local') {
+                toast.error(
+                    error instanceof Error
+                        ? error.message
+                        : 'Failed to connect to LMStudio. Make sure it is running and CORS is enabled.',
+                    { autoClose: 8000 }
+                );
+            } else {
+                toast.error(`Failed to refresh ${provider} models`);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -189,7 +207,12 @@ export default function AISettingsPage() {
             toast.success('Local API URL updated successfully');
         } catch (error) {
             console.error('Error updating local API URL:', error);
-            toast.error('Failed to update local API URL');
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to connect to LMStudio. Make sure it is running and CORS is enabled.',
+                { autoClose: 8000 }
+            );
         } finally {
             setIsLoading(false);
         }

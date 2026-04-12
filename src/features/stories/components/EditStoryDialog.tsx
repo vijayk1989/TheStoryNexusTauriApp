@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Story } from "@/types/story";
+import { Story, StoryFormat, UniverseType } from "@/types/story";
 import { useStoryStore } from "@/features/stories/stores/useStoryStore";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,8 @@ export function EditStoryDialog({ story, open, onOpenChange }: EditStoryDialogPr
     const [author, setAuthor] = useState("");
     const [language, setLanguage] = useState("English");
     const [synopsis, setSynopsis] = useState("");
+    const [storyFormat, setStoryFormat] = useState<StoryFormat>("novel");
+    const [universeType, setUniverseType] = useState<UniverseType>("shared_universe");
     const updateStory = useStoryStore((state) => state.updateStory);
 
     useEffect(() => {
@@ -36,6 +38,8 @@ export function EditStoryDialog({ story, open, onOpenChange }: EditStoryDialogPr
             setAuthor(story.author);
             setLanguage(story.language);
             setSynopsis(story.synopsis || "");
+            setStoryFormat(story.storyFormat ?? "novel");
+            setUniverseType(story.universeType ?? "shared_universe");
         }
     }, [story]);
 
@@ -49,6 +53,8 @@ export function EditStoryDialog({ story, open, onOpenChange }: EditStoryDialogPr
                 author,
                 language,
                 synopsis,
+                storyFormat,
+                universeType: storyFormat === "short_story_collection" ? universeType : undefined,
             });
             onOpenChange(false);
         } catch (error) {
@@ -112,6 +118,32 @@ export function EditStoryDialog({ story, open, onOpenChange }: EditStoryDialogPr
                                 placeholder="Enter a brief synopsis (optional)"
                             />
                         </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-storyFormat">Format</Label>
+                            <Select value={storyFormat} onValueChange={(v) => setStoryFormat(v as StoryFormat)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select format" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="novel">Novel</SelectItem>
+                                    <SelectItem value="short_story_collection">Short Story Collection</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {storyFormat === "short_story_collection" && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-universeType">Collection Type</Label>
+                                <Select value={universeType} onValueChange={(v) => setUniverseType(v as UniverseType)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select collection type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="shared_universe">Shared Universe</SelectItem>
+                                        <SelectItem value="standalone">Standalone Stories</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button type="submit">Save Changes</Button>
@@ -120,4 +152,4 @@ export function EditStoryDialog({ story, open, onOpenChange }: EditStoryDialogPr
             </DialogContent>
         </Dialog>
     );
-} 
+}

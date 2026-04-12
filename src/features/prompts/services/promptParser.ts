@@ -341,14 +341,11 @@ export class PromptParser {
                                 // Add a separator to indicate content from previous chapter
                                 result = prevContent + '\n\n[...]\n\n' + result;
 
-                                console.log(`Added ${selectedPrevWords.length} words from previous chapter to context`);
                             }
                         }
                     } else {
-                        console.log('Previous chapter POV does not match current chapter POV, skipping');
                     }
                 } else {
-                    console.log('No previous chapter found');
                 }
             } catch (error) {
                 console.error('Error fetching previous chapter content:', error);
@@ -384,9 +381,10 @@ export class PromptParser {
         const { getFilteredEntries } = useLorebookStore.getState();
 
         // Get filtered entries (already excludes disabled entries)
+        const lorebookIds = context.lorebookIds ?? [];
         const entries = getFilteredEntries()
             .filter(entry =>
-                entry.storyId === context.storyId &&
+                lorebookIds.includes(entry.lorebookId) &&
                 entry.category === 'character' &&
                 entry.name.toLowerCase() === name.toLowerCase()
             );
@@ -462,10 +460,9 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
         const { getFilteredEntries } = useLorebookStore.getState();
 
         // Get filtered entries (already excludes disabled entries)
-        let entries = getFilteredEntries();
-
-        // Filter by storyId
-        entries = entries.filter(entry => entry.storyId === context.storyId);
+        const lorebookIds = context.lorebookIds ?? [];
+        let entries = getFilteredEntries()
+            .filter(entry => lorebookIds.includes(entry.lorebookId));
 
         // Filter by category if provided
         if (category) {
@@ -498,11 +495,10 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
         const chapterStore = useChapterStore.getState();
 
         // Add debug log for the entire context
-        console.log('DEBUG: brainstormContext additionalContext:', context.additionalContext);
 
         // Load entries if they're not already loaded
         if (lorebookStore.entries.length === 0) {
-            await lorebookStore.loadEntries(context.storyId);
+            await lorebookStore.loadEntries(context.lorebookIds ?? []);
         }
 
         // Check if full context is enabled
@@ -580,45 +576,28 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
 
         // Handle chapter content
         if (context.additionalContext?.selectedChapterContent?.length > 0) {
-            console.log('DEBUG: Processing selectedChapterContent:', context.additionalContext.selectedChapterContent);
-
             try {
                 const contents = await Promise.all(
                     context.additionalContext.selectedChapterContent.map(async id => {
-                        console.log(`DEBUG: Fetching content for chapter ID: ${id}`);
                         try {
                             const chapter = await db.chapters.get(id);
-                            console.log(`DEBUG: Chapter fetch result:`, chapter ? `Found chapter ${chapter.order}` : 'Not found');
-
                             if (!chapter) return '';
-
-                            console.log(`DEBUG: Getting plain text for chapter ${chapter.order}`);
                             const content = await chapterStore.getChapterPlainText(id);
-                            console.log(`DEBUG: Content length for chapter ${chapter.order}: ${content ? content.length : 0} chars`);
-
                             return `Chapter ${chapter.order} Content:\n${content}`;
                         } catch (err) {
-                            console.error(`DEBUG: Error processing chapter ${id}:`, err);
+                            console.error(`Error processing chapter ${id}:`, err);
                             return '';
                         }
                     })
                 );
 
-                console.log(`DEBUG: Contents array:`, contents);
                 const contentText = contents.filter(Boolean).join('\n\n');
-                console.log(`DEBUG: Final chapter content text:`, contentText.substring(0, 100) + '...');
-
                 if (contentText) {
                     result += `Full Chapter Content:\n${contentText}\n\n`;
-                    console.log('DEBUG: Added chapter content to result');
-                } else {
-                    console.log('DEBUG: No chapter content was added (empty content)');
                 }
             } catch (err) {
-                console.error('DEBUG: Error in chapter content processing:', err);
+                console.error('Error in chapter content processing:', err);
             }
-        } else {
-            console.log('DEBUG: No selectedChapterContent found or empty array');
         }
 
         // Handle lorebook entries
@@ -710,8 +689,8 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
             if (useCustomContext && customContextItems && customContextItems.length > 0) {
                 // Load entries if they're not already loaded
                 const lorebookStore = useLorebookStore.getState();
-                if (lorebookStore.entries.length === 0 && context.storyId) {
-                    await lorebookStore.loadEntries(context.storyId);
+                if (lorebookStore.entries.length === 0 && context.lorebookIds?.length) {
+                    await lorebookStore.loadEntries(context.lorebookIds);
                 }
 
                 // Get the custom entries from the store

@@ -336,6 +336,7 @@ function TextFormatFloatingToolbar({
     return {
       promptId: prompt.id,
       storyId: currentStoryId,
+      lorebookIds: currentStory?.lorebookIds ?? [],
       chapterId: currentChapterId,
       previousWords: previousWords,
       additionalContext: {
@@ -536,6 +537,7 @@ function TextFormatFloatingToolbar({
     return {
       promptId: prompt.id,
       storyId: currentStoryId,
+      lorebookIds: currentStory?.lorebookIds ?? [],
       chapterId: currentChapterId,
       previousWords: previousWords,
       scenebeat: customInstruction.trim() || undefined, // Maps to {{user_input}}
@@ -544,7 +546,7 @@ function TextFormatFloatingToolbar({
       },
       sceneBeatContext: {
         useMatchedChapter: true, // Always default to true like existing scene beat
-        useMatchedSceneBeat: false, 
+        useMatchedSceneBeat: false,
         useCustomContext,
         customContextItems: useCustomContext
           ? selectedContextItems.map((item) => item.id)

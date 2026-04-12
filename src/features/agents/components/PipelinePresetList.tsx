@@ -40,6 +40,11 @@ const ROLE_LABELS: Record<AgentRole, string> = {
     style_extractor: 'Style Extractor',
     scenebeat_generator: 'Scene Beat Generator',
     refusal_checker: 'Refusal Checker',
+    chapter_reviewer: 'Chapter Reviewer',
+    chapter_editor: 'Chapter Editor',
+    lore_writer: 'Lore Writer',
+    lore_refiner: 'Lore Refiner',
+    judge_aggregator: 'Judge Aggregator',
     custom: 'Custom',
 };
 

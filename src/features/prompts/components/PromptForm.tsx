@@ -696,7 +696,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 value={[maxTokens]}
                                 onValueChange={(value) => setMaxTokens(value[0])}
                                 min={1}
-                                max={16384}
+                                max={32768}
                                 className="flex-1"
                             />
                             <Input
@@ -708,7 +708,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                     }
 
                                     const value = parseInt(e.target.value);
-                                    if (!isNaN(value) && value >= 1 && value <= 16384) {
+                                    if (!isNaN(value) && value >= 1 && value <= 32768) {
                                         setMaxTokens(value);
                                     }
                                 }}

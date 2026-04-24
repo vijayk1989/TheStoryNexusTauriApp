@@ -67,7 +67,7 @@ export class AIService {
                 id: `local/${model.id}`,
                 name: model.id, // We could prettify this name if needed
                 provider: 'local' as AIProvider,
-                contextLength: 16384, // Default value since not provided by API
+                contextLength: 32768, // Default value since not provided by API
                 enabled: true
             }));
 
@@ -81,7 +81,7 @@ export class AIService {
                 id: 'local',
                 name: 'Local Model',
                 provider: 'local',
-                contextLength: 16384,
+                contextLength: 32768,
                 enabled: true
             }];
         }
@@ -262,7 +262,7 @@ export class AIService {
                 id: model.id,
                 name: model.id,
                 provider: 'openai' as AIProvider,
-                contextLength: model.context_length || 16384,
+                contextLength: model.context_length || 32768,
                 enabled: true
             }));
     }
@@ -300,7 +300,7 @@ export class AIService {
             id: model.id,
             name: model.name || model.id,
             provider: 'nanogpt' as AIProvider,
-            contextLength: model.context_length || 16384,
+            contextLength: model.context_length || 32768,
             enabled: true
         }));
     }
@@ -338,7 +338,7 @@ export class AIService {
             id: model.id || model.name,
             name: model.name || model.id || String(model.id),
             provider: 'openai_compatible' as AIProvider,
-            contextLength: model.context_length || model.max_context || 16384,
+            contextLength: model.context_length || model.max_context || 32768,
             enabled: true
         }));
     }

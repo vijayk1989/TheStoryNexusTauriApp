@@ -42,6 +42,7 @@ import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { sceneBeatService } from "@/features/scenebeats/services/sceneBeatService";
 import { PipelineDiagnosticsDialog } from "@/features/agents/components/PipelineDiagnosticsDialog";
 import { ParallelResponsesDrawer } from "@/components/ui/parallel-responses-drawer";
+import { useAIStore } from "@/features/ai/stores/useAIStore";
 
 // Per-instance store
 import {
@@ -137,6 +138,22 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
       console.error("Error loading prompts:", error);
     });
   }, [gen.fetchPrompts]);
+
+  const settings = useAIStore((s) => s.settings);
+
+  // Apply default prompt and model if enabled and not already selected
+  useEffect(() => {
+    if (gen.prompts.length > 0 && !selectedPrompt && settings?.enablePromptDefaults && settings.defaultSceneBeatPromptId) {
+      const defaultPrompt = gen.prompts.find((p) => p.id === settings.defaultSceneBeatPromptId);
+      if (defaultPrompt) {
+        let defaultModel: AllowedModel | undefined;
+        if (settings.defaultSceneBeatModelId && settings.availableModels) {
+          defaultModel = settings.availableModels.find((m) => m.id === settings.defaultSceneBeatModelId);
+        }
+        set({ selectedPrompt: defaultPrompt, selectedModel: defaultModel });
+      }
+    }
+  }, [gen.prompts, selectedPrompt, settings, set]);
 
   // Load available pipelines when agentic mode is enabled
   const agenticMode = useSBStore((s) => s.agenticMode);

@@ -29,6 +29,9 @@ interface AIState {
     // Favorite model management
     toggleFavoriteModel: (modelId: string) => Promise<void>;
 
+    // Prompt defaults management
+    updatePromptDefaults: (defaults: Partial<AISettings>) => Promise<void>;
+
     // Generation methods
     generateWithLocalModel: (
         messages: PromptMessage[],
@@ -130,6 +133,31 @@ export const useAIStore = create<AIState>((set, get) => ({
             set({ favoriteModelIds: newFavorites });
         } catch (error) {
             console.error('Failed to toggle favorite model:', error);
+        }
+    },
+
+    updatePromptDefaults: async (defaults: Partial<AISettings>) => {
+        set({ isLoading: true, error: null });
+        try {
+            const settings = await db.aiSettings.toArray();
+            let currentSettings = settings[0];
+            
+            if (!currentSettings) {
+                // Should theoretically never happen as initialize() creates default settings
+                throw new Error("No settings found in database");
+            }
+            
+            await db.aiSettings.update(currentSettings.id, defaults);
+            
+            // Refetch to ensure state is in sync with DB
+            const updatedSettings = await db.aiSettings.toArray();
+            set({ settings: updatedSettings[0], isLoading: false });
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update prompt defaults',
+                isLoading: false
+            });
+            throw error;
         }
     },
 

@@ -72,6 +72,7 @@ export interface Draft extends BaseEntity {
 // AI Chat types
 export interface AIChat extends BaseEntity {
   storyId: string;
+  chapterId?: string;
   title: string;
   messages: ChatMessage[];
   updatedAt?: Date;
@@ -166,6 +167,13 @@ export interface AISettings extends BaseEntity {
   lastModelsFetch?: Date;
   localApiUrl?: string;
   favoriteModelIds?: string[]; // User's favorited model IDs
+  
+  // Prompt Defaults
+  enablePromptDefaults?: boolean;
+  defaultSceneBeatPromptId?: string;
+  defaultSceneBeatModelId?: string;
+  defaultQuickChatPromptId?: string;
+  defaultQuickChatModelId?: string;
 }
 
 // Note types

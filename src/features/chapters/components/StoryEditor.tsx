@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, MessageSquare, Settings2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
 import { ChapterOutline } from "./ChapterOutline";
+import { QuickChatPanel } from "@/features/chapters/components/QuickChatPanel";
+import { ChapterChatsPanel } from "@/features/chapters/components/ChapterChatsPanel";
 import { ChapterPOVEditor } from "@/features/chapters/components/ChapterPOVEditor";
 import {
     Drawer,
@@ -20,6 +22,7 @@ import { ChapterNotesEditor } from "@/features/chapters/components/ChapterNotesE
 import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
 import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
 import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
+import { PromptDefaultsPanel } from "@/features/prompts/components/PromptDefaultsPanel";
 import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BasicsGuide from "@/features/guide/components/BasicsGuide";
@@ -44,7 +47,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "chapterChats" | "promptDefaults" | "quickChat" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
@@ -78,41 +81,41 @@ export function StoryEditor() {
             <Button
                 variant={openDrawer === "matchedTags" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
+                className="justify-start w-full"
                 onClick={() => handleOpenDrawer("matchedTags")}
             >
-                <Tags className="h-4 w-4 mr-2" />
-                Matched Tags
+                <Tags className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Matched Tags</span>
             </Button>
 
             <Button
                 variant={openDrawer === "chapterOutline" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
+                className="justify-start w-full"
                 onClick={() => handleOpenDrawer("chapterOutline")}
             >
-                <BookOpen className="h-4 w-4 mr-2" />
-                Outline
+                <BookOpen className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Outline</span>
             </Button>
 
             <Button
                 variant={openDrawer === "chapterPOV" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
+                className="justify-start w-full"
                 onClick={() => handleOpenDrawer("chapterPOV")}
             >
-                <User className="h-4 w-4 mr-2" />
-                Edit POV
+                <User className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Edit POV</span>
             </Button>
 
             <Button
                 variant={openDrawer === "chapterNotes" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
+                className="justify-start w-full"
                 onClick={() => handleOpenDrawer("chapterNotes")}
             >
-                <StickyNote className="h-4 w-4 mr-2" />
-                Chapter Notes
+                <StickyNote className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Chapter Notes</span>
             </Button>
 
             {currentChapterId && (
@@ -123,58 +126,78 @@ export function StoryEditor() {
                     size="sm"
                     showIcon={true}
                     label="Download"
-                    className="mx-2 justify-start"
+                    className="justify-start w-full"
                 />
             )}
 
             <Button
                 variant={openDrawer === "drafts" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
+                className="justify-start w-full"
                 onClick={() => handleOpenDrawer("drafts")}
             >
-                <FileText className="h-4 w-4 mr-2" />
-                Drafts
+                <FileText className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Drafts</span>
+            </Button>
+
+            <Button
+                variant={openDrawer === "chapterChats" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenDrawer("chapterChats")}
+            >
+                <MessageSquare className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Saved Chats</span>
             </Button>
 
             <Button
                 variant={openDrawer === "lorebook" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
+                className="justify-start w-full"
                 onClick={() => handleOpenDrawer("lorebook")}
             >
-                <Book className="h-4 w-4 mr-2" />
-                Lorebook
+                <Book className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Lorebook</span>
             </Button>
 
             <Button
                 variant={openDrawer === "prompts" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
+                className="justify-start w-full"
                 onClick={() => handleOpenDrawer("prompts")}
             >
-                <ScrollText className="h-4 w-4 mr-2" />
-                Prompts
+                <ScrollText className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Prompts</span>
+            </Button>
+
+            <Button
+                variant={openDrawer === "promptDefaults" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenDrawer("promptDefaults")}
+            >
+                <Settings2 className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Prompt Defaults</span>
             </Button>
 
             <Button
                 variant={openDrawer === "aiSettings" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
+                className="justify-start w-full"
                 onClick={() => handleOpenDrawer("aiSettings")}
             >
-                <Settings className="h-4 w-4 mr-2" />
-                AI Settings
+                <Settings className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">AI Settings</span>
             </Button>
             
              <Button
                 variant={openDrawer === "guide" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
+                className="justify-start w-full"
                 onClick={() => handleOpenDrawer("guide")}
             >
-                <HelpCircle className="h-4 w-4 mr-2" />
-                Guide
+                <HelpCircle className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Guide</span>
             </Button>
         </>
     );
@@ -188,9 +211,14 @@ export function StoryEditor() {
                 </div>
             </div>
 
-            {/* Desktop: Right Sidebar with Buttons */}
-            <div className="hidden md:flex w-48 border-l h-full flex-col py-4 space-y-2 bg-muted/20 flex-shrink-0">
-                {sidebarButtons}
+            {/* Desktop: Right Sidebar with Buttons and Quick Chat */}
+            <div className="hidden md:flex w-80 border-l h-full flex-col flex-shrink-0 bg-muted/10">
+                <div className="grid grid-cols-2 gap-2 p-2 shrink-0 border-b overflow-y-auto max-h-[35%]">
+                    {sidebarButtons}
+                </div>
+                <div className="flex-1 overflow-hidden">
+                    {!isMobile && <QuickChatPanel />}
+                </div>
             </div>
 
             {/* Mobile: Floating Action Button with Dropdown */}
@@ -231,6 +259,14 @@ export function StoryEditor() {
                             <FileText className="h-4 w-4 mr-2" />
                             Drafts
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("quickChat")}>
+                            <Zap className="h-4 w-4 mr-2" />
+                            Quick Chat
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterChats")}>
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Saved Chats
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDrawer("lorebook")}>
                             <Book className="h-4 w-4 mr-2" />
                             Lorebook
@@ -238,6 +274,10 @@ export function StoryEditor() {
                         <DropdownMenuItem onClick={() => handleOpenDrawer("prompts")}>
                             <ScrollText className="h-4 w-4 mr-2" />
                             Prompts
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("promptDefaults")}>
+                            <Settings2 className="h-4 w-4 mr-2" />
+                            Prompt Defaults
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDrawer("aiSettings")}>
                             <Settings className="h-4 w-4 mr-2" />
@@ -341,6 +381,21 @@ export function StoryEditor() {
                 </SheetContent>
             </Sheet>
 
+            {/* Chapter Chats Sheet */}
+            <Sheet open={openDrawer === "chapterChats"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Saved Chats</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2">
+                        <ChapterChatsPanel />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
             {/* AI Settings Sheet */}
             <Sheet open={openDrawer === "aiSettings"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
                 <SheetContent
@@ -414,6 +469,33 @@ export function StoryEditor() {
                     </SheetHeader>
                     <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
                         <PromptsPanel />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Prompt Defaults Sheet */}
+            <Sheet open={openDrawer === "promptDefaults"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Prompt Defaults</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <PromptDefaultsPanel />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Quick Chat Sheet (Mobile Only) */}
+            <Sheet open={openDrawer === "quickChat"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full p-0"
+                >
+                    <div className="h-full flex flex-col pt-6">
+                        <QuickChatPanel />
                     </div>
                 </SheetContent>
             </Sheet>

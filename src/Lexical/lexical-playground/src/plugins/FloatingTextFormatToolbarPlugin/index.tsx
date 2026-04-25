@@ -354,12 +354,12 @@ function TextFormatFloatingToolbar({
     }
 
     let selectedText = "";
-    let selection: any = null;
 
     editor.getEditorState().read(() => {
-      selection = $getSelection();
+      const selection = $getSelection();
       if ($isRangeSelection(selection)) {
         selectedText = selection.getTextContent();
+        savedSelectionRef.current = selection.clone();
       }
     });
 
@@ -368,45 +368,52 @@ function TextFormatFloatingToolbar({
       return;
     }
 
+    setSavedSelectionText(selectedText);
     setIsGenerating(true);
-    setGeneratedText("");
+    setRewrittenText("");
+    onCustomModeChange(true); // Notify parent to keep toolbar visible
 
     try {
       const config = createPromptConfig(selectedPrompt);
       const response = await generateWithPrompt(config, selectedModel);
 
-      let fullText = "";
+      // Handle aborted responses (204)
+      if (!response.ok && response.status !== 204) {
+        throw new Error("Failed to generate response");
+      }
+
+      if (response.status === 204) {
+        console.log("Generation was aborted.");
+        setIsGenerating(false);
+        onCustomModeChange(false);
+        return;
+      }
+
+      let accumulatedText = "";
 
       await processStreamedResponse(
         response,
         (token) => {
-          // Accumulate tokens but don't show them in UI
-          fullText += token;
+          accumulatedText += token;
+          setRewrittenText(accumulatedText);
         },
         () => {
-          // When streaming is complete, replace the selected text
-          editor.update(() => {
-            const currentSelection = $getSelection();
-            if ($isRangeSelection(currentSelection)) {
-              currentSelection.formatText("italic");
-              currentSelection.insertText(fullText);
-            }
-          });
-
-          // Reset state
+          // When streaming is complete, show confirmation dialog
+          setShowConfirmation(true);
           setIsGenerating(false);
-          toast.success("Text generated and inserted");
         },
         (error) => {
           console.error("Error streaming response:", error);
           toast.error("Failed to generate text");
           setIsGenerating(false);
+          onCustomModeChange(false);
         }
       );
     } catch (error) {
       console.error("Error generating text:", error);
       toast.error("Failed to generate text");
       setIsGenerating(false);
+      onCustomModeChange(false);
     }
   };
 
@@ -599,22 +606,7 @@ function TextFormatFloatingToolbar({
           setRewrittenText(accumulatedText);
         },
         () => {
-          // When streaming is complete, replace the selected text
-          const finalText = accumulatedText;
-          
-          editor.update(() => {
-            // Restore the saved selection before inserting
-            if (savedSelectionRef.current) {
-              $setSelection(savedSelectionRef.current);
-            }
-            
-            const currentSelection = $getSelection();
-            if ($isRangeSelection(currentSelection)) {
-              currentSelection.insertText(finalText);
-            }
-          });
-
-          // Show confirmation
+          // Streaming is complete; show confirmation without replacing text in editor yet
           setShowCustomRewrite(false);
           setShowConfirmation(true);
           setIsGenerating(false);
@@ -646,6 +638,33 @@ function TextFormatFloatingToolbar({
 
   // Accept the rewrite
   const handleAcceptRewrite = useCallback(() => {
+    editor.update(() => {
+      if (savedSelectionRef.current) {
+        $setSelection(savedSelectionRef.current);
+        const currentSelection = $getSelection();
+        if ($isRangeSelection(currentSelection)) {
+          currentSelection.insertText(rewrittenText);
+        }
+      }
+    });
+
+    setShowConfirmation(false);
+    setSavedSelectionText("");
+    setRewrittenText("");
+    setCustomInstruction("");
+    savedSelectionRef.current = null;
+    
+    // Reset custom context
+    setUseCustomContext(false);
+    setIncludeAllLorebook(false);
+    setSelectedContextItems([]);
+    setShowContextSection(false);
+    
+    onCustomModeChange(false); // Notify parent to allow hiding
+  }, [editor, rewrittenText, onCustomModeChange]);
+
+  // Reject without altering the text since we never modified it
+  const handleRejectRewrite = useCallback(() => {
     setShowConfirmation(false);
     setSavedSelectionText("");
     setRewrittenText("");
@@ -660,24 +679,6 @@ function TextFormatFloatingToolbar({
     
     onCustomModeChange(false); // Notify parent to allow hiding
   }, [onCustomModeChange]);
-
-  // Reject and restore original text using Lexical's undo
-  const handleRejectRewrite = useCallback(() => {
-    editor.dispatchCommand(UNDO_COMMAND, undefined);
-    setShowConfirmation(false);
-    setSavedSelectionText("");
-    setRewrittenText("");
-    setCustomInstruction("");
-    savedSelectionRef.current = null;
-    
-    // Reset custom context
-    setUseCustomContext(false);
-    setIncludeAllLorebook(false);
-    setSelectedContextItems([]);
-    setShowContextSection(false);
-    
-    onCustomModeChange(false); // Notify parent to allow hiding
-  }, [editor, onCustomModeChange]);
 
   // Cancel custom rewrite without doing anything
   const handleCancelCustomRewrite = useCallback(() => {

@@ -72,7 +72,7 @@ export function QuickChatPanel() {
         }
       }
 
-      const brainstormPrompts = prompts.filter(p => p.type === 'brainstorm');
+      const brainstormPrompts = prompts.filter(p => p.promptType === 'brainstorm');
       if (brainstormPrompts.length > 0) {
         setSelectedPrompt(brainstormPrompts[0]);
       } else {

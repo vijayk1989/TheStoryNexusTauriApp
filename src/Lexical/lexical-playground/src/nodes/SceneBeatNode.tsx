@@ -23,7 +23,7 @@ import { ChevronUp, ChevronDown, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 import { usePromptStore } from "@/features/prompts/store/promptStore";
-import type { SceneBeat, LorebookEntry } from "@/types/story";
+import type { SceneBeat, LorebookEntry, AllowedModel } from "@/types/story";
 import { toast } from "react-toastify";
 import { Textarea } from "@/components/ui/textarea";
 import { useStoryContext } from "@/features/stories/context/StoryContext";

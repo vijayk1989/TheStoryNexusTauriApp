@@ -320,6 +320,22 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
     }
   }, [isLoaded, command, commandHistory.length]);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta && !collapsed) {
+      try {
+        ta.style.height = "auto";
+        const contentHeight = ta.scrollHeight;
+        const newHeight = Math.min(Math.max(contentHeight, 80), 400); // min 80px, max 400px
+        ta.style.height = `${newHeight}px`;
+        ta.style.overflowY = contentHeight > 400 ? "auto" : "hidden";
+      } catch (err) {
+        // ignore
+      }
+    }
+  }, [command, collapsed]);
+
   // ── Command history handlers ─────────────────────────────────
 
   const handleCommandChange = (newCommand: string) => {
@@ -400,7 +416,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
               onChange={(e) => handleCommandChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Describe the scene beat…"
-              className="min-h-[80px] md:min-h-[100px] resize-y text-sm md:text-base"
+              className="min-h-[80px] md:min-h-[100px] resize-none text-sm md:text-base"
             />
             <div className="flex items-center justify-between mt-1">
               {/* Interim transcript indicator */}

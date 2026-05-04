@@ -210,6 +210,8 @@ export interface LorebookEntry extends BaseEntity {
       type: string;
       description?: string;
     }>;
+    chapterOrder?: number; // Added for Timeline isolation
+    participantIds?: string[]; // Added for Timeline isolation
     customFields?: Record<string, unknown>;
   };
   isDisabled?: boolean;

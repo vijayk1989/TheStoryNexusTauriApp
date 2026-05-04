@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { useLorebookStore } from "../stores/useLorebookStore";
 import { CreateEntryDialog } from "../components/CreateEntryDialog";
 import { LorebookEntryList } from "../components/LorebookEntryList";
+import { TimelineView } from "../components/TimelineView";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, Upload } from "lucide-react";
 import { useState } from "react";
@@ -202,6 +203,8 @@ export default function LorebookPage() {
                         <div className="flex justify-center p-8">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                         </div>
+                    ) : activeTab === "timeline" ? (
+                        <TimelineView entries={filteredEntries} />
                     ) : (
                         <LorebookEntryList entries={filteredEntries} />
                     )}

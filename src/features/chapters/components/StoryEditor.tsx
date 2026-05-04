@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, MessageSquare, Settings2, Zap } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, MessageSquare, Settings2, Zap, Clock, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -23,6 +23,7 @@ import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
 import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
 import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
 import { PromptDefaultsPanel } from "@/features/prompts/components/PromptDefaultsPanel";
+import { BrainstormPanel } from "@/features/brainstorm/components/BrainstormPanel";
 import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BasicsGuide from "@/features/guide/components/BasicsGuide";
@@ -46,15 +47,22 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router";
+import { TimelineExtractionDialog } from "@/features/chapters/components/TimelineExtractionDialog";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "chapterChats" | "promptDefaults" | "quickChat" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "chapterChats" | "promptDefaults" | "quickChat" | "brainstorm" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
+    const [isTimelineDialogOpen, setIsTimelineDialogOpen] = useState(false);
     const { currentChapterId, currentStoryId } = useStoryContext();
     const isMobile = useIsMobile();
     const navigate = useNavigate();
+
+    const handleExtractTimeline = () => {
+        if (!currentStoryId || !currentChapterId) return;
+        setIsTimelineDialogOpen(true);
+    };
 
     const handleOpenDrawer = (drawer: DrawerType) => {
         setOpenDrawer(drawer === openDrawer ? null : drawer);
@@ -109,6 +117,17 @@ export function StoryEditor() {
             </Button>
 
             <Button
+                variant="outline"
+                size="sm"
+                className="justify-start w-full"
+                onClick={handleExtractTimeline}
+                disabled={!currentChapterId}
+            >
+                <Clock className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Extract Timeline</span>
+            </Button>
+
+            <Button
                 variant={openDrawer === "chapterNotes" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
@@ -148,6 +167,16 @@ export function StoryEditor() {
             >
                 <MessageSquare className="h-4 w-4 mr-2 shrink-0" />
                 <span className="truncate">Saved Chats</span>
+            </Button>
+
+            <Button
+                variant={openDrawer === "brainstorm" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenDrawer("brainstorm")}
+            >
+                <MessageSquarePlus className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Brainstorm</span>
             </Button>
 
             <Button
@@ -266,6 +295,10 @@ export function StoryEditor() {
                         <DropdownMenuItem onClick={() => handleOpenDrawer("chapterChats")}>
                             <MessageSquare className="h-4 w-4 mr-2" />
                             Saved Chats
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("brainstorm")}>
+                            <MessageSquarePlus className="h-4 w-4 mr-2" />
+                            Brainstorm
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDrawer("lorebook")}>
                             <Book className="h-4 w-4 mr-2" />
@@ -499,6 +532,32 @@ export function StoryEditor() {
                     </div>
                 </SheetContent>
             </Sheet>
+
+            {/* Brainstorm Sheet */}
+            <Sheet open={openDrawer === "brainstorm"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[600px] lg:min-w-[800px] md:w-auto p-0"
+                >
+                    <div className="h-full flex flex-col pt-6">
+                        <SheetHeader className="px-4 pb-2 border-b flex-shrink-0 text-left">
+                            <SheetTitle>Brainstorm</SheetTitle>
+                        </SheetHeader>
+                        <div className="flex-1 overflow-hidden">
+                            {currentStoryId ? <BrainstormPanel storyId={currentStoryId} /> : null}
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {currentStoryId && currentChapterId && (
+                <TimelineExtractionDialog 
+                    isOpen={isTimelineDialogOpen}
+                    onClose={() => setIsTimelineDialogOpen(false)}
+                    storyId={currentStoryId}
+                    chapterId={currentChapterId}
+                />
+            )}
         </div>
     );
 }

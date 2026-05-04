@@ -46,11 +46,7 @@ export function QuickChatPanel() {
     const init = async () => {
       await fetchPrompts();
       await initializeAI();
-      const models = await getAvailableModels();
-      // Auto select first model if available
-      if (models.length > 0 && !selectedModel) {
-        setSelectedModel(models[0]);
-      }
+      await getAvailableModels();
     };
     init();
   }, []);
@@ -62,12 +58,6 @@ export function QuickChatPanel() {
         const defaultPrompt = prompts.find(p => p.id === settings.defaultQuickChatPromptId);
         if (defaultPrompt) {
           setSelectedPrompt(defaultPrompt);
-          if (settings.defaultQuickChatModelId && settings.availableModels) {
-            const defaultModel = settings.availableModels.find(m => m.id === settings.defaultQuickChatModelId);
-            if (defaultModel) {
-              setSelectedModel(defaultModel);
-            }
-          }
           return;
         }
       }
@@ -80,6 +70,20 @@ export function QuickChatPanel() {
       }
     }
   }, [prompts, settings]);
+
+  // Auto select model once models are loaded
+  useEffect(() => {
+    if (settings?.availableModels && settings.availableModels.length > 0 && !selectedModel) {
+      if (settings?.enablePromptDefaults && settings.defaultQuickChatModelId) {
+        const defaultModel = settings.availableModels.find(m => m.id === settings.defaultQuickChatModelId);
+        if (defaultModel) {
+          setSelectedModel(defaultModel);
+          return;
+        }
+      }
+      setSelectedModel(settings.availableModels[0]);
+    }
+  }, [settings?.availableModels, settings]);
 
   // Handle loading a chat from ChapterChatsPanel
   useEffect(() => {

@@ -192,6 +192,46 @@ const systemPrompts: Partial<Prompt>[] = [
         top_k: 50,
         repetition_penalty: 1.0,
         min_p: 0.0
+    },
+    {
+        id: "timeline-extractor-system",
+        name: "Timeline Extractor",
+        promptType: "other",
+        description: "Extract timeline events from chapter content as JSON",
+        messages: [
+            {
+                role: "system",
+                content: `You are an expert narrative timeline extractor. 
+Your task is to read the provided chapter content and identify any NEW, significant events that occur.
+Focus on plot-critical moments, major reveals, or state changes (e.g. "Ginny assigned detention", "Filch discovers the photograph").
+
+Return your response strictly as a JSON array of objects. Do not include markdown code blocks or any other text.
+Each object MUST have:
+- "name": A concise, clear title of the event (1-5 words)
+- "description": A short, factual summary of what happened
+- "participants": An array of strings containing the exact names of the characters involved.
+
+If no significant events occur, return an empty array [].`
+            },
+            {
+                role: "user",
+                content: `Chapter Content:\n\n{{chapter_content}}`
+            }
+        ],
+        allowedModels: [
+            {
+                id: "local",
+                name: "local",
+                provider: "local" as AIProvider
+            }
+        ],
+        isSystem: true,
+        temperature: 0.3,
+        maxTokens: 2048,
+        top_p: 1.0,
+        top_k: 50,
+        repetition_penalty: 1.0,
+        min_p: 0.0
     }
 ];
 

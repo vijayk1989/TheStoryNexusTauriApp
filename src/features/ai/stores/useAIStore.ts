@@ -25,6 +25,7 @@ interface AIState {
     getAvailableModels: (provider?: AIProvider, forceRefresh?: boolean) => Promise<AIModel[]>;
     updateProviderKey: (provider: AIProvider, key: string) => Promise<void>;
     updateLocalApiUrl: (url: string) => Promise<void>;
+    updateTavilyKey: (key: string) => Promise<void>;
 
     // Favorite model management
     toggleFavoriteModel: (modelId: string) => Promise<void>;
@@ -47,7 +48,8 @@ interface AIState {
         response: Response,
         onToken: (text: string) => void,
         onComplete: () => void,
-        onError: (error: Error) => void
+        onError: (error: Error) => void,
+        onStatus?: (status: string) => void
     ) => Promise<void>;
 
     generateWithPrompt: (config: PromptParserConfig, selectedModel: AllowedModel) => Promise<Response>;
@@ -111,6 +113,21 @@ export const useAIStore = create<AIState>((set, get) => ({
         }
     },
 
+    updateTavilyKey: async (key: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            await aiService.updateTavilyKey(key);
+            const settings = await db.aiSettings.toArray();
+            set({ settings: settings[0], isLoading: false });
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update Tavily API key',
+                isLoading: false
+            });
+            throw error;
+        }
+    },
+
     updateLocalApiUrl: async (url: string) => {
         set({ isLoading: true, error: null });
         try {
@@ -168,8 +185,8 @@ export const useAIStore = create<AIState>((set, get) => ({
         return aiService.generateWithLocalModel(messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p);
     },
 
-    processStreamedResponse: async (response, onToken, onComplete, onError) => {
-        await aiService.processStreamedResponse(response, onToken, onComplete, onError);
+    processStreamedResponse: async (response, onToken, onComplete, onError, onStatus) => {
+        await aiService.processStreamedResponse(response, onToken, onComplete, onError, onStatus);
     },
 
     generateWithPrompt: async (config: PromptParserConfig, selectedModel: AllowedModel) => {
@@ -195,6 +212,21 @@ export const useAIStore = create<AIState>((set, get) => ({
         const repetition_penalty = prompt?.repetition_penalty;
         const min_p = prompt?.min_p;
 
+        const tools = config.additionalContext?.enableWebSearch ? [
+            {
+                type: "function",
+                function: {
+                    name: "search_web",
+                    description: "Search the web for up-to-date information, facts, or references.",
+                    parameters: {
+                        type: "object",
+                        properties: { query: { type: "string", description: "The search query to execute" } },
+                        required: ["query"]
+                    }
+                }
+            }
+        ] : undefined;
+
         switch (selectedModel.provider) {
             case 'local':
                 return aiService.generateWithLocalModel(
@@ -215,7 +247,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    tools
                 );
             case 'openai_compatible':
                 return aiService.generateWithOpenAICompatible(
@@ -226,7 +259,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    tools
                 );
             case 'openrouter':
                 return aiService.generateWithOpenRouter(
@@ -237,7 +271,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    tools
                 );
             case 'nanogpt':
                 return aiService.generateWithNanoGPT(
@@ -248,7 +283,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    tools
                 );
             case 'google':
                 return aiService.generateWithGoogle(

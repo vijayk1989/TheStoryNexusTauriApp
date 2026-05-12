@@ -97,7 +97,6 @@ Output a concise style guide that another AI could use to mimic this writing sty
     Response format:
     - If the text contains a refusal or avoidance: respond with exactly: REFUSAL_DETECTED: [brief description of what was refused]
     - If the text is genuine creative prose (even if imperfect): respond with exactly: CONTENT_OK`,
-    
     custom: `You are a helpful AI assistant. Follow the instructions provided and assist with the writing task.`
 };
 

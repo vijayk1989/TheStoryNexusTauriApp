@@ -42,6 +42,7 @@ import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { sceneBeatService } from "@/features/scenebeats/services/sceneBeatService";
 import { PipelineDiagnosticsDialog } from "@/features/agents/components/PipelineDiagnosticsDialog";
 import { ParallelResponsesDrawer } from "@/components/ui/parallel-responses-drawer";
+import { resolveSavedDefaultModel } from "@/features/ai/utils/defaultModels";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
 
 // Per-instance store
@@ -143,13 +144,12 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
 
   // Apply default prompt and model if enabled and not already selected
   useEffect(() => {
-    if (gen.prompts.length > 0 && !selectedPrompt && settings?.enablePromptDefaults && settings.defaultSceneBeatPromptId) {
-      const defaultPrompt = gen.prompts.find((p) => p.id === settings.defaultSceneBeatPromptId);
+    if (gen.prompts.length > 0 && !selectedPrompt && settings?.enablePromptDefaults) {
+      const defaultPrompt = settings.defaultSceneBeatPromptId
+        ? gen.prompts.find((p) => p.id === settings.defaultSceneBeatPromptId)
+        : gen.prompts.find((p) => p.promptType === "scene_beat");
       if (defaultPrompt) {
-        let defaultModel: AllowedModel | undefined;
-        if (settings.defaultSceneBeatModelId && settings.availableModels) {
-          defaultModel = settings.availableModels.find((m) => m.id === settings.defaultSceneBeatModelId);
-        }
+        const defaultModel = resolveSavedDefaultModel(settings, settings.defaultSceneBeatModelId);
         set({ selectedPrompt: defaultPrompt, selectedModel: defaultModel });
       }
     }
@@ -320,6 +320,22 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
     }
   }, [isLoaded, command, commandHistory.length]);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta && !collapsed) {
+      try {
+        ta.style.height = "auto";
+        const contentHeight = ta.scrollHeight;
+        const newHeight = Math.min(Math.max(contentHeight, 80), 400); // min 80px, max 400px
+        ta.style.height = `${newHeight}px`;
+        ta.style.overflowY = contentHeight > 400 ? "auto" : "hidden";
+      } catch (err) {
+        // ignore
+      }
+    }
+  }, [command, collapsed]);
+
   // ── Command history handlers ─────────────────────────────────
 
   const handleCommandChange = (newCommand: string) => {
@@ -400,7 +416,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
               onChange={(e) => handleCommandChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Describe the scene beat…"
-              className="min-h-[80px] md:min-h-[100px] resize-y text-sm md:text-base"
+              className="min-h-[80px] md:min-h-[100px] resize-none text-sm md:text-base"
             />
             <div className="flex items-center justify-between mt-1">
               {/* Interim transcript indicator */}

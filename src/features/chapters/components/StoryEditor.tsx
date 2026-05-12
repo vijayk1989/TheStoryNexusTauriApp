@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, MessageSquare, Settings2, Zap } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
 import { ChapterOutline } from "./ChapterOutline";
-import { QuickChatPanel } from "@/features/chapters/components/QuickChatPanel";
-import { ChapterChatsPanel } from "@/features/chapters/components/ChapterChatsPanel";
 import { ChapterPOVEditor } from "@/features/chapters/components/ChapterPOVEditor";
 import {
     Drawer,
@@ -23,7 +21,9 @@ import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
 import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
 import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
 import { PromptDefaultsPanel } from "@/features/prompts/components/PromptDefaultsPanel";
+import { BrainstormPanel } from "@/features/brainstorm/components/BrainstormPanel";
 import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
+import { AgentsManager } from "@/features/agents/components/AgentsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BasicsGuide from "@/features/guide/components/BasicsGuide";
 import AdvancedGuide from "@/features/guide/components/AdvancedGuide";
@@ -42,19 +42,23 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useNavigate } from "react-router";
+import { TimelineExtractionDialog } from "@/features/chapters/components/TimelineExtractionDialog";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "chapterChats" | "promptDefaults" | "quickChat" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "brainstorm" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
+    const [isTimelineDialogOpen, setIsTimelineDialogOpen] = useState(false);
     const { currentChapterId, currentStoryId } = useStoryContext();
     const isMobile = useIsMobile();
-    const navigate = useNavigate();
+
+    const handleExtractTimeline = () => {
+        if (!currentStoryId || !currentChapterId) return;
+        setIsTimelineDialogOpen(true);
+    };
 
     const handleOpenDrawer = (drawer: DrawerType) => {
         setOpenDrawer(drawer === openDrawer ? null : drawer);
@@ -109,6 +113,17 @@ export function StoryEditor() {
             </Button>
 
             <Button
+                variant="outline"
+                size="sm"
+                className="justify-start w-full"
+                onClick={handleExtractTimeline}
+                disabled={!currentChapterId}
+            >
+                <Clock className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Extract Timeline</span>
+            </Button>
+
+            <Button
                 variant={openDrawer === "chapterNotes" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
@@ -141,13 +156,13 @@ export function StoryEditor() {
             </Button>
 
             <Button
-                variant={openDrawer === "chapterChats" ? "default" : "outline"}
+                variant={openDrawer === "brainstorm" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
-                onClick={() => handleOpenDrawer("chapterChats")}
+                onClick={() => handleOpenDrawer("brainstorm")}
             >
-                <MessageSquare className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Saved Chats</span>
+                <MessageSquarePlus className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Brainstorm</span>
             </Button>
 
             <Button
@@ -158,6 +173,16 @@ export function StoryEditor() {
             >
                 <Book className="h-4 w-4 mr-2 shrink-0" />
                 <span className="truncate">Lorebook</span>
+            </Button>
+
+            <Button
+                variant={openDrawer === "agents" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenDrawer("agents")}
+            >
+                <Bot className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Agents</span>
             </Button>
 
             <Button
@@ -203,21 +228,18 @@ export function StoryEditor() {
     );
 
     return (
-        <div className="h-full flex relative overflow-hidden">
+        <div className="flex min-h-screen bg-background">
             {/* Main Editor Area */}
-            <div className={`flex-1 flex justify-center overflow-hidden min-w-0 ${isMaximized ? '' : 'px-2 md:px-4'}`}>
-                <div className={`h-full flex flex-col min-w-0 ${isMaximized ? 'w-full' : 'max-w-[1024px] w-full'}`}>
+            <div className={`flex-1 flex justify-center min-w-0 ${isMaximized ? '' : 'px-2 md:px-6'}`}>
+                <div className={`min-w-0 ${isMaximized ? 'w-full' : 'max-w-[1200px] w-full'}`}>
                     <EmbeddedPlayground maximizeButton={maximizeButton} />
                 </div>
             </div>
 
-            {/* Desktop: Right Sidebar with Buttons and Quick Chat */}
-            <div className="hidden md:flex w-80 border-l h-full flex-col flex-shrink-0 bg-muted/10">
-                <div className="grid grid-cols-2 gap-2 p-2 shrink-0 border-b overflow-y-auto max-h-[35%]">
+            {/* Desktop: Right Sidebar with Tools */}
+            <div className="sticky top-0 hidden h-screen w-80 flex-shrink-0 flex-col border-l border-border bg-surface md:flex">
+                <div className="grid grid-cols-2 gap-2 overflow-y-auto p-3">
                     {sidebarButtons}
-                </div>
-                <div className="flex-1 overflow-hidden">
-                    {!isMobile && <QuickChatPanel />}
                 </div>
             </div>
 
@@ -234,11 +256,6 @@ export function StoryEditor() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" side="top" className="w-48">
-                        <DropdownMenuItem onClick={() => navigate(`/dashboard/${currentStoryId}/chapters`)}>
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back to Chapters
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleOpenDrawer("matchedTags")}>
                             <Tags className="h-4 w-4 mr-2" />
                             Matched Tags
@@ -259,17 +276,17 @@ export function StoryEditor() {
                             <FileText className="h-4 w-4 mr-2" />
                             Drafts
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("quickChat")}>
-                            <Zap className="h-4 w-4 mr-2" />
-                            Quick Chat
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterChats")}>
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Saved Chats
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("brainstorm")}>
+                            <MessageSquarePlus className="h-4 w-4 mr-2" />
+                            Brainstorm
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDrawer("lorebook")}>
                             <Book className="h-4 w-4 mr-2" />
                             Lorebook
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("agents")}>
+                            <Bot className="h-4 w-4 mr-2" />
+                            Agents
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDrawer("prompts")}>
                             <ScrollText className="h-4 w-4 mr-2" />
@@ -311,25 +328,20 @@ export function StoryEditor() {
                 </DrawerContent>
             </Drawer>
 
-            {/* Chapter Outline Drawer */}
-            <Drawer open={openDrawer === "chapterOutline"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
-                <DrawerContent className="max-h-[80vh]">
-                    <DrawerHeader>
-                        <DrawerTitle>Chapter Outline</DrawerTitle>
-                        <DrawerDescription>
-                            Outline and notes for your current chapter.
-                        </DrawerDescription>
-                    </DrawerHeader>
-                    <div className="px-4 overflow-y-auto max-h-[60vh]">
+            {/* Chapter Outline Sheet */}
+            <Sheet open={openDrawer === "chapterOutline"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Chapter Outline</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
                         <ChapterOutline />
                     </div>
-                    <DrawerFooter>
-                        <DrawerClose asChild>
-                            <Button variant="outline">Close</Button>
-                        </DrawerClose>
-                    </DrawerFooter>
-                </DrawerContent>
-            </Drawer>
+                </SheetContent>
+            </Sheet>
 
             {/* Chapter POV Drawer */}
             <Drawer open={openDrawer === "chapterPOV"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
@@ -377,21 +389,6 @@ export function StoryEditor() {
                     </SheetHeader>
                     <div className="overflow-y-auto h-[calc(100vh-80px)] px-2">
                         <DraftsPanel />
-                    </div>
-                </SheetContent>
-            </Sheet>
-
-            {/* Chapter Chats Sheet */}
-            <Sheet open={openDrawer === "chapterChats"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
-                <SheetContent
-                    side="right"
-                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
-                >
-                    <SheetHeader>
-                        <SheetTitle>Saved Chats</SheetTitle>
-                    </SheetHeader>
-                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2">
-                        <ChapterChatsPanel />
                     </div>
                 </SheetContent>
             </Sheet>
@@ -458,6 +455,19 @@ export function StoryEditor() {
                 </SheetContent>
             </Sheet>
 
+            {/* Agents Sheet */}
+            <Sheet open={openDrawer === "agents"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="flex h-[100vh] w-full flex-col overflow-hidden md:min-w-[800px] md:w-auto lg:min-w-[960px] p-0"
+                >
+                    <SheetHeader className="sr-only">
+                        <SheetTitle>Agents</SheetTitle>
+                    </SheetHeader>
+                    <AgentsManager />
+                </SheetContent>
+            </Sheet>
+
             {/* Prompts Sheet */}
             <Sheet open={openDrawer === "prompts"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
                 <SheetContent
@@ -488,17 +498,31 @@ export function StoryEditor() {
                 </SheetContent>
             </Sheet>
 
-            {/* Quick Chat Sheet (Mobile Only) */}
-            <Sheet open={openDrawer === "quickChat"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+            {/* Brainstorm Sheet */}
+            <Sheet open={openDrawer === "brainstorm"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
                 <SheetContent
                     side="right"
-                    className="h-[100vh] w-full p-0"
+                    className="h-[100vh] w-full md:min-w-[600px] lg:min-w-[800px] md:w-auto p-0"
                 >
                     <div className="h-full flex flex-col pt-6">
-                        <QuickChatPanel />
+                        <SheetHeader className="px-4 pb-2 border-b flex-shrink-0 text-left">
+                            <SheetTitle>Brainstorm</SheetTitle>
+                        </SheetHeader>
+                        <div className="flex-1 overflow-hidden">
+                            {currentStoryId ? <BrainstormPanel storyId={currentStoryId} /> : null}
+                        </div>
                     </div>
                 </SheetContent>
             </Sheet>
+
+            {currentStoryId && currentChapterId && (
+                <TimelineExtractionDialog 
+                    isOpen={isTimelineDialogOpen}
+                    onClose={() => setIsTimelineDialogOpen(false)}
+                    storyId={currentStoryId}
+                    chapterId={currentChapterId}
+                />
+            )}
         </div>
     );
 }

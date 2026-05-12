@@ -7,32 +7,43 @@ import { TOAST_CLOSE_TIMER, TOAST_POSITION } from '@/constants';
 import { debounce } from 'lodash';
 import { $isSceneBeatNode } from '../../nodes/SceneBeatNode';
 import { $getRoot, $getNodeByKey } from 'lexical';
+import { saveLastEditorTarget } from '@/features/editor/utils/lastEditorTarget';
+import { useEditorSaveStatusStore } from '@/features/editor/stores/useEditorSaveStatusStore';
 
 export function SaveChapterContentPlugin(): null {
     const [editor] = useLexicalComposerContext();
-    const { currentChapterId } = useStoryContext();
+    const { currentStoryId, currentChapterId } = useStoryContext();
     const { updateChapter } = useChapterStore();
+    const { setStatus, markSaved } = useEditorSaveStatusStore();
 
     // Debounced save function
     const saveContent = useCallback(
         debounce((content: string) => {
             if (currentChapterId) {
+                setStatus('saving');
                 console.log('SaveChapterContent - Saving content for chapter:', currentChapterId);
                 updateChapter(currentChapterId, { content })
                     .then(() => {
+                        if (currentStoryId) {
+                            saveLastEditorTarget({ storyId: currentStoryId, chapterId: currentChapterId });
+                        }
+                        markSaved();
                         console.log('SaveChapterContent - Content saved successfully');
                     })
                     .catch((error) => {
+                        setStatus('error');
                         console.error('SaveChapterContent - Failed to save content:', error);
                     });
             }
         }, 1000),
-        [currentChapterId, updateChapter]
+        [currentChapterId, currentStoryId, updateChapter, setStatus, markSaved]
     );
 
     // Register update listener
     useEffect(() => {
         if (!currentChapterId) return;
+
+        setStatus('saved');
 
         const removeUpdateListener = editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves }) => {
             // Skip if no changes
@@ -44,14 +55,15 @@ export function SaveChapterContentPlugin(): null {
             const content = JSON.stringify(editorState.toJSON());
 
             // Save the content
+            setStatus('pending');
             saveContent(content);
         });
 
         return () => {
             removeUpdateListener();
-            saveContent.cancel();
+            saveContent.flush();
         };
-    }, [editor, currentChapterId, saveContent]);
+    }, [editor, currentChapterId, saveContent, setStatus]);
 
     return null;
 }

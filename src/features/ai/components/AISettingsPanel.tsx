@@ -23,6 +23,7 @@ export function AISettingsPanel() {
     const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState('');
     const [openaiCompatibleModelsRoute, setOpenaiCompatibleModelsRoute] = useState('');
     const [googleKey, setGoogleKey] = useState('');
+    const [tavilyKey, setTavilyKey] = useState('');
     const [localApiUrl, setLocalApiUrl] = useState('http://localhost:1234/v1');
     const [loadingProvider, setLoadingProvider] = useState<ProviderType | null>(null);
     const [models, setModels] = useState<Record<string, AIModel[]>>({
@@ -50,6 +51,7 @@ export function AISettingsPanel() {
             const ocUrl = aiService.getOpenAICompatibleUrl();
             const ocRoute = aiService.getOpenAICompatibleModelsRoute();
             const gKey = aiService.getGoogleKey();
+            const tKey = aiService.getTavilyKey();
             const lUrl = aiService.getLocalApiUrl();
 
             if (oKey) setOpenaiKey(oKey);
@@ -59,6 +61,7 @@ export function AISettingsPanel() {
             if (ocUrl) setOpenaiCompatibleUrl(ocUrl);
             if (ocRoute) setOpenaiCompatibleModelsRoute(ocRoute);
             if (gKey) setGoogleKey(gKey);
+            if (tKey) setTavilyKey(tKey);
             if (lUrl) setLocalApiUrl(lUrl);
 
             const allModels = await aiService.getAvailableModels(undefined, false);
@@ -147,6 +150,16 @@ export function AISettingsPanel() {
             toast.error('Failed to update models route');
         } finally {
             setLoadingProvider(null);
+        }
+    };
+
+    const handleTavilyKeyUpdate = async (key: string) => {
+        if (!key.trim()) return;
+        try {
+            await aiService.updateTavilyKey(key);
+            toast.success('Tavily API key updated');
+        } catch {
+            toast.error('Failed to update Tavily API key');
         }
     };
 
@@ -456,6 +469,36 @@ export function AISettingsPanel() {
                         open={openSections.google_models}
                         onToggle={() => toggleSection('google_models')}
                     />
+                </div>
+            </ProviderSection>
+
+            {/* Web Search (Tavily) */}
+            <ProviderSection
+                title="Web Search (Tavily)"
+                description="Enable AI to search the web"
+                open={openSections.tavily}
+                onToggle={() => toggleSection('tavily')}
+            >
+                <div className="space-y-3">
+                    <div>
+                        <Label className="text-xs">API Key</Label>
+                        <div className="flex gap-2 mt-1">
+                            <Input
+                                type="password"
+                                placeholder="tvly-..."
+                                value={tavilyKey}
+                                onChange={(e) => setTavilyKey(e.target.value)}
+                                className="text-sm"
+                            />
+                            <Button
+                                size="sm"
+                                onClick={() => handleTavilyKeyUpdate(tavilyKey)}
+                                disabled={!tavilyKey.trim()}
+                            >
+                                Save
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </ProviderSection>
         </div>

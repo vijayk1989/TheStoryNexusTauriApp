@@ -446,10 +446,12 @@ export class AIService {
         });
     }
 
-    async processStreamedResponse(response: Response,
+    async processStreamedResponse(
+        response: Response,
         onToken: (text: string) => void,
         onComplete: () => void,
-        onError: (error: Error) => void
+        onError: (error: Error) => void,
+        onStatus?: (status: string) => void
     ) {
         if (!response.body) {
             return onError(new Error('Response body is null'));
@@ -478,6 +480,18 @@ export class AIService {
                         }
                         try {
                             const json = JSON.parse(data);
+                            // Handle tool_status (synthetic event for UI feedback)
+                            if (json.tool_status) {
+                                onStatus?.(json.tool_status);
+                                continue;
+                            }
+                            // Handle tool_calls delta (accumulate for later execution)
+                            const toolCalls = json.choices?.[0]?.delta?.tool_calls;
+                            if (toolCalls?.length) {
+                                // Forward as a synthetic status — the ChatInterface handles execution
+                                onStatus?.('searching_web');
+                                continue;
+                            }
                             const text = json.choices[0]?.delta?.content || '';
                             if (text) {
                                 onToken(text);
@@ -508,7 +522,8 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        tools?: any[]
     ): Promise<Response> {
         if (!this.settings?.openaiKey) {
             throw new Error('OpenAI API key not set');
@@ -522,7 +537,7 @@ export class AIService {
 
         const body: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
             model: modelId,
-            messages: messages,
+            messages: messages as any[],
             temperature: temperature,
             max_tokens: maxTokens,
             stream: true,
@@ -533,20 +548,27 @@ export class AIService {
         // top_k is not directly supported in the same way by OpenAI's API
         if (repetition_penalty !== undefined && repetition_penalty !== 0) { body.frequency_penalty = repetition_penalty; }
         // min_p is not a standard OpenAI parameter
+        if (tools?.length) { (body as any).tools = tools; }
 
         this.abortController = new AbortController();
 
         try {
-            const stream = await this.openAI.chat.completions.create(body, { signal: this.abortController.signal });
+            const stream = await this.openAI.chat.completions.create(body as any, { signal: this.abortController.signal }) as any;
 
             const responseStream = new ReadableStream({
                 async start(controller) {
                     try {
                         for await (const chunk of stream) {
-                            const content = chunk.choices[0]?.delta?.content || '';
-                            if (content) {
-                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                            const toolCalls = (chunk.choices[0]?.delta as any)?.tool_calls;
+                            if (toolCalls?.length) {
+                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: toolCalls } }] })}\n\n`;
                                 controller.enqueue(new TextEncoder().encode(formattedChunk));
+                            } else {
+                                const content = chunk.choices[0]?.delta?.content || '';
+                                if (content) {
+                                    const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                                    controller.enqueue(new TextEncoder().encode(formattedChunk));
+                                }
                             }
                         }
                         controller.close();
@@ -583,7 +605,8 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        tools?: any[]
     ): Promise<Response> {
         if (!this.settings?.openrouterKey) {
             throw new Error('OpenRouter API key not set');
@@ -597,7 +620,7 @@ export class AIService {
 
         const body: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
             model: modelId,
-            messages: messages,
+            messages: messages as any[],
             temperature: temperature,
             max_tokens: maxTokens,
             stream: true,
@@ -614,20 +637,27 @@ export class AIService {
         if (min_p !== undefined && min_p !== 0) {
             Object.assign(body, { min_p });
         }
+        if (tools?.length) { (body as any).tools = tools; }
 
         this.abortController = new AbortController();
 
         try {
-            const stream = await this.openRouter.chat.completions.create(body, { signal: this.abortController.signal });
+            const stream = await this.openRouter.chat.completions.create(body as any, { signal: this.abortController.signal }) as any;
 
             const responseStream = new ReadableStream({
                 async start(controller) {
                     try {
                         for await (const chunk of stream) {
-                            const content = chunk.choices[0]?.delta?.content || '';
-                            if (content) {
-                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                            const toolCalls = (chunk.choices[0]?.delta as any)?.tool_calls;
+                            if (toolCalls?.length) {
+                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: toolCalls } }] })}\n\n`;
                                 controller.enqueue(new TextEncoder().encode(formattedChunk));
+                            } else {
+                                const content = chunk.choices[0]?.delta?.content || '';
+                                if (content) {
+                                    const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                                    controller.enqueue(new TextEncoder().encode(formattedChunk));
+                                }
                             }
                         }
                         controller.close();
@@ -664,7 +694,8 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        tools?: any[]
     ): Promise<Response> {
         if (!this.settings?.nanogptKey) {
             throw new Error('NanoGPT API key not set');
@@ -678,7 +709,7 @@ export class AIService {
 
         const body: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
             model: modelId,
-            messages: messages,
+            messages: messages as any[],
             temperature: temperature,
             max_tokens: maxTokens,
             stream: true,
@@ -693,11 +724,12 @@ export class AIService {
         if (min_p !== undefined && min_p !== 0) {
             Object.assign(body, { min_p });
         }
+        if (tools?.length) { (body as any).tools = tools; }
 
         this.abortController = new AbortController();
 
         try {
-            const stream = await this.nanoGPT.chat.completions.create(body, { signal: this.abortController.signal });
+            const stream = await this.nanoGPT.chat.completions.create(body as any, { signal: this.abortController.signal }) as any;
 
             const responseStream = new ReadableStream({
                 async start(controller) {
@@ -743,7 +775,8 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        tools?: any[]
     ): Promise<Response> {
         if (!this.settings?.openaiCompatibleKey || !this.settings?.openaiCompatibleUrl) {
             throw new Error('OpenAI-compatible provider not configured');
@@ -764,6 +797,7 @@ export class AIService {
         if (top_k !== undefined && top_k !== 0) { body.top_k = top_k; }
         if (repetition_penalty !== undefined && repetition_penalty !== 0) { body.repetition_penalty = repetition_penalty; }
         if (min_p !== undefined && min_p !== 0) { body.min_p = min_p; }
+        if (tools?.length) { body.tools = tools; }
 
         this.abortController = new AbortController();
 
@@ -909,6 +943,16 @@ export class AIService {
 
     getGoogleKey(): string | undefined {
         return this.settings?.googleKey;
+    }
+
+    getTavilyKey(): string | undefined {
+        return this.settings?.tavilyKey;
+    }
+
+    async updateTavilyKey(key: string) {
+        if (!this.settings) throw new Error('AIService not initialized');
+        await db.aiSettings.update(this.settings.id, { tavilyKey: key });
+        this.settings.tavilyKey = key;
     }
 
     getOpenAICompatibleKey(): string | undefined {

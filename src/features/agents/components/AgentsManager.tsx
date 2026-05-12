@@ -73,7 +73,7 @@ export function AgentsManager() {
     if (showAgentForm) {
         console.log('[AgentsManager] Rendering AgentPresetForm');
         return (
-            <div className="h-full flex flex-col p-6">
+            <div className="flex h-full min-h-0 flex-col overflow-y-auto p-6">
                 <AgentPresetForm
                     agent={editingAgent}
                     onSave={handleAgentFormClose}
@@ -85,7 +85,7 @@ export function AgentsManager() {
 
     if (showPipelineForm) {
         return (
-            <div className="h-full flex flex-col p-6">
+            <div className="flex h-full min-h-0 flex-col overflow-y-auto p-6">
                 <PipelinePresetForm
                     pipeline={editingPipeline}
                     onSave={handlePipelineFormClose}
@@ -96,8 +96,8 @@ export function AgentsManager() {
     }
 
     return (
-        <div className="h-full flex flex-col">
-            <div className="border-b px-6 py-4">
+        <div className="flex h-full min-h-0 flex-col">
+            <div className="shrink-0 border-b px-6 py-4">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold">Agent Orchestration</h1>
@@ -108,8 +108,8 @@ export function AgentsManager() {
                 </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col">
-                <div className="border-b px-6">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex min-h-0 flex-1 flex-col">
+                <div className="shrink-0 border-b px-6">
                     <TabsList className="h-12">
                         <TabsTrigger value="agents" className="flex items-center gap-2">
                             <Bot className="h-4 w-4" />
@@ -126,7 +126,7 @@ export function AgentsManager() {
                     </TabsList>
                 </div>
 
-                <ScrollArea className="flex-1">
+                <ScrollArea className="min-h-0 flex-1">
                     <TabsContent value="agents" className="mt-0 p-6">
                         <div className="flex justify-between items-center mb-6">
                             <div>

@@ -92,8 +92,11 @@ export interface ChatMessage {
 
 // Prompt related types
 export interface PromptMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
+  role: "system" | "user" | "assistant" | "tool" | "function";
+  content: string | null;
+  tool_calls?: any[];
+  tool_call_id?: string;
+  name?: string;
 }
 
 export interface AllowedModel {
@@ -159,6 +162,7 @@ export interface AISettings extends BaseEntity {
   openrouterKey?: string;
   nanogptKey?: string;
   googleKey?: string;
+  tavilyKey?: string;
   // OpenAI-compatible provider (custom URL + key)
   openaiCompatibleKey?: string;
   openaiCompatibleUrl?: string;
@@ -172,8 +176,9 @@ export interface AISettings extends BaseEntity {
   enablePromptDefaults?: boolean;
   defaultSceneBeatPromptId?: string;
   defaultSceneBeatModelId?: string;
-  defaultQuickChatPromptId?: string;
-  defaultQuickChatModelId?: string;
+  defaultBrainstormPromptId?: string;
+  defaultBrainstormModelId?: string;
+  defaultAgentModelId?: string;
 }
 
 // Note types
@@ -210,6 +215,8 @@ export interface LorebookEntry extends BaseEntity {
       type: string;
       description?: string;
     }>;
+    chapterOrder?: number; // Added for Timeline isolation
+    participantIds?: string[]; // Added for Timeline isolation
     customFields?: Record<string, unknown>;
   };
   isDisabled?: boolean;

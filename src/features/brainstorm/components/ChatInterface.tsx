@@ -4,7 +4,9 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit, Bot, Activity, Download, RefreshCw } from "lucide-react";
+import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit, Bot, Activity, Download, RefreshCw, Globe } from "lucide-react";
+import { aiService } from "@/services/ai/AIService";
+import { executeTavilySearch } from "@/services/ai/tools";
 import {
   Collapsible,
   CollapsibleContent,
@@ -47,6 +49,7 @@ import {
 import useTemplateStore from '@/features/templates/store/templateStore';
 import CreateTemplateDialog from '@/features/templates/components/CreateTemplateDialog';
 import TemplateManagerDialog from '@/features/templates/components/TemplateManagerDialog';
+import { resolveSavedDefaultModel } from '@/features/ai/utils/defaultModels';
 
 interface ChatInterfaceProps {
   storyId: string;
@@ -97,6 +100,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   const [showAgenticProgress, setShowAgenticProgress] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
+  // Web search state
+  const [enableWebSearch, setEnableWebSearch] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
+
   // Get stores
   const { loadEntries, entries: lorebookEntries } = useLorebookStore();
   const {
@@ -107,6 +114,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   } = usePromptStore();
   const {
     initialize: initializeAI,
+    settings,
     getAvailableModels,
     generateWithPrompt,
     processStreamedResponse,
@@ -262,6 +270,19 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     }
   }, [agenticMode, getAvailablePipelines, selectedPipeline]);
 
+  useEffect(() => {
+    if (!settings?.enablePromptDefaults || selectedPrompt || prompts.length === 0) return;
+
+    const defaultPrompt = settings.defaultBrainstormPromptId
+      ? prompts.find((prompt) => prompt.id === settings.defaultBrainstormPromptId)
+      : prompts.find((prompt) => prompt.promptType === "brainstorm");
+
+    if (!defaultPrompt) return;
+
+    setSelectedPrompt(defaultPrompt);
+    setSelectedModel(resolveSavedDefaultModel(settings, settings.defaultBrainstormModelId));
+  }, [prompts, selectedPrompt, settings]);
+
   // Get filtered entries based on enabled categories
   const getFilteredEntries = () => {
     // Use the centralized method from the store
@@ -339,6 +360,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         selectedChapterContent: includeFullContext
           ? []
           : selectedChapterContent,
+        enableWebSearch,
       },
     };
   };
@@ -450,7 +472,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
       }
 
       const config = createPromptConfig(selectedPrompt);
-      const response = await generateWithPrompt(config, selectedModel);
+      let response = await generateWithPrompt(config, selectedModel);
 
       if (!response.ok && response.status !== 204) {
         throw new Error("Failed to generate response");
@@ -461,6 +483,58 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         setIsGenerating(false);
         return;
       }
+
+      // ── Tool-call loop (Tavily) ────────────────────────────────
+      // Peek at the stream: if the model emits tool_calls before content,
+      // we run the tool and re-submit with the result, then stream normally.
+      if (enableWebSearch) {
+        // Read the full first response to detect tool_calls
+        const cloned = response.clone();
+        const rawText = await cloned.text();
+        const lines = rawText.split('\n');
+        const toolCallChunks: any[] = [];
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const json = JSON.parse(line.substring(6));
+              const tc = json.choices?.[0]?.delta?.tool_calls;
+              if (tc?.length) toolCallChunks.push(...tc);
+            } catch { /* skip */ }
+          }
+        }
+
+        if (toolCallChunks.length > 0) {
+          // Reconstruct the function name and args from streaming chunks
+          let fnName = '';
+          let fnArgs = '';
+          for (const tc of toolCallChunks) {
+            if (tc.function?.name) fnName += tc.function.name;
+            if (tc.function?.arguments) fnArgs += tc.function.arguments;
+          }
+
+          if (fnName === 'search_web') {
+            setToolStatus('searching_web');
+            const tavilyKey = aiService.getTavilyKey() || '';
+            let query = '';
+            try { query = JSON.parse(fnArgs).query || ''; } catch { query = fnArgs; }
+
+            const searchResult = await executeTavilySearch(query, tavilyKey);
+            setToolStatus(null);
+
+            // Build tool result message and re-submit
+            const toolMessages: PromptMessage[] = [
+              ...config.additionalContext?.chatHistory as PromptMessage[] || [],
+              { role: 'assistant', content: null, tool_calls: [{ id: 'call_1', type: 'function', function: { name: fnName, arguments: fnArgs } }] },
+              { role: 'tool', tool_call_id: 'call_1', name: fnName, content: searchResult },
+            ];
+
+            // Re-call without tools to get the final answer
+            const { generateWithParsedMessages } = useAIStore.getState();
+            response = await generateWithParsedMessages(toolMessages, selectedModel, selectedPrompt.id);
+          }
+        }
+      }
+      // ─────────────────────────────────────────────────────────────
 
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -489,6 +563,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         () => {
           setIsGenerating(false);
           setStreamingMessageId(null);
+          setToolStatus(null);
           updateChat(chatId, {
             messages: [...newMessages, { ...assistantMessage, content: fullResponse }],
           });
@@ -498,6 +573,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           setPreviewError("Failed to stream response");
           setIsGenerating(false);
           setStreamingMessageId(null);
+          setToolStatus(null);
+        },
+        (status) => {
+          setToolStatus(status);
         }
       );
     } catch (error) {
@@ -1403,6 +1482,16 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                   className="data-[state=checked]:bg-primary"
                 />
               </div>
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Web Search</span>
+                <Switch
+                  checked={enableWebSearch}
+                  onCheckedChange={setEnableWebSearch}
+                  className="data-[state=checked]:bg-primary"
+                  disabled={agenticMode}
+                />
+              </div>
               {agenticMode && availablePipelines.length > 0 && (
                 <Select
                   value={selectedPipeline?.id || ""}
@@ -1445,6 +1534,16 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 <span>
                   Step {currentStep + 1}: {currentAgentName || "Initializing..."}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* Web search status indicator */}
+          {toolStatus === 'searching_web' && (
+            <div className="mb-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-md">
+              <div className="flex items-center gap-2 text-sm text-blue-500">
+                <Globe className="h-4 w-4 animate-pulse" />
+                <span>Searching the web…</span>
               </div>
             </div>
           )}

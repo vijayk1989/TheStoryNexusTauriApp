@@ -5,15 +5,15 @@ import type { AgentPreset, PipelinePreset, AgentRole, AgentContextConfig } from 
 const DEFAULT_MODELS = {
     // Low-cost models for utility tasks
     utility: {
-        id: 'z-ai/glm-4-flash',
+        id: 'google/gemma-4-31b-it',
         provider: 'openrouter' as const,
-        name: 'Z.AI: GLM-4 Flash',
+        name: 'Google: Gemma 4 31B IT',
     },
     // Main creative model
     creative: {
-        id: 'deepseek/deepseek-chat-v3-0324',
+        id: 'google/gemma-4-31b-it',
         provider: 'openrouter' as const,
-        name: 'DeepSeek: DeepSeek V3 0324',
+        name: 'Google: Gemma 4 31B IT',
     },
 };
 

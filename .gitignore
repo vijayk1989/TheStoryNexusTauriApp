@@ -33,6 +33,5 @@ dist-ssr
 .cursor/
 
 # Doc files
-docs/
 src-tauri/gen/
 

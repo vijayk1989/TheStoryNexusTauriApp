@@ -390,7 +390,7 @@ export default function AgenticGuide() {
                     <div className="space-y-4">
                         <h3 className="text-xl font-semibold">Creating Custom Pipelines</h3>
                         <p>
-                            Navigate to <strong>Agents</strong> in the sidebar to create custom agents and pipelines.
+                            Open <strong>Agents</strong> from the editor's right tool rail to create custom agents and pipelines.
                         </p>
 
                         <h4 className="text-lg font-medium mt-6">Tips for Custom Pipelines</h4>

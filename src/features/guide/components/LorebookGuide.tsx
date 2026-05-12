@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import {
     BookOpen,
     Tag,
@@ -16,10 +15,8 @@ import {
     EyeOff,
     Plus,
     Edit,
-    Trash2,
-    ExternalLink
+    Trash2
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -181,12 +178,9 @@ export default function LorebookGuide() {
                     </div>
 
                     <div className="flex justify-center mt-6">
-                        <Link to="/dashboard/:storyId/lorebook">
-                            <Button className="gap-2">
-                                Open Lorebook
-                                <ExternalLink className="h-4 w-4" />
-                            </Button>
-                        </Link>
+                        <p className="rounded-md border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                            Open <strong className="text-foreground">Lorebook</strong> from the right tool rail in the editor.
+                        </p>
                     </div>
                 </TabsContent>
 
@@ -200,12 +194,12 @@ export default function LorebookGuide() {
                         <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
                             <h4 className="text-lg font-medium">Step 1: Access the Lorebook</h4>
                             <p>
-                                Navigate to your story dashboard and click on the "Lorebook" tab in the navigation menu.
+                                Open the chapter editor and click <strong>Lorebook</strong> in the right tool rail.
                             </p>
                             <div className="flex items-center gap-2 my-2">
                                 <BookOpen className="h-5 w-5 text-primary" />
                                 <span className="text-sm text-muted-foreground">
-                                    Path: Dashboard → [Your Story] → Lorebook
+                                    Path: Editor &gt; right tool rail &gt; Lorebook
                                 </span>
                             </div>
                         </div>
@@ -454,7 +448,7 @@ export default function LorebookGuide() {
                                         </p>
                                     </li>
                                     <li>
-                                        Matched entries are collected and can be viewed in the editor sidebar
+                                        Matched entries are collected and can be viewed from the editor tool rail
                                         <p className="text-sm text-muted-foreground ml-6">
                                             Click on "Matched Tags" in the editor to see which Lorebook entries have been matched in your current chapter
                                         </p>
@@ -507,9 +501,9 @@ export default function LorebookGuide() {
                             </p>
                             <ol className="list-decimal list-inside space-y-2 ml-4">
                                 <li>
-                                    In the chapter editor, click on "Matched Tags" in the right sidebar
+                                    In the chapter editor, click on "Matched Tags" in the right tool rail
                                     <p className="text-sm text-muted-foreground ml-6">
-                                        This will open a drawer showing all Lorebook entries that match text in your current chapter
+                                        This opens a panel showing all Lorebook entries that match text in your current chapter
                                     </p>
                                 </li>
                                 <li>

@@ -167,12 +167,12 @@ export default function PromptGuide() {
                         <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
                             <h4 className="text-lg font-medium">Step 1: Access the Prompts Section</h4>
                             <p>
-                                Navigate to your story dashboard and click on the "Prompts" tab in the navigation menu.
+                                Open the chapter editor and click <strong>Prompts</strong> in the right tool rail.
                             </p>
                             <div className="flex items-center gap-2 my-2">
                                 <MessageSquare className="h-5 w-5 text-primary" />
                                 <span className="text-sm text-muted-foreground">
-                                    Path: Dashboard → [Your Story] → Prompts
+                                    Path: Editor &gt; right tool rail &gt; Prompts
                                 </span>
                             </div>
                         </div>
@@ -561,7 +561,7 @@ export default function PromptGuide() {
                             <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
                                 <ol className="list-decimal list-inside space-y-2 ml-4">
                                     <li>
-                                        Select the prompt from the list in the Prompts section
+                                        Open <strong>Prompts</strong> from the editor tool rail and select the prompt from the list
                                     </li>
                                     <li>
                                         Make your changes in the prompt form

@@ -6,6 +6,17 @@ The Story Nexus is a local-first desktop writing app for long-form fiction. It c
 
 The current app is intentionally editor-first: open the app, choose or create a story, choose a chapter, and write. Supporting tools live in the left story/chapter rail and the right editor tool rail instead of separate dashboard pages.
 
+## Install On Windows
+
+A Windows installer is available from the project Releases section.
+
+1. Open the latest release.
+2. Download the `.msi` installer.
+3. Run the installer and follow the Windows setup prompts.
+4. Launch **The Story Nexus** from the Start menu or desktop shortcut.
+
+Windows may show a SmartScreen warning for new or unsigned builds. If you trust the release source, choose **More info** and then **Run anyway**.
+
 ## Highlights
 
 - **Editor-first workspace**: manage stories and chapters from the left rail while keeping the chapter editor as the main surface.
@@ -85,6 +96,24 @@ Create a release desktop build:
 ```sh
 npm run tauri build
 ```
+
+## Linux And Mac Installers
+
+Linux and macOS installers are not published yet, but they can be produced from this Tauri project later.
+
+Tauri desktop bundles are best built on the target operating system, or through a CI matrix that runs separate Windows, Linux, and macOS jobs. After installing the normal project dependencies and the Tauri prerequisites for that platform, run:
+
+```sh
+npm install
+npm run tauri build
+```
+
+Typical outputs:
+
+- **Linux**: `.deb`, `.rpm`, and/or AppImage bundles depending on the Tauri bundle configuration and installed Linux packaging tools.
+- **macOS**: `.app` and `.dmg` bundles. Public distribution usually also needs Apple Developer signing and notarization.
+
+The bundle settings live in `src-tauri/tauri.conf.json`. Update the `bundle.targets`, icons, signing, and platform-specific metadata there before publishing Linux or macOS releases.
 
 ## Technology Stack
 

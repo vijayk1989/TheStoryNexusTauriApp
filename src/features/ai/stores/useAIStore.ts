@@ -10,6 +10,7 @@ import {
 import { aiService } from '@/services/ai/AIService';
 import { db } from '@/services/database';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
+import { getPreferredDefaultModel } from '@/features/ai/utils/defaultModels';
 
 interface AIState {
     settings: AISettings | null;
@@ -193,6 +194,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         if (!get().isInitialized) {
             await get().initialize();
         }
+        selectedModel = resolveModelForAvailableProvider(selectedModel, get().settings);
 
         const promptParser = createPromptParser();
         const { messages, error } = await promptParser.parse(config);
@@ -307,6 +309,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         if (!get().isInitialized) {
             await get().initialize();
         }
+        selectedModel = resolveModelForAvailableProvider(selectedModel, get().settings);
 
         if (!messages.length) {
             throw new Error('No messages provided for generation');
@@ -401,3 +404,11 @@ export const useAIStore = create<AIState>((set, get) => ({
         aiService.abortStream();
     }
 }));
+
+function resolveModelForAvailableProvider(selectedModel: AllowedModel, settings: AISettings | null): AllowedModel {
+    if (selectedModel.provider === 'openrouter' && !settings?.openrouterKey?.trim()) {
+        return getPreferredDefaultModel(settings);
+    }
+
+    return selectedModel;
+}

@@ -176,8 +176,9 @@ export interface AISettings extends BaseEntity {
   enablePromptDefaults?: boolean;
   defaultSceneBeatPromptId?: string;
   defaultSceneBeatModelId?: string;
-  defaultQuickChatPromptId?: string;
-  defaultQuickChatModelId?: string;
+  defaultBrainstormPromptId?: string;
+  defaultBrainstormModelId?: string;
+  defaultAgentModelId?: string;
 }
 
 // Note types

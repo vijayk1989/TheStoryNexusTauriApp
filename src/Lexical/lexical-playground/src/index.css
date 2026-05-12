@@ -2270,19 +2270,19 @@ button.item.dropdown-item-active i {
   @apply bg-muted-foreground/40;
 }
 
-/* Improve editor container styling */
+/* Let the browser window own editor scrolling. */
 .editor-container {
-  @apply h-full overflow-hidden;
+  overflow: visible !important;
 }
 
 .editor-scroller {
-  @apply h-full overflow-auto;
-  min-height: unset !important; /* Override the default min-height */
-  max-height: 100%;
+  overflow: visible !important;
+  min-height: unset !important;
+  max-height: none !important;
 }
 
 .editor {
-  min-height: unset !important; /* Override the default min-height */
+  min-height: unset !important;
   height: auto !important;
 }
 
@@ -2293,4 +2293,51 @@ button.item.dropdown-item-active i {
 
 .chapter-outline-content {
   @apply flex-1 overflow-auto p-4;
+}
+
+/* Editor-first shell polish */
+.editor-shell {
+  @apply border-0 bg-transparent text-foreground;
+  overflow: visible !important;
+}
+
+.editor-shell .editor-container,
+.editor-scroller,
+.editor {
+  @apply bg-transparent;
+}
+
+.toolbar {
+  @apply sticky z-[19] border border-border bg-surface/95 rounded-md shadow-glow mb-3;
+  top: 3.25rem;
+}
+
+.toolbar button.toolbar-item {
+  @apply rounded-md text-muted-foreground;
+}
+
+.toolbar button.toolbar-item:hover:not([disabled]),
+.toolbar button.toolbar-item.active,
+.toolbar-item:hover:not([disabled]) {
+  @apply bg-primary/15 text-primary;
+}
+
+.ContentEditable__root {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.85;
+  color: hsl(var(--foreground));
+  padding: 24px 28px 80px;
+}
+
+.ContentEditable__placeholder {
+  color: hsl(var(--muted-foreground));
+  top: 24px;
+  left: 28px;
+}
+
+.scene-beat-node > div {
+  background: hsl(var(--surface));
+  border-color: hsl(var(--border));
+  box-shadow: var(--shadow-glow);
 }

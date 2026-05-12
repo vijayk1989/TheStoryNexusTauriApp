@@ -49,6 +49,7 @@ import {
 import useTemplateStore from '@/features/templates/store/templateStore';
 import CreateTemplateDialog from '@/features/templates/components/CreateTemplateDialog';
 import TemplateManagerDialog from '@/features/templates/components/TemplateManagerDialog';
+import { resolveSavedDefaultModel } from '@/features/ai/utils/defaultModels';
 
 interface ChatInterfaceProps {
   storyId: string;
@@ -113,6 +114,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   } = usePromptStore();
   const {
     initialize: initializeAI,
+    settings,
     getAvailableModels,
     generateWithPrompt,
     processStreamedResponse,
@@ -267,6 +269,19 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
       });
     }
   }, [agenticMode, getAvailablePipelines, selectedPipeline]);
+
+  useEffect(() => {
+    if (!settings?.enablePromptDefaults || selectedPrompt || prompts.length === 0) return;
+
+    const defaultPrompt = settings.defaultBrainstormPromptId
+      ? prompts.find((prompt) => prompt.id === settings.defaultBrainstormPromptId)
+      : prompts.find((prompt) => prompt.promptType === "brainstorm");
+
+    if (!defaultPrompt) return;
+
+    setSelectedPrompt(defaultPrompt);
+    setSelectedModel(resolveSavedDefaultModel(settings, settings.defaultBrainstormModelId));
+  }, [prompts, selectedPrompt, settings]);
 
   // Get filtered entries based on enabled categories
   const getFilteredEntries = () => {

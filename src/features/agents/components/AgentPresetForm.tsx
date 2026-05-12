@@ -26,6 +26,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ArrowLeft, Check, X, ChevronDown, ChevronUp, Settings2, Star } from 'lucide-react';
 import { useAgentsStore, DEFAULT_AGENT_PROMPTS } from '../stores/useAgentsStore';
+import { resolveSavedDefaultModel } from '@/features/ai/utils/defaultModels';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
@@ -83,7 +84,7 @@ interface ModelsByProvider {
 export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProps) {
     const { currentStoryId } = useStoryContext();
     const { createAgentPreset, updateAgentPreset } = useAgentsStore();
-    const { initialize, getAvailableModels, isInitialized, favoriteModelIds, toggleFavoriteModel } = useAIStore();
+    const { initialize, getAvailableModels, isInitialized, favoriteModelIds, toggleFavoriteModel, settings } = useAIStore();
     const { entries: lorebookEntries, loadEntries } = useLorebookStore();
 
     const [name, setName] = useState(agent?.name || '');
@@ -129,6 +130,12 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
             loadEntries(currentStoryId);
         }
     }, [currentStoryId]);
+
+    useEffect(() => {
+        if (!agent && !selectedModel && settings?.enablePromptDefaults) {
+            setSelectedModel(resolveSavedDefaultModel(settings, settings.defaultAgentModelId));
+        }
+    }, [agent, selectedModel, settings]);
 
     const loadModels = async () => {
         try {

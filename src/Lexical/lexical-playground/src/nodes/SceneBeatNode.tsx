@@ -42,6 +42,7 @@ import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { sceneBeatService } from "@/features/scenebeats/services/sceneBeatService";
 import { PipelineDiagnosticsDialog } from "@/features/agents/components/PipelineDiagnosticsDialog";
 import { ParallelResponsesDrawer } from "@/components/ui/parallel-responses-drawer";
+import { resolveSavedDefaultModel } from "@/features/ai/utils/defaultModels";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
 
 // Per-instance store
@@ -143,13 +144,12 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
 
   // Apply default prompt and model if enabled and not already selected
   useEffect(() => {
-    if (gen.prompts.length > 0 && !selectedPrompt && settings?.enablePromptDefaults && settings.defaultSceneBeatPromptId) {
-      const defaultPrompt = gen.prompts.find((p) => p.id === settings.defaultSceneBeatPromptId);
+    if (gen.prompts.length > 0 && !selectedPrompt && settings?.enablePromptDefaults) {
+      const defaultPrompt = settings.defaultSceneBeatPromptId
+        ? gen.prompts.find((p) => p.id === settings.defaultSceneBeatPromptId)
+        : gen.prompts.find((p) => p.promptType === "scene_beat");
       if (defaultPrompt) {
-        let defaultModel: AllowedModel | undefined;
-        if (settings.defaultSceneBeatModelId && settings.availableModels) {
-          defaultModel = settings.availableModels.find((m) => m.id === settings.defaultSceneBeatModelId);
-        }
+        const defaultModel = resolveSavedDefaultModel(settings, settings.defaultSceneBeatModelId);
         set({ selectedPrompt: defaultPrompt, selectedModel: defaultModel });
       }
     }

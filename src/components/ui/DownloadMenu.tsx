@@ -31,11 +31,17 @@ export function DownloadMenu({
     const handleDownload = async (format: 'html' | 'text', e: React.MouseEvent) => {
         e.stopPropagation();
         try {
+            let isSaved = false;
             if (type === 'story') {
-                await downloadStory(id, format);
+                isSaved = await downloadStory(id, format);
             } else {
-                await downloadChapter(id, format);
+                isSaved = await downloadChapter(id, format);
             }
+
+            if (!isSaved) {
+                return;
+            }
+
             toast.success(`${type === 'story' ? 'Story' : 'Chapter'} downloaded as ${format.toUpperCase()}`, {
                 position: "bottom-center",
                 autoClose: 2000,

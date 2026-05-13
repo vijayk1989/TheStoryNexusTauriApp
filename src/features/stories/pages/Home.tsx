@@ -27,7 +27,7 @@ export default function Home() {
     };
 
     const handleExportStory = (story: Story) => {
-        storyExportService.exportStory(story.id);
+        void storyExportService.exportStory(story.id);
     };
 
     const handleImportClick = () => {

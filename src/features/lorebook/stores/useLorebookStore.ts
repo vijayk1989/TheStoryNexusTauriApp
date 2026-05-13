@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { db } from '@/services/database';
 import type { LorebookEntry } from '@/types/story';
+import { saveTextAsFile } from '@/utils/fileDownload';
 
 interface LorebookState {
     entries: LorebookEntry[];
@@ -45,7 +46,7 @@ interface LorebookState {
     getEntriesByCustomField: (field: string, value: unknown) => LorebookEntry[];
 
     // Export/Import functions
-    exportEntries: (storyId: string) => void;
+    exportEntries: (storyId: string) => Promise<boolean>;
     importEntries: (jsonData: string, targetStoryId: string) => Promise<void>;
 }
 
@@ -320,7 +321,7 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
     },
 
     // Export lorebook entries
-    exportEntries: (storyId: string) => {
+    exportEntries: async (storyId: string) => {
         const { entries } = get();
         const storyEntries = entries.filter(entry => entry.storyId === storyId);
 
@@ -332,13 +333,8 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         }, null, 2);
 
         // Create and trigger download
-        const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
         const exportName = `lorebook-export-${new Date().toISOString().slice(0, 10)}.json`;
-
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportName);
-        linkElement.click();
+        return await saveTextAsFile(dataStr, exportName, "application/json");
     },
 
     // Import lorebook entries

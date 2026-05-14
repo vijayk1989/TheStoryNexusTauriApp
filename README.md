@@ -1,6 +1,6 @@
 # The Story Nexus
 
-Version: `1.0.0`
+Version: `1.0.1`
 
 The Story Nexus is a local-first desktop writing app for long-form fiction. It combines a chapter-focused editor with story context, lorebook matching, reusable AI prompts, brainstorm chats, and multi-agent generation pipelines.
 

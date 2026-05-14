@@ -48,6 +48,7 @@ import { WordCountPlugin } from "./plugins/WordCountPlugin";
 import LorebookTagPlugin from "./plugins/LorebookTagPlugin";
 import SceneBeatShortcutPlugin from "./plugins/SceneBeatShortcutPlugin";
 import SlashCommandPlugin from "./plugins/SlashCommandPlugin";
+import AssetImageInsertPlugin from "./plugins/AssetImageInsertPlugin";
 
 export default function Editor(): JSX.Element {
   const { historyState } = useSharedHistoryContext();
@@ -113,6 +114,7 @@ export default function Editor(): JSX.Element {
       >
         <LoadChapterContentPlugin />
         <SaveChapterContentPlugin />
+        <AssetImageInsertPlugin />
         <WordCountPlugin />
         <DragDropPaste />
         <AutoFocusPlugin />

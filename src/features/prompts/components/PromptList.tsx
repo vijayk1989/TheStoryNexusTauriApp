@@ -15,6 +15,7 @@ interface PromptsListProps {
 const getPromptTypeLabel = (type: Prompt['promptType']) => {
     const labels: Record<Prompt['promptType'], string> = {
         'scene_beat': 'Scene Beat',
+        'image_gen': 'Image Generation',
         'gen_summary': 'Generate Summary',
         'selection_specific': 'Selection-Specific',
         'continue_writing': 'Continue Writing',
@@ -113,6 +114,7 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
     // Define order for prompt types to display
     const promptTypeOrder: Prompt['promptType'][] = [
         'scene_beat',
+        'image_gen',
         'continue_writing',
         'selection_specific',
         'gen_summary',
@@ -216,4 +218,4 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
             })}
         </div>
     );
-} 
+}

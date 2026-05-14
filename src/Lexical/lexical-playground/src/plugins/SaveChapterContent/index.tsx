@@ -9,6 +9,7 @@ import { $isSceneBeatNode } from '../../nodes/SceneBeatNode';
 import { $getRoot, $getNodeByKey } from 'lexical';
 import { saveLastEditorTarget } from '@/features/editor/utils/lastEditorTarget';
 import { useEditorSaveStatusStore } from '@/features/editor/stores/useEditorSaveStatusStore';
+import { CHAPTER_LOAD_TAG } from '../LoadChapterContent';
 
 export function SaveChapterContentPlugin(): null {
     const [editor] = useLexicalComposerContext();
@@ -45,7 +46,12 @@ export function SaveChapterContentPlugin(): null {
 
         setStatus('saved');
 
-        const removeUpdateListener = editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves }) => {
+        const removeUpdateListener = editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves, tags }) => {
+            if (tags.has(CHAPTER_LOAD_TAG)) {
+                setStatus('saved');
+                return;
+            }
+
             // Skip if no changes
             if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
                 return;

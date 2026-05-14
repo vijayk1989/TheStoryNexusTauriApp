@@ -14,6 +14,7 @@ export class AIService {
     private openAICompatibleKey: string | null = null;
     private googleAI: GoogleGenAI | null = null;
     private abortController: AbortController | null = null;
+    private initializePromise: Promise<void> | null = null;
 
     private constructor() { }
 
@@ -25,15 +26,36 @@ export class AIService {
     }
 
     async initialize() {
+        if (this.initializePromise) {
+            return this.initializePromise;
+        }
+
+        this.initializePromise = this.initializeInternal().finally(() => {
+            this.initializePromise = null;
+        });
+        return this.initializePromise;
+    }
+
+    private async initializeInternal() {
         // Load or create settings
         const settings = await db.aiSettings.toArray();
-        this.settings = settings[0] || await this.createInitialSettings();
+        this.settings = this.selectSettings(settings) || await this.createInitialSettings();
         // Initialize provider clients/values based on loaded settings
         this.initializeOpenAI();
         this.initializeOpenRouter();
         this.initializeNanoGPT();
         this.initializeOpenAICompatible();
         this.initializeGoogle();
+    }
+
+    private selectSettings(settings: AISettings[]): AISettings | undefined {
+        return settings.find(item =>
+            item.openrouterKey?.trim() ||
+            item.openaiKey?.trim() ||
+            item.nanogptKey?.trim() ||
+            item.googleKey?.trim() ||
+            (item.openaiCompatibleKey?.trim() && item.openaiCompatibleUrl?.trim())
+        ) || settings[0];
     }
 
     private async createInitialSettings(): Promise<AISettings> {

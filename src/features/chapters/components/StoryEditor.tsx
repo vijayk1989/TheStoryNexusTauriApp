@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot } from "lucide-react";
+import { BookOpen, Tags, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
 import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
@@ -45,8 +45,9 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TimelineExtractionDialog } from "@/features/chapters/components/TimelineExtractionDialog";
+import { ImageGalleryPanel } from "@/features/images/components/ImageGalleryPanel";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "brainstorm" | null;
+type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "brainstorm" | "imageGallery" | null;
 
 export function StoryEditor() {
     const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
@@ -166,6 +167,16 @@ export function StoryEditor() {
             </Button>
 
             <Button
+                variant={openDrawer === "imageGallery" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenDrawer("imageGallery")}
+            >
+                <ImageIcon className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Images</span>
+            </Button>
+
+            <Button
                 variant={openDrawer === "lorebook" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
@@ -279,6 +290,10 @@ export function StoryEditor() {
                         <DropdownMenuItem onClick={() => handleOpenDrawer("brainstorm")}>
                             <MessageSquarePlus className="h-4 w-4 mr-2" />
                             Brainstorm
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDrawer("imageGallery")}>
+                            <ImageIcon className="h-4 w-4 mr-2" />
+                            Images
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenDrawer("lorebook")}>
                             <Book className="h-4 w-4 mr-2" />
@@ -510,6 +525,23 @@ export function StoryEditor() {
                         </SheetHeader>
                         <div className="flex-1 overflow-hidden">
                             {currentStoryId ? <BrainstormPanel storyId={currentStoryId} /> : null}
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Image Gallery Sheet */}
+            <Sheet open={openDrawer === "imageGallery"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[560px] md:w-auto p-0"
+                >
+                    <div className="h-full flex flex-col pt-6">
+                        <SheetHeader className="px-4 pb-2 border-b flex-shrink-0 text-left">
+                            <SheetTitle>Images</SheetTitle>
+                        </SheetHeader>
+                        <div className="flex-1 overflow-y-auto">
+                            <ImageGalleryPanel />
                         </div>
                     </div>
                 </SheetContent>

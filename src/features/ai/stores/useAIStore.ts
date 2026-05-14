@@ -77,10 +77,10 @@ export const useAIStore = create<AIState>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             await aiService.initialize();
-            const settings = await db.aiSettings.toArray();
+            const settings = aiService.getSettings();
             set({
-                settings: settings[0] || null,
-                favoriteModelIds: settings[0]?.favoriteModelIds || [],
+                settings,
+                favoriteModelIds: settings?.favoriteModelIds || [],
                 isInitialized: true,
                 isLoading: false
             });
@@ -103,8 +103,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             await aiService.updateKey(provider, key);
-            const settings = await db.aiSettings.toArray();
-            set({ settings: settings[0], isLoading: false });
+            set({ settings: aiService.getSettings(), isLoading: false });
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to update API key',
@@ -118,8 +117,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             await aiService.updateTavilyKey(key);
-            const settings = await db.aiSettings.toArray();
-            set({ settings: settings[0], isLoading: false });
+            set({ settings: aiService.getSettings(), isLoading: false });
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to update Tavily API key',
@@ -133,8 +131,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             await aiService.updateLocalApiUrl(url);
-            const settings = await db.aiSettings.toArray();
-            set({ settings: settings[0], isLoading: false });
+            set({ settings: aiService.getSettings(), isLoading: false });
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to update local API URL',

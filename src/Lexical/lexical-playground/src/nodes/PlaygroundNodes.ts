@@ -38,6 +38,7 @@ import { TweetNode } from './TweetNode';
 import { YouTubeNode } from './YouTubeNode';
 import { HelloWorldNode } from './HelloWorldNode';
 import { SceneBeatNode } from './SceneBeatNode';
+import { ImageGenerationNode } from './ImageGenerationNode';
 
 const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   HeadingNode,
@@ -75,7 +76,8 @@ const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   LayoutItemNode,
   SpecialTextNode,
   HelloWorldNode,
-  SceneBeatNode
+  SceneBeatNode,
+  ImageGenerationNode
 ];
 
 export default PlaygroundNodes;

@@ -9,16 +9,16 @@ import {
     KEY_ENTER_COMMAND,
     KEY_ARROW_DOWN_COMMAND,
     KEY_ARROW_UP_COMMAND,
-    TextNode,
     $getSelection,
     $isRangeSelection,
     $createParagraphNode,
     LexicalEditor,
-    $createTextNode,
+    $isTextNode,
 } from 'lexical';
 import { mergeRegister } from '@lexical/utils';
 import { $createSceneBeatNode } from '../../nodes/SceneBeatNode';
-import { Bot } from 'lucide-react';
+import { $createImageGenerationNode } from '../../nodes/ImageGenerationNode';
+import { Bot, ImageIcon } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 interface SlashCommandItem {
@@ -27,6 +27,46 @@ interface SlashCommandItem {
     icon: JSX.Element;
     description: string;
     onSelect: (editor: LexicalEditor) => void;
+}
+
+function getSlashCommandText(): string | null {
+    const selection = $getSelection();
+    if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+        return null;
+    }
+
+    const anchor = selection.anchor;
+    const node = anchor.getNode();
+    if (!$isTextNode(node)) {
+        return null;
+    }
+
+    const textBeforeCursor = node.getTextContent().slice(0, anchor.offset);
+    const match = textBeforeCursor.match(/(?:^|\s)\/([\w-]*)$/);
+    return match ? match[1] || '' : null;
+}
+
+function removeSlashCommandText(): void {
+    const selection = $getSelection();
+    if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+        return;
+    }
+
+    const anchor = selection.anchor;
+    const node = anchor.getNode();
+    if (!$isTextNode(node)) {
+        return;
+    }
+
+    const textBeforeCursor = node.getTextContent().slice(0, anchor.offset);
+    const match = textBeforeCursor.match(/(?:^|\s)\/([\w-]*)$/);
+    if (!match) {
+        return;
+    }
+
+    const tokenLength = match[1].length + 1;
+    const startOffset = anchor.offset - tokenLength;
+    node.spliceText(startOffset, tokenLength, '');
 }
 
 const SLASH_COMMANDS: SlashCommandItem[] = [
@@ -39,13 +79,29 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
             editor.update(() => {
                 const selection = $getSelection();
                 if ($isRangeSelection(selection)) {
-                    // Delete the slash command text
-                    selection.deleteCharacter(false);
+                    removeSlashCommandText();
 
                     // Insert the scene beat node
                     const beatNode = $createSceneBeatNode();
                     const paragraphNode = $createParagraphNode();
                     selection.insertNodes([beatNode, paragraphNode]);
+                }
+            });
+        },
+    },
+    {
+        key: 'image-generation',
+        name: 'Image',
+        icon: <ImageIcon className="h-4 w-4" />,
+        description: 'Insert an image generation block',
+        onSelect: (editor: LexicalEditor) => {
+            editor.update(() => {
+                const selection = $getSelection();
+                if ($isRangeSelection(selection)) {
+                    removeSlashCommandText();
+                    const imageNode = $createImageGenerationNode();
+                    const paragraphNode = $createParagraphNode();
+                    selection.insertNodes([imageNode, paragraphNode]);
                 }
             });
         },
@@ -131,28 +187,26 @@ export default function SlashCommandPlugin({
         [editor, filteredCommands, resetMenu, selectedCommandIndex, showMenu]
     );
 
-    // Listen for text changes to detect slash commands
+    // Listen for slash commands near the current cursor, not at the end of the whole editor.
     useEffect(() => {
-        const removeTextListener = editor.registerTextContentListener(
-            (textContent) => {
-                // Check if the text contains a slash command
-                // This regex matches a slash followed by any word characters at the end of the text
-                // or a slash at the very end of the text (to show the menu as soon as / is typed)
-                const match = textContent.match(/\/(\w*)$|\/$/);
-                if (match) {
-                    // If we matched just a slash at the end, set empty text
-                    const commandText = match[1] || '';
-                    setSlashCommandText(commandText);
-                    setShowMenu(true);
-                    updateMenuPosition();
-                } else if (showMenu) {
-                    resetMenu();
-                }
+        return editor.registerUpdateListener(({ editorState }) => {
+            const commandText = editorState.read(() => getSlashCommandText());
+            if (commandText !== null) {
+                setSlashCommandText(commandText);
+                setShowMenu(true);
+                setSelectedCommandIndex(0);
+                updateMenuPosition();
+            } else if (showMenu) {
+                resetMenu();
             }
-        );
-
-        return removeTextListener;
+        });
     }, [editor, resetMenu, showMenu, updateMenuPosition]);
+
+    useEffect(() => {
+        if (selectedCommandIndex >= filteredCommands.length) {
+            setSelectedCommandIndex(Math.max(filteredCommands.length - 1, 0));
+        }
+    }, [filteredCommands.length, selectedCommandIndex]);
 
     // Add click outside handler
     useEffect(() => {
@@ -251,4 +305,4 @@ export default function SlashCommandPlugin({
         </div>,
         document.body
     );
-} 
+}

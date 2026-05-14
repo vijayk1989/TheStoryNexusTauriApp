@@ -1,5 +1,5 @@
 import { db } from './database';
-import type { Story, Chapter, LorebookEntry, SceneBeat, AIChat } from '@/types/story';
+import type { Story, Chapter, LorebookEntry, SceneBeat, AIChat, MediaAsset, ImageGenerationRecord } from '@/types/story';
 import { toast } from 'react-toastify';
 
 interface StoryExport {
@@ -11,6 +11,8 @@ interface StoryExport {
     lorebookEntries: LorebookEntry[];
     sceneBeats: SceneBeat[];
     aiChats: AIChat[];
+    mediaAssets?: MediaAsset[];
+    imageGenerations?: ImageGenerationRecord[];
 }
 
 export const storyExportService = {
@@ -29,6 +31,8 @@ export const storyExportService = {
             const lorebookEntries = await db.lorebookEntries.where('storyId').equals(storyId).toArray();
             const sceneBeats = await db.sceneBeats.where('storyId').equals(storyId).toArray();
             const aiChats = await db.aiChats.where('storyId').equals(storyId).toArray();
+            const mediaAssets = await db.mediaAssets.where('storyId').equals(storyId).toArray();
+            const imageGenerations = await db.imageGenerations.where('storyId').equals(storyId).toArray();
 
             // Create the export object
             const exportData: StoryExport = {
@@ -39,7 +43,9 @@ export const storyExportService = {
                 chapters,
                 lorebookEntries,
                 sceneBeats,
-                aiChats
+                aiChats,
+                mediaAssets,
+                imageGenerations
             };
 
             // Convert to JSON and trigger download
@@ -52,7 +58,11 @@ export const storyExportService = {
             linkElement.setAttribute('download', exportName);
             linkElement.click();
 
-            toast.success(`Story "${story.title}" exported successfully`);
+            if (mediaAssets.length > 0) {
+                toast.warning('This legacy JSON export includes image metadata, but not image bytes. Use it as a compatibility export only.');
+            } else {
+                toast.success(`Story "${story.title}" exported successfully`);
+            }
         } catch (error) {
             console.error('Story export failed:', error);
             toast.error(`Export failed: ${(error as Error).message}`);
@@ -90,7 +100,7 @@ export const storyExportService = {
 
             // Start a transaction to ensure all-or-nothing import
             await db.transaction('rw',
-                [db.stories, db.chapters, db.lorebookEntries, db.sceneBeats, db.aiChats],
+                [db.stories, db.chapters, db.lorebookEntries, db.sceneBeats, db.aiChats, db.mediaAssets, db.imageGenerations],
                 async () => {
                     // Add the story
                     await db.stories.add(newStory);
@@ -157,4 +167,4 @@ export const storyExportService = {
             throw error;
         }
     }
-}; 
+};

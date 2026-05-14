@@ -6,12 +6,18 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronRight, Loader2, RefreshCw } from 'lucide-react';
+import { ChevronRight, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { aiService } from '@/services/ai/AIService';
 import { toast } from 'react-toastify';
 import type { AIModel } from '@/types/story';
 import { cn } from '@/lib/utils';
+import { db } from '@/services/database';
+import { useImageGenerationStore } from '@/features/images/stores/useImageGenerationStore';
+import { usePromptStore } from '@/features/prompts/store/promptStore';
+import { inferComfyTextToImageMapping, normalizeComfyWorkflowJson } from '@/features/images/services/comfyWorkflow';
 
 type ProviderType = 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible' | 'google';
 
@@ -35,6 +41,21 @@ export function AISettingsPanel() {
         google: [],
     });
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+    const [defaultImageProvider, setDefaultImageProvider] = useState<'openrouter' | 'comfyui'>('openrouter');
+    const [defaultImagePromptId, setDefaultImagePromptId] = useState('none');
+    const [defaultOpenRouterImageModelId, setDefaultOpenRouterImageModelId] = useState('');
+    const [comfyBaseUrl, setComfyBaseUrl] = useState('http://127.0.0.1:8188');
+    const [comfyTxt2ImgWorkflowJson, setComfyTxt2ImgWorkflowJson] = useState('');
+    const [comfyImg2ImgWorkflowJson, setComfyImg2ImgWorkflowJson] = useState('');
+    const [comfyTxt2ImgMapping, setComfyTxt2ImgMapping] = useState('{\n  "positivePrompt": "",\n  "outputNodeId": ""\n}');
+    const [comfyImg2ImgMapping, setComfyImg2ImgMapping] = useState('{\n  "positivePrompt": "",\n  "sourceImage": "",\n  "outputNodeId": ""\n}');
+    const [defaultImageWidth, setDefaultImageWidth] = useState(1024);
+    const [defaultImageHeight, setDefaultImageHeight] = useState(1024);
+    const [defaultImageSteps, setDefaultImageSteps] = useState(20);
+    const [defaultImageCfg, setDefaultImageCfg] = useState(4);
+    const [defaultImageSeedMode, setDefaultImageSeedMode] = useState<'random' | 'fixed'>('random');
+    const { openRouterImageModels, refreshOpenRouterImageModels } = useImageGenerationStore();
+    const { prompts, fetchPrompts } = usePromptStore();
 
     useEffect(() => {
         loadInitialData();
@@ -63,6 +84,23 @@ export function AISettingsPanel() {
             if (gKey) setGoogleKey(gKey);
             if (tKey) setTavilyKey(tKey);
             if (lUrl) setLocalApiUrl(lUrl);
+            const current = aiService.getSettings() || (await db.aiSettings.toArray())[0];
+            if (current) {
+                setDefaultImageProvider(current.defaultImageProvider || 'openrouter');
+                setDefaultImagePromptId(current.defaultImagePromptId || 'none');
+                setDefaultOpenRouterImageModelId(current.defaultOpenRouterImageModelId || '');
+                setComfyBaseUrl(current.comfyBaseUrl || 'http://127.0.0.1:8188');
+                setComfyTxt2ImgWorkflowJson(current.comfyTxt2ImgWorkflowJson || '');
+                setComfyImg2ImgWorkflowJson(current.comfyImg2ImgWorkflowJson || '');
+                setComfyTxt2ImgMapping(JSON.stringify(current.comfyTxt2ImgMapping || { positivePrompt: '', outputNodeId: '' }, null, 2));
+                setComfyImg2ImgMapping(JSON.stringify(current.comfyImg2ImgMapping || { positivePrompt: '', sourceImage: '', outputNodeId: '' }, null, 2));
+                setDefaultImageWidth(current.defaultImageWidth || 1024);
+                setDefaultImageHeight(current.defaultImageHeight || 1024);
+                setDefaultImageSteps(current.defaultImageSteps || 20);
+                setDefaultImageCfg(current.defaultImageCfg || 4);
+                setDefaultImageSeedMode(current.defaultImageSeedMode || 'random');
+            }
+            await fetchPrompts();
 
             const allModels = await aiService.getAvailableModels(undefined, false);
             setModels({
@@ -160,6 +198,56 @@ export function AISettingsPanel() {
             toast.success('Tavily API key updated');
         } catch {
             toast.error('Failed to update Tavily API key');
+        }
+    };
+
+    const handleSaveImageSettings = async () => {
+        try {
+            const settings = aiService.getSettings() || (await db.aiSettings.toArray())[0];
+            if (!settings) throw new Error('AI settings are not initialized');
+            await db.aiSettings.update(settings.id, {
+                defaultImageProvider,
+                defaultImagePromptId: defaultImagePromptId === 'none' ? undefined : defaultImagePromptId,
+                defaultOpenRouterImageModelId,
+                comfyBaseUrl,
+                comfyTxt2ImgWorkflowJson,
+                comfyImg2ImgWorkflowJson,
+                comfyTxt2ImgMapping: JSON.parse(comfyTxt2ImgMapping || '{}'),
+                comfyImg2ImgMapping: JSON.parse(comfyImg2ImgMapping || '{}'),
+                defaultImageWidth,
+                defaultImageHeight,
+                defaultImageSteps,
+                defaultImageCfg,
+                defaultImageSeedMode,
+            });
+            toast.success('Image generation settings saved');
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Failed to save image settings');
+        }
+    };
+
+    const handleComfyWorkflowFile = async (mode: 'txt2img' | 'img2img', file?: File) => {
+        if (!file) return;
+
+        try {
+            const parsed = JSON.parse(await file.text());
+            const normalized = normalizeComfyWorkflowJson(parsed);
+            const workflowJson = JSON.stringify(normalized.workflow, null, 2);
+
+            if (mode === 'txt2img') {
+                setComfyTxt2ImgWorkflowJson(workflowJson);
+                const mapping = inferComfyTextToImageMapping(normalized.workflow);
+                if (mapping) {
+                    setComfyTxt2ImgMapping(JSON.stringify(mapping, null, 2));
+                }
+            } else {
+                setComfyImg2ImgWorkflowJson(workflowJson);
+            }
+
+            const formatLabel = normalized.format === 'ui' ? 'converted workflow' : 'API prompt';
+            toast.success(`Loaded ${formatLabel} (${normalized.nodeCount} nodes)`);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Could not load workflow JSON');
         }
     };
 
@@ -501,11 +589,150 @@ export function AISettingsPanel() {
                     </div>
                 </div>
             </ProviderSection>
+
+            <ProviderSection
+                title="Image Generation"
+                description="ComfyUI and OpenRouter image defaults"
+                open={openSections.image_generation}
+                onToggle={() => toggleSection('image_generation')}
+            >
+                <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <Label className="text-xs">Default Provider</Label>
+                            <Select value={defaultImageProvider} onValueChange={(value: 'openrouter' | 'comfyui') => setDefaultImageProvider(value)}>
+                                <SelectTrigger className="mt-1">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="openrouter">OpenRouter</SelectItem>
+                                    <SelectItem value="comfyui">ComfyUI</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label className="text-xs">Default Prompt</Label>
+                            <Select value={defaultImagePromptId} onValueChange={setDefaultImagePromptId}>
+                                <SelectTrigger className="mt-1">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Raw prompt</SelectItem>
+                                    {prompts.filter(prompt => prompt.promptType === 'image_gen').map(prompt => (
+                                        <SelectItem key={prompt.id} value={prompt.id}>{prompt.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="flex items-center justify-between gap-2">
+                            <Label className="text-xs">OpenRouter Image Model</Label>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => refreshOpenRouterImageModels().catch(error => toast.error(error instanceof Error ? error.message : 'Refresh failed'))}
+                            >
+                                <RefreshCw className="mr-1 h-3 w-3" />
+                                Refresh
+                            </Button>
+                        </div>
+                        <Select value={defaultOpenRouterImageModelId} onValueChange={setDefaultOpenRouterImageModelId}>
+                            <SelectTrigger className="mt-1">
+                                <SelectValue placeholder="Select OpenRouter image model" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {openRouterImageModels.map(model => (
+                                    <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <Label className="text-xs">Default Width</Label>
+                            <Input className="mt-1" type="number" value={defaultImageWidth} onChange={event => setDefaultImageWidth(Number(event.target.value) || 1024)} />
+                        </div>
+                        <div>
+                            <Label className="text-xs">Default Height</Label>
+                            <Input className="mt-1" type="number" value={defaultImageHeight} onChange={event => setDefaultImageHeight(Number(event.target.value) || 1024)} />
+                        </div>
+                        <div>
+                            <Label className="text-xs">Default Steps</Label>
+                            <Input className="mt-1" type="number" min={1} value={defaultImageSteps} onChange={event => setDefaultImageSteps(Number(event.target.value) || 20)} />
+                        </div>
+                        <div>
+                            <Label className="text-xs">Default CFG</Label>
+                            <Input className="mt-1" type="number" min={0} step={0.1} value={defaultImageCfg} onChange={event => setDefaultImageCfg(Number(event.target.value) || 4)} />
+                        </div>
+                        <div>
+                            <Label className="text-xs">Seed Mode</Label>
+                            <Select value={defaultImageSeedMode} onValueChange={(value: 'random' | 'fixed') => setDefaultImageSeedMode(value)}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="random">Random</SelectItem>
+                                    <SelectItem value="fixed">Fixed</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label className="text-xs">ComfyUI Base URL</Label>
+                        <Input className="mt-1" value={comfyBaseUrl} onChange={event => setComfyBaseUrl(event.target.value)} />
+                    </div>
+                    <div>
+                        <div className="flex items-center justify-between gap-2">
+                            <Label className="text-xs">Text-to-Image Workflow JSON</Label>
+                            <WorkflowUploadButton onFile={(file) => handleComfyWorkflowFile('txt2img', file)} />
+                        </div>
+                        <Textarea className="mt-1 min-h-[120px] font-mono text-xs" value={comfyTxt2ImgWorkflowJson} onChange={event => setComfyTxt2ImgWorkflowJson(event.target.value)} />
+                    </div>
+                    <div>
+                        <Label className="text-xs">Text-to-Image Mapping JSON</Label>
+                        <Textarea className="mt-1 min-h-[100px] font-mono text-xs" value={comfyTxt2ImgMapping} onChange={event => setComfyTxt2ImgMapping(event.target.value)} />
+                    </div>
+                    <div>
+                        <div className="flex items-center justify-between gap-2">
+                            <Label className="text-xs">Image-to-Image Workflow JSON</Label>
+                            <WorkflowUploadButton onFile={(file) => handleComfyWorkflowFile('img2img', file)} />
+                        </div>
+                        <Textarea className="mt-1 min-h-[120px] font-mono text-xs" value={comfyImg2ImgWorkflowJson} onChange={event => setComfyImg2ImgWorkflowJson(event.target.value)} />
+                    </div>
+                    <div>
+                        <Label className="text-xs">Image-to-Image Mapping JSON</Label>
+                        <Textarea className="mt-1 min-h-[100px] font-mono text-xs" value={comfyImg2ImgMapping} onChange={event => setComfyImg2ImgMapping(event.target.value)} />
+                    </div>
+                    <Button onClick={handleSaveImageSettings} className="w-full">Save Image Settings</Button>
+                </div>
+            </ProviderSection>
         </div>
     );
 }
 
 // ── Helpers ────────────────────────────────────────────────────
+
+function WorkflowUploadButton({ onFile }: { onFile: (file?: File) => void }) {
+    return (
+        <Button asChild variant="outline" size="sm">
+            <label className="cursor-pointer">
+                <Upload className="mr-1 h-3 w-3" />
+                Upload JSON
+                <input
+                    type="file"
+                    accept=".json,application/json"
+                    className="sr-only"
+                    onChange={(event) => {
+                        onFile(event.currentTarget.files?.[0]);
+                        event.currentTarget.value = '';
+                    }}
+                />
+            </label>
+        </Button>
+    );
+}
 
 function providerLabel(provider: ProviderType): string {
     switch (provider) {

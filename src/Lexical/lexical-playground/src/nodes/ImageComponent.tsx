@@ -67,6 +67,7 @@ import ImageResizer from '../ui/ImageResizer';
 import {EmojiNode} from './EmojiNode';
 import {$isImageNode} from './ImageNode';
 import {KeywordNode} from './KeywordNode';
+import {resolveAssetDisplayUrl} from '@/features/images/services/assetStorage';
 
 const imageCache = new Set();
 
@@ -173,7 +174,25 @@ export default function ImageComponent({
   const [selection, setSelection] = useState<BaseSelection | null>(null);
   const activeEditorRef = useRef<LexicalEditor | null>(null);
   const [isLoadError, setIsLoadError] = useState<boolean>(false);
+  const [displaySrc, setDisplaySrc] = useState(src);
   const isEditable = useLexicalEditable();
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadError(false);
+    resolveAssetDisplayUrl(src)
+      .then((url) => {
+        if (!cancelled) setDisplaySrc(url);
+      })
+      .catch((error) => {
+        console.error('Failed to resolve image asset:', error);
+        if (!cancelled) setIsLoadError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
 
   const $onDelete = useCallback(
     (payload: KeyboardEvent) => {
@@ -413,7 +432,7 @@ export default function ImageComponent({
                   ? `focused ${$isNodeSelection(selection) ? 'draggable' : ''}`
                   : null
               }
-              src={src}
+              src={displaySrc}
               altText={altText}
               imageRef={imageRef}
               width={width}

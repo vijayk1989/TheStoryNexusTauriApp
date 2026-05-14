@@ -233,6 +233,27 @@ If no significant events occur, return an empty array [].`
         repetition_penalty: 1.0,
         min_p: 0.0
     }
+    ,
+    {
+        id: "image-gen-system",
+        name: "Image Generation",
+        promptType: "image_gen",
+        description: "Create a focused prompt for image generation models",
+        messages: [
+            {
+                role: "user",
+                content: "{{user_input}}\n\nCreate a detailed image generation prompt. Preserve character, setting, mood, visual style, and concrete composition. Do not include prose narration."
+            }
+        ],
+        allowedModels: [],
+        isSystem: true,
+        temperature: 1.0,
+        maxTokens: 1024,
+        top_p: 1.0,
+        top_k: 50,
+        repetition_penalty: 1.0,
+        min_p: 0.0
+    }
 ];
 
-export default systemPrompts; 
+export default systemPrompts;

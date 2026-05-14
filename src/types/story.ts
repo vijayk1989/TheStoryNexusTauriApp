@@ -110,6 +110,7 @@ export interface Prompt extends BaseEntity {
   description?: string;
   promptType:
     | "scene_beat"
+    | "image_gen"
     | "gen_summary"
     | "selection_specific"
     | "continue_writing"
@@ -179,6 +180,102 @@ export interface AISettings extends BaseEntity {
   defaultBrainstormPromptId?: string;
   defaultBrainstormModelId?: string;
   defaultAgentModelId?: string;
+
+  // Image generation defaults and provider settings
+  defaultImageProvider?: ImageGenerationProvider;
+  defaultImagePromptId?: string;
+  defaultOpenRouterImageModelId?: string;
+  openRouterImageModels?: ImageGenerationModel[];
+  comfyBaseUrl?: string;
+  comfyTxt2ImgWorkflowJson?: string;
+  comfyImg2ImgWorkflowJson?: string;
+  comfyTxt2ImgMapping?: ComfyWorkflowMapping;
+  comfyImg2ImgMapping?: ComfyWorkflowMapping;
+  defaultImageAspectRatio?: string;
+  defaultImageWidth?: number;
+  defaultImageHeight?: number;
+  defaultImageSeedMode?: "random" | "fixed";
+  defaultImageSteps?: number;
+  defaultImageCfg?: number;
+}
+
+export type MediaAssetKind = "generated" | "uploaded" | "imported";
+export type MediaAssetStorageBackend = "tauri_file" | "indexeddb_blob";
+export type MediaAssetSource = "comfyui" | "openrouter" | "upload" | "import";
+export type ImageGenerationMode = "txt2img" | "img2img";
+export type ImageGenerationProvider = "comfyui" | "openrouter";
+export type ImageGenerationStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
+
+export interface MediaAsset extends BaseEntity {
+  storyId: string;
+  chapterId?: string;
+  kind: MediaAssetKind;
+  mimeType: string;
+  filename: string;
+  storageBackend: MediaAssetStorageBackend;
+  storageKey: string;
+  sizeBytes: number;
+  width?: number;
+  height?: number;
+  source: MediaAssetSource;
+  archivedAt?: Date;
+  metadata?: Record<string, unknown>;
+}
+
+export interface MediaBlob {
+  assetId: string;
+  blob: Blob;
+  createdAt: Date;
+}
+
+export interface ImageGenerationSettings {
+  width: number;
+  height: number;
+  aspectRatio?: string;
+  seedMode: "random" | "fixed";
+  seed?: number;
+  steps?: number;
+  cfg?: number;
+  imageStrength?: number;
+}
+
+export interface ImageGenerationRecord extends BaseEntity {
+  storyId: string;
+  chapterId?: string;
+  mode: ImageGenerationMode;
+  provider: ImageGenerationProvider;
+  prompt: string;
+  resolvedPrompt: string;
+  promptId?: string;
+  modelId?: string;
+  workflowId?: string;
+  sourceAssetIds: string[];
+  outputAssetIds: string[];
+  settings: ImageGenerationSettings;
+  status: ImageGenerationStatus;
+  error?: string;
+  completedAt?: Date;
+}
+
+export interface ImageGenerationModel {
+  id: string;
+  name: string;
+  provider: "openrouter";
+  supportsImageInput?: boolean;
+  outputModalities?: string[];
+}
+
+export interface ComfyWorkflowMapping {
+  positivePrompt?: string;
+  sourceImage?: string;
+  seed?: string;
+  width?: string;
+  height?: string;
+  steps?: string;
+  cfg?: string;
+  sampler?: string;
+  model?: string;
+  outputNodeId?: string;
 }
 
 // Note types

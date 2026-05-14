@@ -19,7 +19,7 @@ interface PromptStore {
     importPrompts: (jsonData: string) => Promise<void>;
 
     // Helpers
-    validatePromptData: (messages: PromptMessage[]) => boolean;
+    validatePromptData: (messages: PromptMessage[], promptType?: Prompt['promptType']) => boolean;
 }
 
 export const usePromptStore = create<PromptStore>((set, get) => ({
@@ -27,7 +27,13 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     isLoading: false,
     error: null,
 
-    validatePromptData: (messages) => {
+    validatePromptData: (messages, promptType) => {
+        if (promptType === 'image_gen') {
+            return messages.length === 1 &&
+                messages[0].role === 'user' &&
+                typeof messages[0].content === 'string';
+        }
+
         return messages.every(msg =>
             typeof msg === 'object' &&
             ('role' in msg) &&
@@ -51,7 +57,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
 
     createPrompt: async (promptData) => {
         try {
-            if (!get().validatePromptData(promptData.messages)) {
+            if (!get().validatePromptData(promptData.messages, promptData.promptType)) {
                 throw new Error('Invalid prompt data structure');
             }
 
@@ -85,7 +91,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
 
     updatePrompt: async (id, promptData) => {
         try {
-            if (promptData.messages && !get().validatePromptData(promptData.messages)) {
+            if (promptData.messages && !get().validatePromptData(promptData.messages, promptData.promptType)) {
                 throw new Error('Invalid prompt data structure');
             }
 
@@ -197,7 +203,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
 
             for (const p of imported) {
                 // Minimal validation of messages
-                if (!p.messages || !Array.isArray(p.messages) || !get().validatePromptData(p.messages)) {
+                if (!p.messages || !Array.isArray(p.messages) || !get().validatePromptData(p.messages, p.promptType)) {
                     // Skip invalid prompt
                     console.warn('Skipping invalid prompt during import (messages invalid):', p.name);
                     continue;

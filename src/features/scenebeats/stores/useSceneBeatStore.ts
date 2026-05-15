@@ -4,6 +4,8 @@ import { sceneBeatService } from '../services/sceneBeatService';
 
 interface SceneBeatState {
     sceneBeats: SceneBeat[];
+    sceneBeatsById: Record<string, SceneBeat>;
+    loadedChapterId: string | null;
     currentSceneBeat: SceneBeat | null;
     loading: boolean;
     error: string | null;
@@ -13,6 +15,9 @@ interface SceneBeatState {
 
     // Get a single SceneBeat
     getSceneBeat: (id: string) => Promise<SceneBeat | undefined>;
+
+    // Get a cached SceneBeat without touching IndexedDB
+    getCachedSceneBeat: (id: string) => SceneBeat | undefined;
 
     // Create a new SceneBeat
     createSceneBeat: (data: Omit<SceneBeat, 'id' | 'createdAt'>) => Promise<string>;
@@ -26,12 +31,17 @@ interface SceneBeatState {
     // Set the current SceneBeat
     setCurrentSceneBeat: (sceneBeat: SceneBeat | null) => void;
 
+    // Update cache after direct service calls or node hydration
+    upsertSceneBeat: (sceneBeat: SceneBeat) => void;
+
     // Clear all SceneBeats
     clearSceneBeats: () => void;
 }
 
 export const useSceneBeatStore = create<SceneBeatState>((set, get) => ({
     sceneBeats: [],
+    sceneBeatsById: {},
+    loadedChapterId: null,
     currentSceneBeat: null,
     loading: false,
     error: null,
@@ -40,7 +50,12 @@ export const useSceneBeatStore = create<SceneBeatState>((set, get) => ({
         set({ loading: true, error: null });
         try {
             const sceneBeats = await sceneBeatService.getSceneBeatsByChapter(chapterId);
-            set({ sceneBeats, loading: false });
+            set({
+                sceneBeats,
+                sceneBeatsById: Object.fromEntries(sceneBeats.map((sceneBeat) => [sceneBeat.id, sceneBeat])),
+                loadedChapterId: chapterId,
+                loading: false
+            });
             return sceneBeats;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to fetch scene beats';
@@ -50,11 +65,27 @@ export const useSceneBeatStore = create<SceneBeatState>((set, get) => ({
     },
 
     getSceneBeat: async (id: string) => {
+        const cached = get().sceneBeatsById[id];
+        if (cached) {
+            set({ currentSceneBeat: cached, error: null });
+            return cached;
+        }
+
         set({ loading: true, error: null });
         try {
             const sceneBeat = await sceneBeatService.getSceneBeat(id);
             if (sceneBeat) {
-                set({ currentSceneBeat: sceneBeat, loading: false });
+                set(state => ({
+                    sceneBeats: state.sceneBeats.some(sb => sb.id === id)
+                        ? state.sceneBeats.map(sb => sb.id === id ? sceneBeat : sb)
+                        : [...state.sceneBeats, sceneBeat],
+                    sceneBeatsById: {
+                        ...state.sceneBeatsById,
+                        [id]: sceneBeat,
+                    },
+                    currentSceneBeat: sceneBeat,
+                    loading: false
+                }));
             } else {
                 set({ loading: false });
             }
@@ -66,6 +97,8 @@ export const useSceneBeatStore = create<SceneBeatState>((set, get) => ({
         }
     },
 
+    getCachedSceneBeat: (id: string) => get().sceneBeatsById[id],
+
     createSceneBeat: async (data: Omit<SceneBeat, 'id' | 'createdAt'>) => {
         set({ loading: true, error: null });
         try {
@@ -74,6 +107,10 @@ export const useSceneBeatStore = create<SceneBeatState>((set, get) => ({
             if (newSceneBeat) {
                 set(state => ({
                     sceneBeats: [...state.sceneBeats, newSceneBeat],
+                    sceneBeatsById: {
+                        ...state.sceneBeatsById,
+                        [newSceneBeat.id]: newSceneBeat,
+                    },
                     currentSceneBeat: newSceneBeat,
                     loading: false
                 }));
@@ -98,6 +135,8 @@ export const useSceneBeatStore = create<SceneBeatState>((set, get) => ({
                 const updatedSceneBeats = state.sceneBeats.map(sb =>
                     sb.id === id ? { ...sb, ...data } : sb
                 );
+                const previous = state.sceneBeatsById[id];
+                const updatedCachedSceneBeat = previous ? { ...previous, ...data } : previous;
 
                 // Also update currentSceneBeat if it's the one being updated
                 const updatedCurrentSceneBeat = state.currentSceneBeat && state.currentSceneBeat.id === id
@@ -106,6 +145,12 @@ export const useSceneBeatStore = create<SceneBeatState>((set, get) => ({
 
                 return {
                     sceneBeats: updatedSceneBeats,
+                    sceneBeatsById: updatedCachedSceneBeat
+                        ? {
+                            ...state.sceneBeatsById,
+                            [id]: updatedCachedSceneBeat,
+                        }
+                        : state.sceneBeatsById,
                     currentSceneBeat: updatedCurrentSceneBeat,
                     loading: false
                 };
@@ -125,6 +170,9 @@ export const useSceneBeatStore = create<SceneBeatState>((set, get) => ({
             // Remove the scene beat from the store
             set(state => ({
                 sceneBeats: state.sceneBeats.filter(sb => sb.id !== id),
+                sceneBeatsById: Object.fromEntries(
+                    Object.entries(state.sceneBeatsById).filter(([sceneBeatId]) => sceneBeatId !== id)
+                ),
                 currentSceneBeat: state.currentSceneBeat?.id === id ? null : state.currentSceneBeat,
                 loading: false
             }));
@@ -139,7 +187,22 @@ export const useSceneBeatStore = create<SceneBeatState>((set, get) => ({
         set({ currentSceneBeat: sceneBeat });
     },
 
+    upsertSceneBeat: (sceneBeat: SceneBeat) => {
+        set(state => ({
+            sceneBeats: state.sceneBeats.some(sb => sb.id === sceneBeat.id)
+                ? state.sceneBeats.map(sb => sb.id === sceneBeat.id ? sceneBeat : sb)
+                : [...state.sceneBeats, sceneBeat],
+            sceneBeatsById: {
+                ...state.sceneBeatsById,
+                [sceneBeat.id]: sceneBeat,
+            },
+            currentSceneBeat: state.currentSceneBeat?.id === sceneBeat.id
+                ? sceneBeat
+                : state.currentSceneBeat,
+        }));
+    },
+
     clearSceneBeats: () => {
-        set({ sceneBeats: [], currentSceneBeat: null });
+        set({ sceneBeats: [], sceneBeatsById: {}, loadedChapterId: null, currentSceneBeat: null });
     }
 })); 

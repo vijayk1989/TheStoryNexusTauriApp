@@ -22,6 +22,8 @@ interface PromptStore {
     validatePromptData: (messages: PromptMessage[], promptType?: Prompt['promptType']) => boolean;
 }
 
+let fetchPromptsPromise: Promise<void> | null = null;
+
 export const usePromptStore = create<PromptStore>((set, get) => ({
     prompts: [],
     isLoading: false,
@@ -44,15 +46,24 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     },
 
     fetchPrompts: async () => {
-        set({ isLoading: true });
-        try {
-            const prompts = await db.prompts.toArray();
-            set({ prompts, error: null });
-        } catch (error) {
-            set({ error: (error as Error).message });
-        } finally {
-            set({ isLoading: false });
+        if (fetchPromptsPromise) {
+            return fetchPromptsPromise;
         }
+
+        fetchPromptsPromise = (async () => {
+            set({ isLoading: true });
+            try {
+                const prompts = await db.prompts.toArray();
+                set({ prompts, error: null });
+            } catch (error) {
+                set({ error: (error as Error).message });
+            } finally {
+                set({ isLoading: false });
+                fetchPromptsPromise = null;
+            }
+        })();
+
+        return fetchPromptsPromise;
     },
 
     createPrompt: async (promptData) => {

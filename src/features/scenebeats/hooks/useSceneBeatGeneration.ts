@@ -39,11 +39,19 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
     const agenticHook = useAgenticGeneration();
     const parallelHook = useParallelGeneration();
 
+    const updateNodeSnapshot = useCallback((snapshot: Parameters<SceneBeatNode['setSceneBeatSnapshot']>[0]) => {
+        editor.update(() => {
+            const node = $getNodeByKey(store.getState().nodeKey);
+            if (node instanceof SceneBeatNode) {
+                node.setSceneBeatSnapshot(snapshot);
+            }
+        });
+    }, [editor, store]);
+
     // ── Prompt config builder ──────────────────────────────────
 
     const createPromptConfig = useCallback((prompt: Prompt): PromptParserConfig => {
         const s = store.getState();
-        if (!s.sceneBeatId) throw new Error('No sceneBeatId');
 
         // Read previous text from the editor
         let previousText = '';
@@ -186,6 +194,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                         streamComplete: true,
                         lastGenerationResponse: responseText,
                     });
+                    updateNodeSnapshot({ generatedContent: responseText, accepted: false });
                 },
                 (error) => {
                     console.error('Error streaming response:', error);
@@ -194,9 +203,10 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             );
 
             // Save generated content to database
-            if (sceneBeatId) {
+            const finalSceneBeatId = store.getState().sceneBeatId || sceneBeatId;
+            if (finalSceneBeatId) {
                 try {
-                    await sceneBeatService.updateSceneBeat(sceneBeatId, {
+                    await sceneBeatService.updateSceneBeat(finalSceneBeatId, {
                         generatedContent: store.getState().streamedText,
                         accepted: false,
                     });
@@ -210,7 +220,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         } finally {
             store.setState({ streaming: false });
         }
-    }, [store, createPromptConfig, generateWithParsedMessages, processStreamedResponse]);
+    }, [store, createPromptConfig, generateWithParsedMessages, processStreamedResponse, updateNodeSnapshot]);
 
     // ── Regeneration ───────────────────────────────────────────
 
@@ -260,6 +270,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                         streamComplete: true,
                         lastGenerationResponse: responseText,
                     });
+                    updateNodeSnapshot({ generatedContent: responseText, accepted: false });
                 },
                 (error) => {
                     console.error('Error streaming regenerated response:', error);
@@ -284,7 +295,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         } finally {
             store.setState({ streaming: false });
         }
-    }, [store, generateWithParsedMessages, processStreamedResponse]);
+    }, [store, generateWithParsedMessages, processStreamedResponse, updateNodeSnapshot]);
 
     // ── Agentic generation ─────────────────────────────────────
 
@@ -366,6 +377,10 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 onComplete: (pipelineResult) => {
                     console.log('[Agentic] Pipeline complete:', pipelineResult);
                     store.setState({ streamComplete: true, showAgenticProgress: false });
+                    updateNodeSnapshot({
+                        generatedContent: store.getState().streamedText,
+                        accepted: false,
+                    });
 
                     if (s.sceneBeatId) {
                         sceneBeatService.updateSceneBeat(s.sceneBeatId, {
@@ -389,7 +404,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             console.error('[Agentic] Error:', error);
             toast.error('Failed to run agentic generation');
         }
-    }, [store, editor, chapterMatchedEntries, agenticHook]);
+    }, [store, editor, chapterMatchedEntries, agenticHook, updateNodeSnapshot]);
 
     const handleAbortAgentic = useCallback(() => {
         agenticHook.abortGeneration();
@@ -450,12 +465,14 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 console.error('Error updating accepted status:', error);
             }
         }
+        updateNodeSnapshot({ generatedContent: streamedText, accepted: true });
         store.getState().resetGeneration();
-    }, [store, editor]);
+    }, [store, editor, updateNodeSnapshot]);
 
     const handleReject = useCallback(() => {
+        updateNodeSnapshot({ generatedContent: '', accepted: false });
         store.getState().resetGeneration();
-    }, [store]);
+    }, [store, updateNodeSnapshot]);
 
     // ── Delete ─────────────────────────────────────────────────
 

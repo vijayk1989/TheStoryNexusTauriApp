@@ -16,6 +16,7 @@ import {
   useMemo,
   useEffect,
   useRef,
+  useCallback,
 } from "react";
 import { Button } from "@/components/ui/button";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
@@ -40,6 +41,7 @@ import { debounce } from "lodash";
 import { SceneBeatMatchedEntries } from "./SceneBeatMatchedEntries";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { sceneBeatService } from "@/features/scenebeats/services/sceneBeatService";
+import { useSceneBeatStore } from "@/features/scenebeats/stores/useSceneBeatStore";
 import { PipelineDiagnosticsDialog } from "@/features/agents/components/PipelineDiagnosticsDialog";
 import { ParallelResponsesDrawer } from "@/components/ui/parallel-responses-drawer";
 import { resolveSavedDefaultModel } from "@/features/ai/utils/defaultModels";
@@ -67,15 +69,40 @@ import { RegenerateDialog } from "./scene-beat/RegenerateDialog";
 export type SerializedSceneBeatNode = Spread<
   {
     type: "scene-beat";
-    version: 1;
+    version: 2;
     sceneBeatId: string;
+    command?: string;
+    povType?: SceneBeat["povType"];
+    povCharacter?: string;
+    generatedContent?: string;
+    accepted?: boolean;
+    metadata?: SceneBeat["metadata"];
+    collapsed?: boolean;
   },
   SerializedLexicalNode
 >;
 
+type SceneBeatNodeSnapshot = Pick<
+  SerializedSceneBeatNode,
+  | "sceneBeatId"
+  | "command"
+  | "povType"
+  | "povCharacter"
+  | "generatedContent"
+  | "accepted"
+  | "metadata"
+  | "collapsed"
+>;
+
 // ── Inner component (needs store context) ──────────────────────
 
-function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
+function SceneBeatInner({
+  nodeKey,
+  initialSnapshot,
+}: {
+  nodeKey: NodeKey;
+  initialSnapshot: SceneBeatNodeSnapshot;
+}) {
   const [editor] = useLexicalComposerContext();
   const { currentStoryId, currentChapterId } = useStoryContext();
   const { currentChapter } = useChapterStore();
@@ -85,6 +112,8 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const sceneBeatId = useSBStore((s) => s.sceneBeatId);
   const command = useSBStore((s) => s.command);
   const collapsed = useSBStore((s) => s.collapsed);
+  const povType = useSBStore((s) => s.povType);
+  const povCharacter = useSBStore((s) => s.povCharacter);
   const isLoaded = useSBStore((s) => s.isLoaded);
   const streaming = useSBStore((s) => s.streaming);
   const streamedText = useSBStore((s) => s.streamedText);
@@ -106,6 +135,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const lastGenerationMessages = useSBStore((s) => s.lastGenerationMessages);
   const lastGenerationResponse = useSBStore((s) => s.lastGenerationResponse);
   const set = useSBStore((s) => s.set);
+  const upsertCachedSceneBeat = useSceneBeatStore((s) => s.upsertSceneBeat);
 
   // Generation hook — pass the store API for imperative access
   const storeApi = useSBStoreApi();
@@ -116,6 +146,18 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoRedoAction = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const didHydrateSnapshot = useRef(false);
+  const lastPersistedCommand = useRef<string | null>(null);
+  const lastPersistedMetadata = useRef<string | null>(null);
+
+  const writeNodeSnapshot = useCallback((snapshot: Partial<SceneBeatNodeSnapshot>) => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey);
+      if (node instanceof SceneBeatNode) {
+        node.setSceneBeatSnapshot(snapshot);
+      }
+    });
+  }, [editor, nodeKey]);
 
   // Speech-to-text for dictating into the command textarea
   const stt = useSpeechToText({
@@ -131,6 +173,68 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   });
 
   // ── Effects ──────────────────────────────────────────────────
+
+  // Hydrate immediately from Lexical JSON when the chapter has an embedded
+  // scene beat snapshot. Old chapters only have an ID and will fall through to
+  // the cache/IndexedDB path below.
+  useEffect(() => {
+    if (didHydrateSnapshot.current) return;
+    didHydrateSnapshot.current = true;
+
+    const metadata = initialSnapshot.metadata;
+    const hasSnapshotData =
+      initialSnapshot.command !== undefined ||
+      initialSnapshot.povType !== undefined ||
+      initialSnapshot.povCharacter !== undefined ||
+      initialSnapshot.generatedContent !== undefined ||
+      initialSnapshot.accepted !== undefined ||
+      initialSnapshot.metadata !== undefined ||
+      initialSnapshot.collapsed !== undefined;
+
+    if (!hasSnapshotData) return;
+
+    const pov = initialSnapshot.povType || currentChapter?.povType || "Third Person Omniscient";
+    const char = initialSnapshot.povCharacter ?? (initialSnapshot.povType ? undefined : currentChapter?.povCharacter);
+    const generatedContent = initialSnapshot.generatedContent || "";
+    const accepted = initialSnapshot.accepted || false;
+    const hydratedCommand = initialSnapshot.command || "";
+    const hydratedMetadata = {
+      useMatchedChapter: metadata?.useMatchedChapter ?? true,
+      useMatchedSceneBeat: metadata?.useMatchedSceneBeat ?? false,
+      useCustomContext: metadata?.useCustomContext ?? false,
+    };
+    lastPersistedCommand.current = hydratedCommand;
+    lastPersistedMetadata.current = JSON.stringify(hydratedMetadata);
+
+    set({
+      sceneBeatId: initialSnapshot.sceneBeatId || "",
+      command: hydratedCommand,
+      collapsed: initialSnapshot.collapsed || false,
+      povType: pov,
+      povCharacter: char,
+      tempPovType: pov,
+      tempPovCharacter: char,
+      streamedText: accepted ? "" : generatedContent,
+      streamComplete: Boolean(generatedContent && !accepted),
+      ...hydratedMetadata,
+      isLoaded: true,
+    });
+
+    if (initialSnapshot.sceneBeatId && currentStoryId && currentChapterId) {
+      upsertCachedSceneBeat({
+        id: initialSnapshot.sceneBeatId,
+        storyId: currentStoryId,
+        chapterId: currentChapterId,
+        command: hydratedCommand,
+        povType: pov,
+        povCharacter: char,
+        generatedContent,
+        accepted,
+        metadata,
+        createdAt: new Date(),
+      });
+    }
+  }, [initialSnapshot, currentChapter, currentStoryId, currentChapterId, set, upsertCachedSceneBeat]);
 
   // Fetch prompts on mount
   useEffect(() => {
@@ -184,21 +288,47 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   // Load or create SceneBeat
   useEffect(() => {
     const loadOrCreate = async () => {
-      if (isLoaded) return;
+      const currentState = storeApi.getState();
+      if (currentState.isLoaded) return;
+      const effectiveSceneBeatId = currentState.sceneBeatId || initialSnapshot.sceneBeatId || sceneBeatId;
 
-      if (sceneBeatId) {
+      if (effectiveSceneBeatId) {
         try {
-          const data = await sceneBeatService.getSceneBeat(sceneBeatId);
+          const store = useSceneBeatStore.getState();
+          const data = store.getCachedSceneBeat(effectiveSceneBeatId) || await store.getSceneBeat(effectiveSceneBeatId);
           if (data) {
             const pov = data.povType || currentChapter?.povType || "Third Person Omniscient";
-            const char = data.povCharacter || currentChapter?.povCharacter;
+            const char = data.povCharacter ?? (data.povType ? undefined : currentChapter?.povCharacter);
+            const generatedContent = data.generatedContent || "";
+            const accepted = data.accepted || false;
+            const metadata = data.metadata;
+            const hydratedMetadata = {
+              useMatchedChapter: metadata?.useMatchedChapter ?? true,
+              useMatchedSceneBeat: metadata?.useMatchedSceneBeat ?? false,
+              useCustomContext: metadata?.useCustomContext ?? false,
+            };
+            const hydratedCommand = data.command || "";
+            lastPersistedCommand.current = hydratedCommand;
+            lastPersistedMetadata.current = JSON.stringify(hydratedMetadata);
             set({
-              command: data.command || "",
+              command: hydratedCommand,
               povType: pov,
               povCharacter: char,
               tempPovType: pov,
               tempPovCharacter: char,
+              streamedText: accepted ? "" : generatedContent,
+              streamComplete: Boolean(generatedContent && !accepted),
+              ...hydratedMetadata,
               isLoaded: true,
+            });
+            writeNodeSnapshot({
+              sceneBeatId: data.id,
+              command: hydratedCommand,
+              povType: pov,
+              povCharacter: char,
+              generatedContent,
+              accepted,
+              metadata,
             });
           }
         } catch (error) {
@@ -208,7 +338,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
         try {
           const pov = currentChapter?.povType || "Third Person Omniscient";
           const char = currentChapter?.povCharacter;
-          const newId = await sceneBeatService.createSceneBeat({
+          const newId = await useSceneBeatStore.getState().createSceneBeat({
             storyId: currentStoryId,
             chapterId: currentChapterId,
             command: "",
@@ -219,7 +349,18 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
           editor.update(() => {
             const node = $getNodeByKey(nodeKey);
             if (node instanceof SceneBeatNode) {
-              node.setSceneBeatId(newId);
+              node.setSceneBeatSnapshot({
+                sceneBeatId: newId,
+                command: "",
+                povType: pov,
+                povCharacter: char,
+                metadata: {
+                  useMatchedChapter: true,
+                  useMatchedSceneBeat: false,
+                  useCustomContext: false,
+                },
+                collapsed: false,
+              });
             }
           });
 
@@ -229,7 +370,16 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
             povCharacter: char,
             tempPovType: pov,
             tempPovCharacter: char,
+            useMatchedChapter: true,
+            useMatchedSceneBeat: false,
+            useCustomContext: false,
             isLoaded: true,
+          });
+          lastPersistedCommand.current = "";
+          lastPersistedMetadata.current = JSON.stringify({
+            useMatchedChapter: true,
+            useMatchedSceneBeat: false,
+            useCustomContext: false,
           });
         } catch (error) {
           console.error("Error creating SceneBeat:", error);
@@ -237,7 +387,7 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
       }
     };
     loadOrCreate();
-  }, [editor, nodeKey, sceneBeatId, currentStoryId, currentChapterId, currentChapter, isLoaded, set]);
+  }, [editor, nodeKey, sceneBeatId, currentStoryId, currentChapterId, currentChapter, isLoaded, set, writeNodeSnapshot, storeApi, initialSnapshot]);
 
   // Save command (debounced)
   const saveCommand = useMemo(
@@ -246,6 +396,10 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
         if (!id) return;
         try {
           await sceneBeatService.updateSceneBeat(id, { command: cmd });
+          const cached = useSceneBeatStore.getState().getCachedSceneBeat(id);
+          if (cached) {
+            useSceneBeatStore.getState().upsertSceneBeat({ ...cached, command: cmd });
+          }
         } catch (error) {
           console.error("Error saving SceneBeat command:", error);
         }
@@ -254,8 +408,31 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
   );
 
   useEffect(() => {
-    if (sceneBeatId && isLoaded) saveCommand(sceneBeatId, command);
-  }, [command, sceneBeatId, saveCommand, isLoaded]);
+    if (sceneBeatId && isLoaded) {
+      writeNodeSnapshot({ command });
+      if (lastPersistedCommand.current !== command) {
+        lastPersistedCommand.current = command;
+        saveCommand(sceneBeatId, command);
+      }
+    }
+  }, [command, sceneBeatId, saveCommand, isLoaded, writeNodeSnapshot]);
+
+  useEffect(() => {
+    if (sceneBeatId && isLoaded && streamComplete) {
+      writeNodeSnapshot({
+        generatedContent: streamedText,
+        accepted: false,
+      });
+      const cached = useSceneBeatStore.getState().getCachedSceneBeat(sceneBeatId);
+      if (cached) {
+        useSceneBeatStore.getState().upsertSceneBeat({
+          ...cached,
+          generatedContent: streamedText,
+          accepted: false,
+        });
+      }
+    }
+  }, [streamComplete, streamedText, sceneBeatId, isLoaded, writeNodeSnapshot]);
 
   // Tag matching
   useEffect(() => {
@@ -280,30 +457,25 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
 
   useEffect(() => {
     if (sceneBeatId && isLoaded) {
+      const metadata = { useMatchedChapter, useMatchedSceneBeat, useCustomContext };
+      writeNodeSnapshot({ metadata });
+      const metadataKey = JSON.stringify(metadata);
+      if (lastPersistedMetadata.current === metadataKey) {
+        return;
+      }
+      lastPersistedMetadata.current = metadataKey;
       const updated: Partial<SceneBeat> = {
-        metadata: { useMatchedChapter, useMatchedSceneBeat, useCustomContext },
+        metadata,
       };
       sceneBeatService.updateSceneBeat(sceneBeatId, updated).catch((error: unknown) => {
         console.error("Error updating toggle states:", error);
       });
+      const cached = useSceneBeatStore.getState().getCachedSceneBeat(sceneBeatId);
+      if (cached) {
+        useSceneBeatStore.getState().upsertSceneBeat({ ...cached, metadata });
+      }
     }
-  }, [useMatchedChapter, useMatchedSceneBeat, useCustomContext, sceneBeatId, isLoaded]);
-
-  // Load toggle states from scene beat
-  useEffect(() => {
-    if (sceneBeatId && isLoaded) {
-      sceneBeatService.getSceneBeat(sceneBeatId).then((sb) => {
-        if (sb?.metadata) {
-          const m = sb.metadata;
-          const partial: Record<string, boolean> = {};
-          if (typeof m.useMatchedChapter === "boolean") partial.useMatchedChapter = m.useMatchedChapter;
-          if (typeof m.useMatchedSceneBeat === "boolean") partial.useMatchedSceneBeat = m.useMatchedSceneBeat;
-          if (typeof m.useCustomContext === "boolean") partial.useCustomContext = m.useCustomContext;
-          set(partial as any);
-        }
-      }).catch((error: unknown) => console.error("Error loading toggle states:", error));
-    }
-  }, [sceneBeatId, isLoaded, set]);
+  }, [useMatchedChapter, useMatchedSceneBeat, useCustomContext, sceneBeatId, isLoaded, writeNodeSnapshot]);
 
   // Clear custom context when toggled off
   useEffect(() => {
@@ -311,6 +483,20 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
       set({ includeAllLorebook: false, selectedItems: [] });
     }
   }, [useCustomContext, set]);
+
+  useEffect(() => {
+    if (sceneBeatId && isLoaded) {
+      writeNodeSnapshot({
+        collapsed,
+        povType,
+        povCharacter,
+      });
+      const cached = useSceneBeatStore.getState().getCachedSceneBeat(sceneBeatId);
+      if (cached) {
+        useSceneBeatStore.getState().upsertSceneBeat({ ...cached, povType, povCharacter });
+      }
+    }
+  }, [collapsed, povType, povCharacter, sceneBeatId, isLoaded, writeNodeSnapshot]);
 
   // Initialize command history
   useEffect(() => {
@@ -588,7 +774,13 @@ function SceneBeatInner({ nodeKey }: { nodeKey: NodeKey }) {
 
 // ── Orchestrator wrapper (creates store + provides context) ────
 
-function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
+function SceneBeatComponent({
+  nodeKey,
+  initialSnapshot,
+}: {
+  nodeKey: NodeKey;
+  initialSnapshot: SceneBeatNodeSnapshot;
+}): JSX.Element {
   const storeRef = useRef<SceneBeatInstanceStoreApi>();
   if (!storeRef.current) {
     storeRef.current = createSceneBeatInstanceStore(nodeKey);
@@ -596,7 +788,7 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 
   return (
     <SceneBeatStoreContext.Provider value={storeRef.current}>
-      <SceneBeatInner nodeKey={nodeKey} />
+      <SceneBeatInner nodeKey={nodeKey} initialSnapshot={initialSnapshot} />
     </SceneBeatStoreContext.Provider>
   );
 }
@@ -605,10 +797,28 @@ function SceneBeatComponent({ nodeKey }: { nodeKey: NodeKey }): JSX.Element {
 
 export class SceneBeatNode extends DecoratorNode<JSX.Element> {
   __sceneBeatId: string;
+  __command: string;
+  __povType: SceneBeat["povType"] | undefined;
+  __povCharacter: string | undefined;
+  __generatedContent: string;
+  __accepted: boolean;
+  __metadata: SceneBeat["metadata"] | undefined;
+  __collapsed: boolean;
 
-  constructor(sceneBeatId: string = "", key?: NodeKey) {
+  constructor(
+    sceneBeatId: string = "",
+    snapshot: Partial<SceneBeatNodeSnapshot> = {},
+    key?: NodeKey
+  ) {
     super(key);
     this.__sceneBeatId = sceneBeatId;
+    this.__command = snapshot.command || "";
+    this.__povType = snapshot.povType;
+    this.__povCharacter = snapshot.povCharacter;
+    this.__generatedContent = snapshot.generatedContent || "";
+    this.__accepted = snapshot.accepted || false;
+    this.__metadata = snapshot.metadata;
+    this.__collapsed = snapshot.collapsed || false;
   }
 
   static getType(): string {
@@ -616,18 +826,45 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
   }
 
   static clone(node: SceneBeatNode): SceneBeatNode {
-    return new SceneBeatNode(node.__sceneBeatId, node.__key);
+    return new SceneBeatNode(
+      node.__sceneBeatId,
+      {
+        command: node.__command,
+        povType: node.__povType,
+        povCharacter: node.__povCharacter,
+        generatedContent: node.__generatedContent,
+        accepted: node.__accepted,
+        metadata: node.__metadata,
+        collapsed: node.__collapsed,
+      },
+      node.__key
+    );
   }
 
   static importJSON(serializedNode: SerializedSceneBeatNode): SceneBeatNode {
-    return $createSceneBeatNode(serializedNode.sceneBeatId || "");
+    return $createSceneBeatNode(serializedNode.sceneBeatId || "", {
+      command: serializedNode.command || "",
+      povType: serializedNode.povType,
+      povCharacter: serializedNode.povCharacter,
+      generatedContent: serializedNode.generatedContent || "",
+      accepted: serializedNode.accepted || false,
+      metadata: serializedNode.metadata,
+      collapsed: serializedNode.collapsed || false,
+    });
   }
 
   exportJSON(): SerializedSceneBeatNode {
     return {
       type: "scene-beat",
-      version: 1,
+      version: 2,
       sceneBeatId: this.__sceneBeatId,
+      command: this.__command,
+      povType: this.__povType,
+      povCharacter: this.__povCharacter,
+      generatedContent: this.__generatedContent,
+      accepted: this.__accepted,
+      metadata: this.__metadata,
+      collapsed: this.__collapsed,
     };
   }
 
@@ -636,8 +873,42 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
   }
 
   setSceneBeatId(id: string): void {
+    if (this.__sceneBeatId === id) return;
     const writable = this.getWritable();
     writable.__sceneBeatId = id;
+  }
+
+  setSceneBeatSnapshot(snapshot: Partial<SceneBeatNodeSnapshot>): void {
+    let writable: SceneBeatNode | null = null;
+    const getWritableNode = () => {
+      writable = writable || this.getWritable();
+      return writable;
+    };
+
+    if ("sceneBeatId" in snapshot && this.__sceneBeatId !== (snapshot.sceneBeatId || "")) {
+      getWritableNode().__sceneBeatId = snapshot.sceneBeatId || "";
+    }
+    if ("command" in snapshot && this.__command !== (snapshot.command || "")) {
+      getWritableNode().__command = snapshot.command || "";
+    }
+    if ("povType" in snapshot && this.__povType !== snapshot.povType) {
+      getWritableNode().__povType = snapshot.povType;
+    }
+    if ("povCharacter" in snapshot && this.__povCharacter !== snapshot.povCharacter) {
+      getWritableNode().__povCharacter = snapshot.povCharacter;
+    }
+    if ("generatedContent" in snapshot && this.__generatedContent !== (snapshot.generatedContent || "")) {
+      getWritableNode().__generatedContent = snapshot.generatedContent || "";
+    }
+    if ("accepted" in snapshot && this.__accepted !== (snapshot.accepted || false)) {
+      getWritableNode().__accepted = snapshot.accepted || false;
+    }
+    if ("metadata" in snapshot && JSON.stringify(this.__metadata) !== JSON.stringify(snapshot.metadata)) {
+      getWritableNode().__metadata = snapshot.metadata;
+    }
+    if ("collapsed" in snapshot && this.__collapsed !== (snapshot.collapsed || false)) {
+      getWritableNode().__collapsed = snapshot.collapsed || false;
+    }
   }
 
   createDOM(): HTMLElement {
@@ -657,14 +928,29 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
   decorate(): JSX.Element {
     return (
       <Suspense fallback={null}>
-        <SceneBeatComponent nodeKey={this.__key} />
+        <SceneBeatComponent
+          nodeKey={this.__key}
+          initialSnapshot={{
+            sceneBeatId: this.__sceneBeatId,
+            command: this.__command,
+            povType: this.__povType,
+            povCharacter: this.__povCharacter,
+            generatedContent: this.__generatedContent,
+            accepted: this.__accepted,
+            metadata: this.__metadata,
+            collapsed: this.__collapsed,
+          }}
+        />
       </Suspense>
     );
   }
 }
 
-export function $createSceneBeatNode(sceneBeatId: string = ""): SceneBeatNode {
-  return $applyNodeReplacement(new SceneBeatNode(sceneBeatId));
+export function $createSceneBeatNode(
+  sceneBeatId: string = "",
+  snapshot: Partial<SceneBeatNodeSnapshot> = {}
+): SceneBeatNode {
+  return $applyNodeReplacement(new SceneBeatNode(sceneBeatId, snapshot));
 }
 
 export function $isSceneBeatNode(

@@ -67,7 +67,10 @@ import ImageResizer from '../ui/ImageResizer';
 import {EmojiNode} from './EmojiNode';
 import {$isImageNode} from './ImageNode';
 import {KeywordNode} from './KeywordNode';
-import {resolveAssetDisplayUrl} from '@/features/images/services/assetStorage';
+import {
+  isAssetReference,
+  resolveAssetDisplayUrl,
+} from '@/features/images/services/assetStorage';
 
 const imageCache = new Set();
 
@@ -85,6 +88,7 @@ function useSuspenseImage(src: string) {
       };
       img.onerror = () => {
         imageCache.add(src);
+        resolve(null);
       };
     });
   }
@@ -174,12 +178,23 @@ export default function ImageComponent({
   const [selection, setSelection] = useState<BaseSelection | null>(null);
   const activeEditorRef = useRef<LexicalEditor | null>(null);
   const [isLoadError, setIsLoadError] = useState<boolean>(false);
-  const [displaySrc, setDisplaySrc] = useState(src);
+  const [displaySrc, setDisplaySrc] = useState<string | null>(() =>
+    isAssetReference(src) ? null : src,
+  );
   const isEditable = useLexicalEditable();
 
   useEffect(() => {
     let cancelled = false;
     setIsLoadError(false);
+
+    if (!isAssetReference(src)) {
+      setDisplaySrc(src);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setDisplaySrc(null);
     resolveAssetDisplayUrl(src)
       .then((url) => {
         if (!cancelled) setDisplaySrc(url);
@@ -425,6 +440,8 @@ export default function ImageComponent({
         <div draggable={draggable}>
           {isLoadError ? (
             <BrokenImage />
+          ) : displaySrc === null ? (
+            null
           ) : (
             <LazyImage
               className={

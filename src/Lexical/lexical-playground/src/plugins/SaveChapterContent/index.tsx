@@ -5,7 +5,7 @@ import { useStoryContext } from '@/features/stories/context/StoryContext';
 import { toast } from 'react-toastify';
 import { TOAST_CLOSE_TIMER, TOAST_POSITION } from '@/constants';
 import { debounce } from 'lodash';
-import { $isSceneBeatNode } from '../../nodes/SceneBeatNode';
+import { SCENE_BEAT_SNAPSHOT_TAG } from '../../nodes/SceneBeatNode';
 import { $getRoot, $getNodeByKey } from 'lexical';
 import { saveLastEditorTarget } from '@/features/editor/utils/lastEditorTarget';
 import { useEditorSaveStatusStore } from '@/features/editor/stores/useEditorSaveStatusStore';
@@ -52,8 +52,12 @@ export function SaveChapterContentPlugin(): null {
                 return;
             }
 
-            // Skip if no changes
-            if (dirtyElements.size === 0 && dirtyLeaves.size === 0) {
+            const isSceneBeatSnapshotUpdate = tags.has(SCENE_BEAT_SNAPSHOT_TAG);
+
+            // Skip if no changes. SceneBeat snapshot updates can dirty DecoratorNode
+            // fields without producing dirty text leaves, but they still need chapter
+            // JSON persistence.
+            if (!isSceneBeatSnapshotUpdate && dirtyElements.size === 0 && dirtyLeaves.size === 0) {
                 return;
             }
 

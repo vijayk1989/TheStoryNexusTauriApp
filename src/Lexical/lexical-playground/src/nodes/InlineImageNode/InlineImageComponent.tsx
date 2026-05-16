@@ -44,6 +44,10 @@ import {DialogActions} from '../../ui/Dialog';
 import Select from '../../ui/Select';
 import TextInput from '../../ui/TextInput';
 import {$isInlineImageNode, InlineImageNode} from './InlineImageNode';
+import {
+  isAssetReference,
+  resolveAssetDisplayUrl,
+} from '@/features/images/services/assetStorage';
 
 const imageCache = new Set();
 
@@ -53,6 +57,10 @@ function useSuspenseImage(src: string) {
       const img = new Image();
       img.src = src;
       img.onload = () => {
+        imageCache.add(src);
+        resolve(null);
+      };
+      img.onerror = () => {
         imageCache.add(src);
         resolve(null);
       };
@@ -202,7 +210,34 @@ export default function InlineImageComponent({
   const [editor] = useLexicalComposerContext();
   const [selection, setSelection] = useState<BaseSelection | null>(null);
   const activeEditorRef = useRef<LexicalEditor | null>(null);
+  const [displaySrc, setDisplaySrc] = useState<string | null>(() =>
+    isAssetReference(src) ? null : src,
+  );
   const isEditable = useLexicalEditable();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isAssetReference(src)) {
+      setDisplaySrc(src);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setDisplaySrc(null);
+    resolveAssetDisplayUrl(src)
+      .then((url) => {
+        if (!cancelled) setDisplaySrc(url);
+      })
+      .catch((error) => {
+        console.error('Failed to resolve inline image asset:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
 
   const $onDelete = useCallback(
     (payload: KeyboardEvent) => {
@@ -374,19 +409,21 @@ export default function InlineImageComponent({
               Edit
             </button>
           )}
-          <LazyImage
-            className={
-              isFocused
-                ? `focused ${$isNodeSelection(selection) ? 'draggable' : ''}`
-                : null
-            }
-            src={src}
-            altText={altText}
-            imageRef={imageRef}
-            width={width}
-            height={height}
-            position={position}
-          />
+          {displaySrc !== null && (
+            <LazyImage
+              className={
+                isFocused
+                  ? `focused ${$isNodeSelection(selection) ? 'draggable' : ''}`
+                  : null
+              }
+              src={displaySrc}
+              altText={altText}
+              imageRef={imageRef}
+              width={width}
+              height={height}
+              position={position}
+            />
+          )}
         </span>
         {showCaption && (
           <span className="image-caption-container">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type WheelEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -236,6 +236,19 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         setParallelModels(parallelModels.filter(m => getModelKey(m) !== modelKey));
     };
 
+    const handlePickerWheel = (event: WheelEvent<HTMLDivElement>) => {
+        const scroller = event.currentTarget;
+        const previousScrollTop = scroller.scrollTop;
+
+        scroller.scrollTop += event.deltaY;
+        scroller.scrollLeft += event.deltaX;
+
+        if (scroller.scrollTop !== previousScrollTop || event.deltaX !== 0) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    };
+
     const handleAddMessage = (role: 'system' | 'user' | 'assistant') => {
         if (isImagePrompt) return;
         setMessages([...messages, { role, content: '' }]);
@@ -443,13 +456,13 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                     {selectedModels.map((model) => (
                         <Badge
                             key={getModelKey(model)}
-                            variant="secondary"
-                            className="flex items-center gap-1 px-3 py-1" 
+                            variant="outline"
+                            className="flex items-center gap-1 border-border bg-elevated px-3 py-1 text-foreground"
                         >
                             {showProviderLabels ? (
                                 <>
-                                    <span className="text-xs opacity-70">{model.provider}:</span>
-                                    <span>{model.name}</span>
+                                    <span className="text-xs text-muted-foreground">{model.provider}:</span>
+                                    <span className="font-medium">{model.name}</span>
                                 </>
                             ) : (
                                 model.name
@@ -457,7 +470,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                             <button
                                 type="button"
                                 onClick={() => removeModel(model)}
-                                className="ml-1 hover:text-destructive"
+                                className="ml-1 text-muted-foreground hover:text-destructive"
                             >
                                 <X className="h-3 w-3" />
                             </button>
@@ -479,7 +492,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 autoFocus
                             />
 
-                            <div className="max-h-64 overflow-auto">
+                            <div className="max-h-64 overflow-auto" onWheel={handlePickerWheel}>
                                 {Object.keys(filteredModelGroups).length === 0 && (
                                     <div className="p-2 text-sm text-muted-foreground">No models found</div>
                                 )}
@@ -556,14 +569,14 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                             </Label>
                         </div>
                         {multiModelEnabled && parallelModels.length > 0 && (
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-sm font-medium text-foreground/80">
                                 {parallelModels.length}/3 models selected
                             </span>
                         )}
                     </div>
                     
                     <CollapsibleContent className="mt-4 space-y-4">
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm leading-6 text-foreground/80">
                             Select 2-3 models to compare when using this prompt. In SceneBeat, you can toggle multi-model mode to generate responses from all selected models simultaneously.
                         </p>
                         
@@ -572,13 +585,13 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                             {parallelModels.map((model) => (
                                 <Badge
                                     key={getModelKey(model)}
-                                    variant="secondary"
-                                    className="flex items-center gap-1 px-3 py-1 bg-blue-500/10 border-blue-500/20" 
+                                    variant="outline"
+                                    className="flex items-center gap-1 border-secondary/35 bg-secondary/10 px-3 py-1 text-foreground"
                                 >
                                     {showProviderLabels ? (
                                         <>
-                                            <span className="text-xs opacity-70">{model.provider}:</span>
-                                            <span>{model.name}</span>
+                                            <span className="text-xs text-muted-foreground">{model.provider}:</span>
+                                            <span className="font-medium">{model.name}</span>
                                         </>
                                     ) : (
                                         model.name
@@ -586,7 +599,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                     <button
                                         type="button"
                                         onClick={() => removeParallelModel(model)}
-                                        className="ml-1 hover:text-destructive"
+                                        className="ml-1 text-muted-foreground hover:text-destructive"
                                     >
                                         <X className="h-3 w-3" />
                                     </button>
@@ -618,7 +631,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                             autoFocus
                                         />
 
-                                        <div className="max-h-64 overflow-auto">
+                                        <div className="max-h-64 overflow-auto" onWheel={handlePickerWheel}>
                                             {Object.keys(filteredParallelModelGroups).length === 0 && (
                                                 <div className="p-2 text-sm text-muted-foreground">No models found</div>
                                             )}

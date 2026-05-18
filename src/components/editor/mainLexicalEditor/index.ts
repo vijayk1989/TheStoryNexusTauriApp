@@ -1,0 +1,1 @@
+export { MainLexicalEditor } from "./MainLexicalEditor";

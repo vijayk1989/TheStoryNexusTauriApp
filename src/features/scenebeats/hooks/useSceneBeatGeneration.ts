@@ -21,13 +21,25 @@ import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { sceneBeatService } from '@/features/scenebeats/services/sceneBeatService';
 import { useAgenticGeneration, type AgenticGenerationContext, type AgenticGenerationCallbacks } from '@/features/agents/hooks/useAgenticGeneration';
 import { useParallelGeneration } from '@/features/agents/hooks/useParallelGeneration';
-import { SceneBeatNode } from '@/Lexical/lexical-playground/src/nodes/SceneBeatNode';
 import type {
     Prompt,
     PromptParserConfig,
     AllowedModel,
 } from '@/types/story';
 import type { SceneBeatInstanceStoreApi } from '../stores/useSceneBeatInstanceStore';
+
+type SceneBeatSnapshotWriter = {
+    setSceneBeatSnapshot: (snapshot: Record<string, unknown>) => void;
+};
+
+function canWriteSceneBeatSnapshot(node: unknown): node is SceneBeatSnapshotWriter {
+    return Boolean(
+        node &&
+        typeof node === 'object' &&
+        'setSceneBeatSnapshot' in node &&
+        typeof (node as SceneBeatSnapshotWriter).setSceneBeatSnapshot === 'function'
+    );
+}
 
 export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
     const [editor] = useLexicalComposerContext();
@@ -39,10 +51,10 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
     const agenticHook = useAgenticGeneration();
     const parallelHook = useParallelGeneration();
 
-    const updateNodeSnapshot = useCallback((snapshot: Parameters<SceneBeatNode['setSceneBeatSnapshot']>[0]) => {
+    const updateNodeSnapshot = useCallback((snapshot: Record<string, unknown>) => {
         editor.update(() => {
             const node = $getNodeByKey(store.getState().nodeKey);
-            if (node instanceof SceneBeatNode) {
+            if (canWriteSceneBeatSnapshot(node)) {
                 node.setSceneBeatSnapshot(snapshot);
             }
         });

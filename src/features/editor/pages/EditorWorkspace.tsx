@@ -74,6 +74,7 @@ import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
 import { StoryEditor } from "@/features/chapters/components/StoryEditor";
 import { db } from "@/services/database";
+import { dbSeeder } from "@/services/dbSeed";
 import { storyExportService } from "@/services/storyExportService";
 import type { AllowedModel, Chapter, Prompt, PromptParserConfig, Story } from "@/types/story";
 import { cn } from "@/lib/utils";
@@ -191,6 +192,7 @@ export default function EditorWorkspace() {
         let cancelled = false;
 
         const initialize = async () => {
+            await dbSeeder.initialize();
             await fetchStories();
             const allStories = await db.stories.toArray();
             if (cancelled) return;

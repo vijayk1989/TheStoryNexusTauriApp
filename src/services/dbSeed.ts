@@ -1,5 +1,6 @@
 import { db } from "./database";
 import { Prompt } from "../types/story";
+import { EXAMPLE_STORY_ID, exampleStorySeed } from "../data/exampleStory";
 import systemPrompts from "../data/systemPrompts";
 
 export class DatabaseSeeder {
@@ -31,18 +32,17 @@ export class DatabaseSeeder {
     try {
       console.log("Initializing database with seed data...");
 
-      // Check if we need to seed
-      const needsSeeding = await this.checkIfSeedingNeeded();
+      const needsSystemPromptSeeding = await this.checkIfSystemPromptSeedingNeeded();
 
-      if (needsSeeding || forceReseed) {
-        // Seed system prompts with fixed IDs
+      if (needsSystemPromptSeeding || forceReseed) {
         await this.seedSystemPrompts(forceReseed);
-
-        console.log("Database seeding complete.");
       } else {
-        console.log("Database already contains seed data. Skipping seeding.");
+        console.log("Database already contains system prompts. Skipping prompt seeding.");
       }
 
+      await this.seedExampleStory(forceReseed);
+
+      console.log("Database seeding complete.");
       DatabaseSeeder.isInitialized = true;
     } catch (error) {
       console.error("Error initializing database:", error);
@@ -62,7 +62,7 @@ export class DatabaseSeeder {
   /**
    * Check if seeding is needed by looking for system prompts
    */
-  private async checkIfSeedingNeeded(): Promise<boolean> {
+  private async checkIfSystemPromptSeedingNeeded(): Promise<boolean> {
     // Get all system prompt IDs from the systemPrompts data
     const systemPromptIds = systemPrompts.map((prompt) => prompt.id);
 
@@ -125,6 +125,56 @@ export class DatabaseSeeder {
         } as Prompt);
       }
     }
+  }
+
+  /**
+   * Seed the example fantasy story from docs/ExampleStory.md.
+   * This runs independently from prompt seeding so existing local databases get
+   * the test story on their next startup without duplicate rows.
+   */
+  private async seedExampleStory(forceReseed = false): Promise<void> {
+    const existing = await db.stories.get(EXAMPLE_STORY_ID);
+
+    if (existing && !forceReseed) {
+      console.log("Example story already exists. Skipping.");
+      return;
+    }
+
+    if (existing && forceReseed) {
+      console.log("Force reseeding - replacing example story...");
+      await db.deleteStoryWithRelated(EXAMPLE_STORY_ID);
+    }
+
+    const createdAt = new Date();
+
+    await db.transaction(
+      "rw",
+      [db.stories, db.chapters, db.lorebookEntries],
+      async () => {
+        await db.stories.add({
+          ...exampleStorySeed.story,
+          createdAt,
+        });
+
+        await db.chapters.bulkAdd(
+          exampleStorySeed.chapters.map((chapter) => ({
+            ...chapter,
+            createdAt,
+          }))
+        );
+
+        await db.lorebookEntries.bulkAdd(
+          exampleStorySeed.lorebookEntries.map((entry) => ({
+            ...entry,
+            createdAt,
+          }))
+        );
+      }
+    );
+
+    console.log(
+      `Seeded example story "${exampleStorySeed.story.title}" with ${exampleStorySeed.chapters.length} chapters and ${exampleStorySeed.lorebookEntries.length} lore entries.`
+    );
   }
 }
 

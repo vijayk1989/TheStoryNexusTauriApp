@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { useImageGenerationStore } from "@/features/images/stores/useImageGenerationStore";
 import { assetReference, resolveAssetDisplayUrl } from "@/features/images/services/assetStorage";
-import { dispatchInsertAssetImage } from "@/Lexical/lexical-playground/src/plugins/AssetImageInsertPlugin";
+import { dispatchInsertAssetImage } from "@/components/editor/mainLexicalEditor/plugins/AssetImageInsertPlugin";
 import type { MediaAsset } from "@/types/story";
 import { toast } from "react-toastify";
 import { db } from "@/services/database";

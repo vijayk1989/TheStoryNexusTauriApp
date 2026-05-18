@@ -22,7 +22,7 @@ src/components/editor/mainLexicalEditor/
   styles.css
 ```
 
-The old playground can remain temporarily under `src/Lexical/lexical-playground` while we port the required pieces. The new package should not import from the old playground long term, except during temporary migration steps.
+The old playground has been removed. The new editor package must remain self-contained and avoid reintroducing playground-era coupling.
 
 ## Must Work
 
@@ -295,25 +295,22 @@ Keep it intentionally thin because you already want to rework it later:
 
 ### Phase 7: Swap Editor Entry Point
 
-Replace:
-
-```ts
-import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
-```
-
-with the new editor:
+Completed replacement:
 
 ```ts
 import { MainLexicalEditor } from "@/components/editor/mainLexicalEditor/MainLexicalEditor";
 ```
 
-Keep the old playground folder in the repo for one or two passes while verifying. Once the new editor is the only runtime path, delete the old folder and remove unused dependencies.
+The old playground folder has been removed. The clean editor is now the only runtime editor path.
 
-### Phase 8: Delete Playground
+### Phase 8: Delete Playground - Complete
 
-After the new editor passes verification:
+Completed cleanup:
 
-- delete `src/Lexical/lexical-playground`
+- deleted `src/Lexical/lexical-playground`
+- removed stale `@lexical-playground` path aliases
+
+Follow-up dependency cleanup candidates:
 - remove unused dependencies:
   - `@lexical/table` if tables are gone
   - `@lexical/markdown` if markdown shortcuts are gone
@@ -411,4 +408,3 @@ Feature-specific checks:
 ## Notes
 
 This plan intentionally creates temporary duplication. That is preferable here. Trying to surgically mutate the playground into the final shape keeps us coupled to old assumptions. A clean editor lets us build toward the product we actually have now.
-

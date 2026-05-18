@@ -16,7 +16,7 @@ Primary files:
 | Pipeline execution engine | `src/services/ai/AgentOrchestrator.ts` |
 | React generation hook | `src/features/agents/hooks/useAgenticGeneration.ts` |
 | Types | `src/types/story.ts` |
-| Scene beat integration | `src/Lexical/lexical-playground/src/nodes/SceneBeatNode.tsx` |
+| Scene beat integration | `src/components/editor/mainLexicalEditor/nodes/SceneBeatNode.tsx` |
 
 ## Concepts
 

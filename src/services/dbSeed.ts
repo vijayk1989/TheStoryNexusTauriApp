@@ -136,6 +136,7 @@ export class DatabaseSeeder {
     const existing = await db.stories.get(EXAMPLE_STORY_ID);
 
     if (existing && !forceReseed) {
+      await this.repairExistingExampleStoryChapters();
       console.log("Example story already exists. Skipping.");
       return;
     }
@@ -176,6 +177,78 @@ export class DatabaseSeeder {
       `Seeded example story "${exampleStorySeed.story.title}" with ${exampleStorySeed.chapters.length} chapters and ${exampleStorySeed.lorebookEntries.length} lore entries.`
     );
   }
+
+  private async repairExistingExampleStoryChapters(): Promise<void> {
+    const seedChaptersById = new Map(
+      exampleStorySeed.chapters.map((chapter) => [chapter.id, chapter])
+    );
+    const chapters = await db.chapters
+      .where("storyId")
+      .equals(EXAMPLE_STORY_ID)
+      .toArray();
+    const updates = chapters
+      .map((chapter) => {
+        const seedChapter = seedChaptersById.get(chapter.id);
+        if (!seedChapter || !chapter.isDemo) return null;
+        if (!isSameLexicalPlainText(chapter.content, seedChapter.content)) return null;
+        if (!shouldRepairSeededChapterContent(chapter.content)) return null;
+        return { id: chapter.id, content: seedChapter.content };
+      })
+      .filter((update): update is { id: string; content: string } => update !== null);
+
+    if (updates.length === 0) return;
+
+    await db.transaction("rw", db.chapters, async () => {
+      for (const update of updates) {
+        await db.chapters.update(update.id, { content: update.content });
+      }
+    });
+
+    console.log(`Repaired ${updates.length} existing example story chapter(s).`);
+  }
+}
+
+function shouldRepairSeededChapterContent(content: string): boolean {
+  try {
+    const parsed = JSON.parse(content);
+    const children = parsed?.root?.children;
+    if (!Array.isArray(children)) return false;
+
+    const textNodes = collectTextNodes(parsed.root);
+    const hasTextNodeNewlines = textNodes.some((node) => /\r?\n/.test(node.text));
+    return hasTextNodeNewlines || children.length <= 3;
+  } catch {
+    return false;
+  }
+}
+
+function isSameLexicalPlainText(left: string, right: string): boolean {
+  return normalizePlainText(extractLexicalPlainText(left)) === normalizePlainText(extractLexicalPlainText(right));
+}
+
+function extractLexicalPlainText(content: string): string {
+  try {
+    const parsed = JSON.parse(content);
+    return collectTextNodes(parsed?.root)
+      .map((node) => node.text)
+      .join(" ");
+  } catch {
+    return "";
+  }
+}
+
+function collectTextNodes(node: unknown): Array<{ text: string }> {
+  if (!node || typeof node !== "object") return [];
+  const current = node as { children?: unknown; text?: unknown; type?: unknown };
+  const ownText = current.type === "text" && typeof current.text === "string"
+    ? [{ text: current.text }]
+    : [];
+  if (!Array.isArray(current.children)) return ownText;
+  return ownText.concat(current.children.flatMap(collectTextNodes));
+}
+
+function normalizePlainText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 // Export singleton instance

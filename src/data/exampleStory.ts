@@ -6,10 +6,17 @@ type ChapterSeed = Omit<Chapter, "createdAt">;
 
 export const EXAMPLE_STORY_ID = "example-story-iron-salt";
 
+function normalizeLexicalParagraphText(content: string): string {
+  return content
+    .replace(/\s*\r?\n\s*/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 function createLexicalState(content: string): string {
   const paragraphs = content
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
+    .split(/(?:\r?\n){2,}/)
+    .map(normalizeLexicalParagraphText)
     .filter(Boolean);
 
   return JSON.stringify({
@@ -49,7 +56,7 @@ function countWords(content: string): number {
 function normalizeBody(content: string): string {
   return content
     .replace(/^\s*---\s*$/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/(?:\r?\n){3,}/g, "\n\n")
     .trim();
 }
 

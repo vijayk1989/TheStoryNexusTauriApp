@@ -160,6 +160,7 @@ Imported prompts are validated, assigned fresh IDs, and created as editable non-
 
 ## Documentation
 
+- [Repository Working Rules](AGENTS.md) records testing expectations, local LLM safety rules, and general coding workflow rules.
 - [Agents](docs/AGENTS.md) explains agent presets, pipeline presets, roles, context controls, and runtime flow.
 - [Agent Orchestrator](docs/AgentOrchestrator.md) documents the multi-agent execution engine.
 - [UI Overhaul Checkpoint](docs/UI_OVERHAUL_CHECKPOINT.md) captures historical overhaul context and useful source maps.

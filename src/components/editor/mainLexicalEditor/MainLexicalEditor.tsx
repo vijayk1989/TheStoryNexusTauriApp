@@ -21,6 +21,7 @@ import { ChapterContentPlugin } from "./plugins/ChapterContentPlugin";
 import { LorebookHighlightPlugin } from "./plugins/LorebookHighlightPlugin";
 import { SceneBeatShortcutPlugin } from "./plugins/SceneBeatShortcutPlugin";
 import { SlashCommandPlugin } from "./plugins/SlashCommandPlugin";
+import { EditorE2EBridge } from "./testing/EditorE2EBridge";
 import { WordCountPlugin } from "./plugins/WordCountPlugin";
 import { StoryToolbarPlugin } from "./toolbar/StoryToolbarPlugin";
 
@@ -99,6 +100,7 @@ export function MainLexicalEditor({ maximizeButton }: MainLexicalEditorProps) {
                     <LorebookHighlightPlugin />
                     <SlashCommandPlugin />
                     <FloatingToolbarPlugin anchorElem={floatingAnchorElem} />
+                    {import.meta.env.VITE_E2E === "true" ? <EditorE2EBridge /> : null}
                     <AutoFocusPlugin />
                     <WordCountPlugin onChange={setWordCount} />
                 </div>

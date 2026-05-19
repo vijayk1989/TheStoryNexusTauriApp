@@ -114,6 +114,7 @@ export function SceneBeatCommandEditor() {
         onKeyDown={handleKeyDown}
         placeholder="Describe the scene beat..."
         className="min-h-[80px] md:min-h-[100px] resize-none text-sm md:text-base"
+        data-testid="scene-beat-command"
       />
       <div className="flex items-center justify-between mt-1">
         <div className="flex-1 min-w-0">
@@ -160,4 +161,3 @@ export function SceneBeatCommandEditor() {
     </div>
   );
 }
-

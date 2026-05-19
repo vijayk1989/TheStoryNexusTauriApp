@@ -42,7 +42,8 @@ interface AIState {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        modelId?: string
     ) => Promise<Response>;
 
     processStreamedResponse: (
@@ -176,11 +177,11 @@ export const useAIStore = create<AIState>((set, get) => ({
         }
     },
 
-    generateWithLocalModel: async (messages: PromptMessage[], temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number, min_p?: number) => {
+    generateWithLocalModel: async (messages: PromptMessage[], temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number, min_p?: number, modelId?: string) => {
         if (!get().isInitialized) {
             await get().initialize();
         }
-        return aiService.generateWithLocalModel(messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p);
+        return aiService.generateWithLocalModel(messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p, modelId);
     },
 
     processStreamedResponse: async (response, onToken, onComplete, onError, onStatus) => {
@@ -235,7 +236,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    selectedModel.id
                 );
             case 'openai':
                 return aiService.generateWithOpenAI(
@@ -334,7 +336,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    selectedModel.id
                 );
             case 'openai':
                 return aiService.generateWithOpenAI(

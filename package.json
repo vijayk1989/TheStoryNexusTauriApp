@@ -10,6 +10,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:editor": "playwright test tests/editor.spec.ts --project=chromium",
+    "test:e2e:llm": "node tests/run-local-llm.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -97,6 +101,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.1",
+    "@playwright/test": "^1.60.0",
     "@rollup/plugin-babel": "^6.0.4",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@tauri-apps/cli": "^2",
@@ -105,6 +110,7 @@
     "@testing-library/react": "^16.0.1",
     "@testing-library/user-event": "^14.6.1",
     "@types/lodash-es": "^4.14.182",
+    "@types/node": "^25.8.0",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

@@ -27,7 +27,11 @@ export function AIGenerateMenu({
     return (
         <Menubar>
             <MenubarMenu>
-                <MenubarTrigger className="gap-2" disabled={isGenerating}>
+                <MenubarTrigger
+                    className="gap-2"
+                    disabled={isGenerating}
+                    data-testid={`ai-generate-${promptType}-trigger`}
+                >
                     {isGenerating ? (
                         <>
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -51,7 +55,7 @@ export function AIGenerateMenu({
                         <>
                             {filteredPrompts.map((prompt) => (
                                 <MenubarSub key={prompt.id}>
-                                    <MenubarSubTrigger>
+                                    <MenubarSubTrigger data-testid={`ai-generate-prompt-${prompt.id}`}>
                                         <div className="flex flex-col">
                                             <span>{prompt.name}</span>
                                             <span className="text-xs text-muted-foreground">
@@ -65,6 +69,7 @@ export function AIGenerateMenu({
                                                 key={model.id}
                                                 onClick={() => onGenerate(prompt, model)}
                                                 disabled={isGenerating}
+                                                data-testid={`ai-generate-model-${prompt.id}-${model.provider}-${model.id}`}
                                             >
                                                 <div className="flex flex-col">
                                                     <span>{model.name}</span>

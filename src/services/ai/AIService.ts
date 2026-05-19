@@ -428,13 +428,16 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        modelId?: string
     ): Promise<Response> {
+        if (!this.settings) throw new Error('AIService not initialized');
+
         // Create request body with optional parameters
         const requestBody: any = {
             messages,
             stream: true,
-            model: 'local/llama-3.2-3b-instruct',
+            model: this.resolveLocalModelId(modelId),
             temperature,
             max_tokens: maxTokens,
         };
@@ -466,6 +469,14 @@ export class AIService {
             body: JSON.stringify(requestBody),
             signal: this.abortController.signal,
         });
+    }
+
+    private resolveLocalModelId(modelId?: string): string {
+        const configuredModelId = modelId && modelId !== 'local'
+            ? modelId
+            : this.settings?.availableModels.find(model => model.provider === 'local')?.id;
+
+        return (configuredModelId || 'local/llama-3.2-3b-instruct').replace(/^local\//, '');
     }
 
     async processStreamedResponse(

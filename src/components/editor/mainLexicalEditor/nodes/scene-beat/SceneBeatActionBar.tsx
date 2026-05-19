@@ -215,6 +215,7 @@ export function SceneBeatActionBar({
                             }
                             size="sm"
                             className="text-xs md:text-sm"
+                            data-testid="scene-beat-generate"
                         >
                             {streaming ? (
                                 <>
@@ -259,10 +260,10 @@ export function SceneBeatActionBar({
             {/* Accept / Reject / Save Draft buttons */}
             {streamComplete && (
                 <div className="flex items-center gap-2 mt-2">
-                    <Button size="sm" onClick={onAccept} className="text-xs md:text-sm">
+                    <Button size="sm" onClick={onAccept} className="text-xs md:text-sm" data-testid="scene-beat-accept">
                         Accept
                     </Button>
-                    <Button variant="outline" size="sm" onClick={onReject} className="text-xs md:text-sm">
+                    <Button variant="outline" size="sm" onClick={onReject} className="text-xs md:text-sm" data-testid="scene-beat-reject">
                         Reject
                     </Button>
                     <Button

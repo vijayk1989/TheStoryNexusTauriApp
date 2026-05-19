@@ -38,6 +38,7 @@ export function SceneBeatBlock({
   return (
     <div
       className="relative my-4 rounded-lg border border-border bg-card overflow-hidden max-w-full"
+      data-testid="scene-beat-block"
       {...{ [SCENE_BEAT_NODE_KEY_ATTR]: nodeKey }}
     >
       <SceneBeatHeader
@@ -52,7 +53,10 @@ export function SceneBeatBlock({
 
           {(streaming || streamComplete) && streamedText && (
             <div className="px-3 md:px-4 pb-3">
-              <div className="rounded-md border p-3 md:p-4 bg-muted/20 text-sm md:text-base whitespace-pre-wrap max-h-[300px] md:max-h-[400px] overflow-y-auto">
+              <div
+                className="rounded-md border p-3 md:p-4 bg-muted/20 text-sm md:text-base whitespace-pre-wrap max-h-[300px] md:max-h-[400px] overflow-y-auto"
+                data-testid="scene-beat-output"
+              >
                 {streamedText}
                 {streaming && (
                   <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />

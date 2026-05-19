@@ -128,7 +128,7 @@ export default function EditorWorkspace() {
     const { currentStoryId, currentChapterId, setCurrentStoryId, setCurrentChapterId } = useStoryContext();
     const { loadEntries, buildTagMap, entries } = useLorebookStore();
     const { generateWithPrompt, processStreamedResponse } = useAIStore();
-    const { prompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
+    const { prompts, fetchPrompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
 
     const currentStoryEntries = useMemo(
         () => entries.filter((entry) => entry.storyId === currentStoryId),
@@ -193,7 +193,7 @@ export default function EditorWorkspace() {
 
         const initialize = async () => {
             await dbSeeder.initialize();
-            await fetchStories();
+            await Promise.all([fetchStories(), fetchPrompts()]);
             const allStories = await db.stories.toArray();
             if (cancelled) return;
 
@@ -234,7 +234,7 @@ export default function EditorWorkspace() {
         return () => {
             cancelled = true;
         };
-    }, [activateStory, fetchStories, setCurrentChapter, setCurrentChapterId, setCurrentStoryId]);
+    }, [activateStory, fetchPrompts, fetchStories, setCurrentChapter, setCurrentChapterId, setCurrentStoryId]);
 
     const handleStorySelect = async (storyId: string) => {
         await activateStory(storyId);
@@ -847,6 +847,8 @@ function ChapterRailItem({
                         <span
                             role="button"
                             tabIndex={0}
+                            aria-label={`Chapter ${chapter.order} actions`}
+                            data-testid={`chapter-actions-${chapter.id}`}
                             className="rounded p-1 opacity-70 hover:bg-background hover:opacity-100"
                             onClick={(event) => event.stopPropagation()}
                         >

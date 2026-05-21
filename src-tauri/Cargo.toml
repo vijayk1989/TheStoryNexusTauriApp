@@ -1,6 +1,6 @@
 [package]
 name = "thestorynexus"
-version = "1.0.1"
+version = "1.0.2"
 description = "An AI Driven Story Writing App"
 authors = ["vijaykumar"]
 edition = "2021"

@@ -17,8 +17,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle } from "lucide-react";
 import { StoryFormat, UniverseType } from "@/types/story";
 
+interface CreateStoryDialogProps {
+    trigger?: React.ReactNode;
+    onCreated?: (storyId: string) => void;
+}
 
-export function CreateStoryDialog() {
+export function CreateStoryDialog({ trigger, onCreated }: CreateStoryDialogProps = {}) {
     const [open, setOpen] = useState(false);
     const [title, setTitle] = useState("");
     const [author, setAuthor] = useState("");
@@ -32,7 +36,7 @@ export function CreateStoryDialog() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await createStory({
+            const storyId = await createStory({
                 title,
                 author,
                 language,
@@ -40,6 +44,7 @@ export function CreateStoryDialog() {
                 storyFormat,
                 universeType: storyFormat === "short_story_collection" ? universeType : undefined,
             }, createDedicatedLoreBook);
+            onCreated?.(storyId);
             setOpen(false);
             // Reset form
             setTitle("");
@@ -57,10 +62,12 @@ export function CreateStoryDialog() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button size="lg" className="w-64">
-                    <PlusCircle className="mr-2 h-5 w-5" />
-                    Create New Story
-                </Button>
+                {trigger || (
+                    <Button size="lg" className="w-64">
+                        <PlusCircle className="mr-2 h-5 w-5" />
+                        Create New Story
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>

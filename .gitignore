@@ -37,7 +37,13 @@ CLAUDE.md
 .claude/
 
 # Doc files
-docs/
 src-tauri/gen/
 
 bugs.md
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

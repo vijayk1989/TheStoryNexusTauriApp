@@ -1,5 +1,5 @@
 import { db } from './database';
-import type { Story, Chapter, LorebookEntry, LoreBook, SceneBeat, AIChat } from '@/types/story';
+import type { Story, Chapter, LorebookEntry, LoreBook, SceneBeat, AIChat, MediaAsset, ImageGenerationRecord } from '@/types/story';
 import { toast } from 'react-toastify';
 import { isTauri } from '@tauri-apps/api/core';
 
@@ -13,6 +13,8 @@ interface StoryExport {
     lorebookEntries: LorebookEntry[];
     sceneBeats: SceneBeat[];
     aiChats: AIChat[];
+    mediaAssets?: MediaAsset[];
+    imageGenerations?: ImageGenerationRecord[];
 }
 
 export const storyExportService = {
@@ -33,7 +35,11 @@ export const storyExportService = {
             linkElement.setAttribute('download', exportName);
             linkElement.click();
 
-            toast.success(`Story "${story.title}" exported successfully`);
+            if (mediaAssets.length > 0) {
+                toast.warning('This legacy JSON export includes image metadata, but not image bytes. Use it as a compatibility export only.');
+            } else {
+                toast.success(`Story "${story.title}" exported successfully`);
+            }
         } catch (error) {
             console.error('Story export failed:', error);
             toast.error(`Export failed: ${(error as Error).message}`);
@@ -59,6 +65,8 @@ export const storyExportService = {
         const chapters = await db.chapters.where('storyId').equals(storyId).toArray();
         const sceneBeats = await db.sceneBeats.where('storyId').equals(storyId).toArray();
         const aiChats = await db.aiChats.where('storyId').equals(storyId).toArray();
+        const mediaAssets = await db.mediaAssets.where('storyId').equals(storyId).toArray();
+        const imageGenerations = await db.imageGenerations.where('storyId').equals(storyId).toArray();
 
         const exportData: StoryExport = {
             version: '2.0',
@@ -70,6 +78,8 @@ export const storyExportService = {
             lorebookEntries,
             sceneBeats,
             aiChats,
+            mediaAssets,
+            imageGenerations,
         };
 
         return { exportData, story };
@@ -324,7 +334,7 @@ export const storyExportService = {
             };
 
             await db.transaction('rw',
-                [db.stories, db.chapters, db.loreBooks, db.lorebookEntries, db.sceneBeats, db.aiChats],
+                [db.stories, db.chapters, db.loreBooks, db.lorebookEntries, db.sceneBeats, db.aiChats, db.mediaAssets, db.imageGenerations],
                 async () => {
                     await db.stories.add(newStory);
 
@@ -373,4 +383,4 @@ export const storyExportService = {
             throw error;
         }
     }
-}; 
+};

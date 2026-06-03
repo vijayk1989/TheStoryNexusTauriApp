@@ -26,12 +26,14 @@ export function PromptSelectMenu({
     return (
         <Menubar>
             <MenubarMenu>
-                <MenubarTrigger className="gap-2">
+                <MenubarTrigger className="group gap-2">
                     {selectedPrompt && selectedModel ? (
                         <>
                             <div className="flex flex-col items-start">
-                                <span className="text-sm">{selectedPrompt.name}</span>
-                                <span className="text-xs text-muted-foreground">{selectedModel.name}</span>
+                                <span className="text-sm text-inherit">{selectedPrompt.name}</span>
+                                <span className="text-xs text-muted-foreground group-data-[state=open]:text-accent-foreground/80">
+                                    {selectedModel.name}
+                                </span>
                             </div>
                             <ChevronDown className="h-4 w-4" />
                         </>
@@ -53,33 +55,33 @@ export function PromptSelectMenu({
                         <>
                             {filteredPrompts.map((prompt) => (
                                 <MenubarSub key={prompt.id}>
-                                    <MenubarSubTrigger>
+                                    <MenubarSubTrigger className="[&[data-state=open]_.prompt-select-prompt-meta]:text-accent-foreground/80">
                                         <div className="flex flex-col">
                                             <span>{prompt.name}</span>
-                                            <span className="text-xs text-muted-foreground">
+                                            <span className="prompt-select-prompt-meta text-xs text-muted-foreground">
                                                 {prompt.messages.length} messages
                                             </span>
                                         </div>
                                     </MenubarSubTrigger>
                                     <MenubarSubContent className="max-h-[300px] overflow-y-auto">
-                                        {prompt.allowedModels.map((model) => (
-                                            <MenubarItem
-                                                key={model.id}
-                                                onClick={() => onSelect(prompt, model)}
-                                                className={
-                                                    selectedPrompt?.id === prompt.id &&
-                                                        selectedModel?.id === model.id ?
-                                                        "bg-accent" : ""
-                                                }
-                                            >
-                                                <div className="flex flex-col">
-                                                    <span>{model.name}</span>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {model.provider}
-                                                    </span>
-                                                </div>
-                                            </MenubarItem>
-                                        ))}
+                                        {prompt.allowedModels.map((model) => {
+                                            const isSelectedModel = selectedPrompt?.id === prompt.id && selectedModel?.id === model.id;
+
+                                            return (
+                                                <MenubarItem
+                                                    key={model.id}
+                                                    onClick={() => onSelect(prompt, model)}
+                                                    className={isSelectedModel ? "bg-accent text-accent-foreground" : ""}
+                                                >
+                                                    <div className="flex flex-col">
+                                                        <span>{model.name}</span>
+                                                        <span className={isSelectedModel ? "text-xs text-accent-foreground/80" : "text-xs text-muted-foreground"}>
+                                                            {model.provider}
+                                                        </span>
+                                                    </div>
+                                                </MenubarItem>
+                                            );
+                                        })}
                                     </MenubarSubContent>
                                 </MenubarSub>
                             ))}

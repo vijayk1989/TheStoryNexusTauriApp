@@ -7,6 +7,7 @@ import { CreateEntryDialog } from "../components/CreateEntryDialog";
 import { LorebookEntryList } from "../components/LorebookEntryList";
 import { LorebookWorkshopDialog } from "../components/LorebookWorkshopDialog";
 import { ManageLoreBooksDialog } from "../components/ManageLoreBooksDialog";
+import { TimelineView } from "../components/TimelineView";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, Upload, Wand2, BookOpen, Settings2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -231,6 +232,8 @@ export default function LorebookPage() {
                         <div className="flex justify-center p-8">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                         </div>
+                    ) : activeTab === "timeline" ? (
+                        <TimelineView entries={filteredEntries} />
                     ) : (
                         <LorebookEntryList
                             entries={filteredEntries}

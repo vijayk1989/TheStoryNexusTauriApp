@@ -3,7 +3,6 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@lexical-playground/*": ["src/Lexical/lexical-playground/src/*"],
       "shared/*": ["src/Lexical/shared/src/*"]
     },
     "target": "ES2020",

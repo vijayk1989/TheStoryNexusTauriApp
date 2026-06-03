@@ -22,15 +22,23 @@ interface PromptStore {
     importPrompts: (jsonData: string) => Promise<void>;
 
     // Helpers
-    validatePromptData: (messages: PromptMessage[]) => boolean;
+    validatePromptData: (messages: PromptMessage[], promptType?: Prompt['promptType']) => boolean;
 }
+
+let fetchPromptsPromise: Promise<void> | null = null;
 
 export const usePromptStore = create<PromptStore>((set, get) => ({
     prompts: [],
     isLoading: false,
     error: null,
 
-    validatePromptData: (messages) => {
+    validatePromptData: (messages, promptType) => {
+        if (promptType === 'image_gen') {
+            return messages.length === 1 &&
+                messages[0].role === 'user' &&
+                typeof messages[0].content === 'string';
+        }
+
         return messages.every(msg =>
             typeof msg === 'object' &&
             ('role' in msg) &&
@@ -41,20 +49,29 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     },
 
     fetchPrompts: async () => {
-        set({ isLoading: true });
-        try {
-            const prompts = await db.prompts.toArray();
-            set({ prompts, error: null });
-        } catch (error) {
-            set({ error: (error as Error).message });
-        } finally {
-            set({ isLoading: false });
+        if (fetchPromptsPromise) {
+            return fetchPromptsPromise;
         }
+
+        fetchPromptsPromise = (async () => {
+            set({ isLoading: true });
+            try {
+                const prompts = await db.prompts.toArray();
+                set({ prompts, error: null });
+            } catch (error) {
+                set({ error: (error as Error).message });
+            } finally {
+                set({ isLoading: false });
+                fetchPromptsPromise = null;
+            }
+        })();
+
+        return fetchPromptsPromise;
     },
 
     createPrompt: async (promptData) => {
         try {
-            if (!get().validatePromptData(promptData.messages)) {
+            if (!get().validatePromptData(promptData.messages, promptData.promptType)) {
                 throw new Error('Invalid prompt data structure');
             }
 
@@ -88,7 +105,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
 
     updatePrompt: async (id, promptData) => {
         try {
-            if (promptData.messages && !get().validatePromptData(promptData.messages)) {
+            if (promptData.messages && !get().validatePromptData(promptData.messages, promptData.promptType)) {
                 throw new Error('Invalid prompt data structure');
             }
 
@@ -233,7 +250,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
 
             for (const p of imported) {
                 // Minimal validation of messages
-                if (!p.messages || !Array.isArray(p.messages) || !get().validatePromptData(p.messages)) {
+                if (!p.messages || !Array.isArray(p.messages) || !get().validatePromptData(p.messages, p.promptType)) {
                     // Skip invalid prompt
                     console.warn('Skipping invalid prompt during import (messages invalid):', p.name);
                     continue;

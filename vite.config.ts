@@ -14,7 +14,6 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      '@lexical-playground': path.resolve(__dirname, 'src/Lexical/lexical-playground/src'),
       'shared': path.resolve(__dirname, 'src/Lexical/shared/src'),
       // Add this to resolve Lexical packages properly
       'lexical': path.resolve(__dirname, 'node_modules/lexical'),

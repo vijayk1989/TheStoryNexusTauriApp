@@ -95,6 +95,11 @@ export interface SceneBeatInstanceState {
     thinkingText: string;
     streamComplete: boolean;
 
+    // Regeneration
+    lastGenerationMessages: PromptMessage[] | undefined;
+    lastGenerationResponse: string;
+    showRegenerateDialog: boolean;
+
     // Mode
     agenticMode: boolean;
     selectedPipeline: PipelinePreset | null;
@@ -195,6 +200,11 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
         streamedText: '',
         thinkingText: '',
         streamComplete: false,
+
+        // Regeneration
+        lastGenerationMessages: undefined,
+        lastGenerationResponse: '',
+        showRegenerateDialog: false,
 
         // Mode
         agenticMode: false,
@@ -349,6 +359,9 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
                 thinkingText: '',
                 streamComplete: false,
                 streaming: false,
+                lastGenerationMessages: undefined,
+                lastGenerationResponse: '',
+                showRegenerateDialog: false,
                 // Clear inline judge feedback
                 agenticJudgeResults: [],
                 latestJudgeFeedback: null,

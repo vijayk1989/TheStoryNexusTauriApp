@@ -14,7 +14,10 @@ import {
     Note,
     AgentPreset,
     PipelinePreset,
-    PipelineExecution
+    PipelineExecution,
+    MediaAsset,
+    MediaBlob,
+    ImageGenerationRecord
 } from '../types/story';
 
 export class StoryDatabase extends Dexie {
@@ -32,6 +35,9 @@ export class StoryDatabase extends Dexie {
     pipelinePresets!: Table<PipelinePreset>;
     pipelineExecutions!: Table<PipelineExecution>;
     drafts!: Table<Draft>;
+    mediaAssets!: Table<MediaAsset>;
+    mediaBlobs!: Table<MediaBlob>;
+    imageGenerations!: Table<ImageGenerationRecord>;
 
     constructor() {
         super('StoryDatabase');
@@ -84,7 +90,7 @@ export class StoryDatabase extends Dexie {
             drafts: 'id, storyId, chapterId, createdAt',
         });
 
-        // Version 16: Add saveFilePath index to stories for optional file-based backup
+        // Version 16: Add saveFilePath index to stories + media asset tables
         this.version(16).stores({
             stories: 'id, title, createdAt, language, isDemo, saveFilePath',
             chapters: 'id, storyId, order, createdAt, isDemo',
@@ -99,6 +105,9 @@ export class StoryDatabase extends Dexie {
             pipelinePresets: 'id, name, storyId, createdAt, isSystem',
             pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
             drafts: 'id, storyId, chapterId, createdAt',
+            mediaAssets: 'id, storyId, chapterId, kind, source, storageBackend, createdAt, archivedAt',
+            mediaBlobs: 'assetId, createdAt',
+            imageGenerations: 'id, storyId, chapterId, provider, mode, status, createdAt',
         });
 
         // Version 17: Add storyFormat and universeType to stories (no new indexes needed)
@@ -116,6 +125,9 @@ export class StoryDatabase extends Dexie {
             pipelinePresets: 'id, name, storyId, createdAt, isSystem',
             pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
             drafts: 'id, storyId, chapterId, createdAt',
+            mediaAssets: 'id, storyId, chapterId, kind, source, storageBackend, createdAt, archivedAt',
+            mediaBlobs: 'assetId, createdAt',
+            imageGenerations: 'id, storyId, chapterId, provider, mode, status, createdAt',
         }).upgrade(async tx => {
             await tx.table('stories').toCollection().modify((story: Record<string, unknown>) => {
                 if (!story.storyFormat) {
@@ -144,6 +156,9 @@ export class StoryDatabase extends Dexie {
             pipelinePresets: 'id, name, storyId, createdAt, isSystem',
             pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
             drafts: 'id, storyId, chapterId, createdAt',
+            mediaAssets: 'id, storyId, chapterId, kind, source, storageBackend, createdAt, archivedAt',
+            mediaBlobs: 'assetId, createdAt',
+            imageGenerations: 'id, storyId, chapterId, provider, mode, status, createdAt',
         }).upgrade(async tx => {
             const stories = await tx.table('stories').toArray();
             for (const story of stories) {
@@ -312,7 +327,7 @@ export class StoryDatabase extends Dexie {
      */
     async deleteStoryWithRelated(storyId: string): Promise<void> {
         return await this.transaction('rw',
-            [this.stories, this.chapters, this.loreBooks, this.lorebookEntries, this.aiChats, this.sceneBeats, this.drafts],
+            [this.stories, this.chapters, this.loreBooks, this.lorebookEntries, this.aiChats, this.sceneBeats, this.drafts, this.mediaAssets, this.mediaBlobs, this.imageGenerations],
             async () => {
                 const story = await this.stories.get(storyId);
                 const lorebookIds = story?.lorebookIds ?? [];
@@ -331,6 +346,10 @@ export class StoryDatabase extends Dexie {
                 await this.aiChats.where('storyId').equals(storyId).delete();
                 await this.sceneBeats.where('storyId').equals(storyId).delete();
                 await this.drafts.where('storyId').equals(storyId).delete();
+                const mediaAssets = await this.mediaAssets.where('storyId').equals(storyId).toArray();
+                await Promise.all(mediaAssets.map(asset => this.mediaBlobs.delete(asset.id)));
+                await this.mediaAssets.where('storyId').equals(storyId).delete();
+                await this.imageGenerations.where('storyId').equals(storyId).delete();
                 await this.stories.delete(storyId);
 
                 console.log(`Deleted story ${storyId} and all related data`);
@@ -338,4 +357,4 @@ export class StoryDatabase extends Dexie {
     }
 }
 
-export const db = new StoryDatabase(); 
+export const db = new StoryDatabase();

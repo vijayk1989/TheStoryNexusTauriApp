@@ -10,6 +10,7 @@ import {
 import { aiService } from '@/services/ai/AIService';
 import { db } from '@/services/database';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
+import { getPreferredDefaultModel } from '@/features/ai/utils/defaultModels';
 
 interface AIState {
     settings: AISettings | null;
@@ -25,9 +26,13 @@ interface AIState {
     getAvailableModels: (provider?: AIProvider, forceRefresh?: boolean) => Promise<AIModel[]>;
     updateProviderKey: (provider: AIProvider, key: string) => Promise<void>;
     updateLocalApiUrl: (url: string) => Promise<void>;
+    updateTavilyKey: (key: string) => Promise<void>;
 
     // Favorite model management
     toggleFavoriteModel: (modelId: string) => Promise<void>;
+
+    // Prompt defaults management
+    updatePromptDefaults: (defaults: Partial<AISettings>) => Promise<void>;
 
     // Generation methods
     generateWithLocalModel: (
@@ -37,14 +42,16 @@ interface AIState {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        modelId?: string
     ) => Promise<Response>;
 
     processStreamedResponse: (
         response: Response,
         onToken: (text: string) => void,
         onComplete: () => void,
-        onError: (error: Error) => void
+        onError: (error: Error) => void,
+        onStatus?: (status: string) => void
     ) => Promise<void>;
 
     generateWithPrompt: (config: PromptParserConfig, selectedModel: AllowedModel) => Promise<Response>;
@@ -80,10 +87,10 @@ export const useAIStore = create<AIState>((set, get) => ({
             set({ isLoading: true, error: null });
             try {
                 await aiService.initialize();
-                const settings = await db.aiSettings.toArray();
+                const settings = aiService.getSettings();
                 set({
-                    settings: settings[0] || null,
-                    favoriteModelIds: settings[0]?.favoriteModelIds || [],
+                    settings,
+                    favoriteModelIds: settings?.favoriteModelIds || [],
                     isInitialized: true,
                     isLoading: false
                 });
@@ -111,11 +118,24 @@ export const useAIStore = create<AIState>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             await aiService.updateKey(provider, key);
-            const settings = await db.aiSettings.toArray();
-            set({ settings: settings[0], isLoading: false });
+            set({ settings: aiService.getSettings(), isLoading: false });
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to update API key',
+                isLoading: false
+            });
+            throw error;
+        }
+    },
+
+    updateTavilyKey: async (key: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            await aiService.updateTavilyKey(key);
+            set({ settings: aiService.getSettings(), isLoading: false });
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update Tavily API key',
                 isLoading: false
             });
             throw error;
@@ -126,8 +146,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             await aiService.updateLocalApiUrl(url);
-            const settings = await db.aiSettings.toArray();
-            set({ settings: settings[0], isLoading: false });
+            set({ settings: aiService.getSettings(), isLoading: false });
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to update local API URL',
@@ -147,21 +166,47 @@ export const useAIStore = create<AIState>((set, get) => ({
         }
     },
 
-    generateWithLocalModel: async (messages: PromptMessage[], temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number, min_p?: number) => {
+    updatePromptDefaults: async (defaults: Partial<AISettings>) => {
+        set({ isLoading: true, error: null });
+        try {
+            const settings = await db.aiSettings.toArray();
+            let currentSettings = settings[0];
+            
+            if (!currentSettings) {
+                // Should theoretically never happen as initialize() creates default settings
+                throw new Error("No settings found in database");
+            }
+            
+            await db.aiSettings.update(currentSettings.id, defaults);
+            
+            // Refetch to ensure state is in sync with DB
+            const updatedSettings = await db.aiSettings.toArray();
+            set({ settings: updatedSettings[0], isLoading: false });
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update prompt defaults',
+                isLoading: false
+            });
+            throw error;
+        }
+    },
+
+    generateWithLocalModel: async (messages: PromptMessage[], temperature?: number, maxTokens?: number, top_p?: number, top_k?: number, repetition_penalty?: number, min_p?: number, modelId?: string) => {
         if (!get().isInitialized) {
             await get().initialize();
         }
-        return aiService.generateWithLocalModel(messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p);
+        return aiService.generateWithLocalModel(messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p, modelId);
     },
 
-    processStreamedResponse: async (response, onToken, onComplete, onError) => {
-        await aiService.processStreamedResponse(response, onToken, onComplete, onError);
+    processStreamedResponse: async (response, onToken, onComplete, onError, onStatus) => {
+        await aiService.processStreamedResponse(response, onToken, onComplete, onError, onStatus);
     },
 
     generateWithPrompt: async (config: PromptParserConfig, selectedModel: AllowedModel) => {
         if (!get().isInitialized) {
             await get().initialize();
         }
+        selectedModel = resolveModelForAvailableProvider(selectedModel, get().settings);
 
         const promptParser = createPromptParser();
         const { messages, error } = await promptParser.parse(config);
@@ -180,6 +225,21 @@ export const useAIStore = create<AIState>((set, get) => ({
         const top_k = prompt?.top_k;
         const repetition_penalty = prompt?.repetition_penalty;
         const min_p = prompt?.min_p;
+
+        const tools = config.additionalContext?.enableWebSearch ? [
+            {
+                type: "function",
+                function: {
+                    name: "search_web",
+                    description: "Search the web for up-to-date information, facts, or references.",
+                    parameters: {
+                        type: "object",
+                        properties: { query: { type: "string", description: "The search query to execute" } },
+                        required: ["query"]
+                    }
+                }
+            }
+        ] : undefined;
 
         switch (selectedModel.provider) {
             case 'local':
@@ -202,7 +262,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    tools
                 );
             case 'openai_compatible':
                 return aiService.generateWithOpenAICompatible(
@@ -213,7 +274,8 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    tools
                 );
             case 'openrouter':
                 return aiService.generateWithOpenRouter(
@@ -224,10 +286,23 @@ export const useAIStore = create<AIState>((set, get) => ({
                     top_p,
                     top_k,
                     repetition_penalty,
-                    min_p
+                    min_p,
+                    tools
                 );
             case 'nanogpt':
                 return aiService.generateWithNanoGPT(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty,
+                    min_p,
+                    tools
+                );
+            case 'google':
+                return aiService.generateWithGoogle(
                     messages,
                     selectedModel.id,
                     temperature,
@@ -247,6 +322,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         if (!get().isInitialized) {
             await get().initialize();
         }
+        selectedModel = resolveModelForAvailableProvider(selectedModel, get().settings);
 
         if (!messages.length) {
             throw new Error('No messages provided for generation');
@@ -321,6 +397,17 @@ export const useAIStore = create<AIState>((set, get) => ({
                     repetition_penalty,
                     min_p
                 );
+            case 'google':
+                return aiService.generateWithGoogle(
+                    messages,
+                    selectedModel.id,
+                    temperature,
+                    maxTokens,
+                    top_p,
+                    top_k,
+                    repetition_penalty,
+                    min_p
+                );
             default:
                 throw new Error(`Unsupported provider: ${selectedModel.provider}`);
         }
@@ -331,3 +418,11 @@ export const useAIStore = create<AIState>((set, get) => ({
         aiService.abortStream();
     }
 }));
+
+function resolveModelForAvailableProvider(selectedModel: AllowedModel, settings: AISettings | null): AllowedModel {
+    if (selectedModel.provider === 'openrouter' && !settings?.openrouterKey?.trim()) {
+        return getPreferredDefaultModel(settings);
+    }
+
+    return selectedModel;
+}

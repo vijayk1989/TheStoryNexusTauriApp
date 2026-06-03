@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type WheelEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +23,7 @@ type PromptType = Prompt['promptType'];
 
 const PROMPT_TYPES: Array<{ value: PromptType; label: string }> = [
     { value: 'scene_beat', label: 'Scene Beat' },
+    { value: 'image_gen', label: 'Image Generation' },
     { value: 'gen_summary', label: 'Generate Summary' },
     { value: 'selection_specific', label: 'Selection-Specific' },
     { value: 'continue_writing', label: 'Continue Writing' },
@@ -46,6 +47,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         prompt?.messages || [{ role: 'system', content: '' }]
     );
     const [promptType, setPromptType] = useState<PromptType>(prompt?.promptType || 'scene_beat');
+    const isImagePrompt = promptType === 'image_gen';
     const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
     const [selectedModels, setSelectedModels] = useState<AllowedModel[]>(prompt?.allowedModels || []);
     const { createPrompt, updatePrompt } = usePromptStore();
@@ -79,6 +81,18 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         loadAvailableModels();
     }, []);
 
+    useEffect(() => {
+        if (promptType === 'image_gen') {
+            setMessages((current) => [{
+                role: 'user',
+                content: current[0]?.content || '{{user_input}}\n\nCreate a detailed image generation prompt. Preserve character, setting, mood, visual style, and concrete composition. Do not include prose narration.',
+            }]);
+            setSelectedModels([]);
+            setMultiModelEnabled(false);
+            setParallelModels([]);
+        }
+    }, [promptType]);
+
     const loadAvailableModels = async () => {
         try {
             if (!isInitialized) {
@@ -100,6 +114,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             'Favorites': [],
             'Local': [],
             'OpenAI Compatible': [],
+            'Google AI': [],
             'NanoGPT': [],
             'xAI': [],
             'Anthropic': [],
@@ -123,6 +138,8 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 groups['OpenAI Compatible'].push(model);
             } else if (model.provider === 'nanogpt') {
                 groups['NanoGPT'].push(model);
+            } else if (model.provider === 'google') {
+                groups['Google AI'].push(model);
             } else if (model.name.toLowerCase().includes('(free)')) {
                 groups['Free'].push(model);
             } else if (model.provider === 'openai') {
@@ -219,7 +236,21 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         setParallelModels(parallelModels.filter(m => getModelKey(m) !== modelKey));
     };
 
+    const handlePickerWheel = (event: WheelEvent<HTMLDivElement>) => {
+        const scroller = event.currentTarget;
+        const previousScrollTop = scroller.scrollTop;
+
+        scroller.scrollTop += event.deltaY;
+        scroller.scrollLeft += event.deltaX;
+
+        if (scroller.scrollTop !== previousScrollTop || event.deltaX !== 0) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    };
+
     const handleAddMessage = (role: 'system' | 'user' | 'assistant') => {
+        if (isImagePrompt) return;
         setMessages([...messages, { role, content: '' }]);
     };
 
@@ -232,6 +263,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     };
 
     const handleMoveMessage = (index: number, direction: 'up' | 'down') => {
+        if (isImagePrompt) return;
         if (
             (direction === 'up' && index === 0) ||
             (direction === 'down' && index === messages.length - 1)
@@ -256,8 +288,13 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             return;
         }
 
-        if (selectedModels.length === 0) {
+        if (!isImagePrompt && selectedModels.length === 0) {
             toast.error('Please select at least one AI model');
+            return;
+        }
+
+        if (isImagePrompt && (messages.length !== 1 || messages[0].role !== 'user')) {
+            toast.error('Image generation prompts must have exactly one user message');
             return;
         }
 
@@ -266,15 +303,15 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 name,
                 messages,
                 promptType,
-                allowedModels: selectedModels,
+                allowedModels: isImagePrompt ? [] : selectedModels,
                 temperature,
                 maxTokens,
                 top_p: topP,
                 top_k: topK,
                 repetition_penalty: repetitionPenalty,
                 min_p: minP,
-                multiModelEnabled,
-                parallelModels: multiModelEnabled ? parallelModels : [],
+                multiModelEnabled: isImagePrompt ? false : multiModelEnabled,
+                parallelModels: !isImagePrompt && multiModelEnabled ? parallelModels : [],
             };
 
             if (prompt?.id) {
@@ -302,26 +339,30 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 {messages.map((message, index) => (
                     <div key={index} className="space-y-2 p-4 border rounded-lg">
                         <div className="flex items-center justify-between gap-2">
-                            <Select
-                                value={message.role}
-                                onValueChange={(value: 'system' | 'user' | 'assistant') => {
-                                    const newMessages = messages.map((msg, i) =>
-                                        i === index ? { ...msg, role: value } : msg
-                                    );
-                                    setMessages(newMessages);
-                                }}
-                            >
-                                <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder="Select role" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="system">System</SelectItem>
-                                    <SelectItem value="user">User</SelectItem>
-                                    <SelectItem value="assistant">Assistant</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            {isImagePrompt ? (
+                                <Badge variant="secondary">User prompt</Badge>
+                            ) : (
+                                <Select
+                                    value={message.role}
+                                    onValueChange={(value: 'system' | 'user' | 'assistant') => {
+                                        const newMessages = messages.map((msg, i) =>
+                                            i === index ? { ...msg, role: value } : msg
+                                        );
+                                        setMessages(newMessages);
+                                    }}
+                                >
+                                    <SelectTrigger className="w-[150px]">
+                                        <SelectValue placeholder="Select role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="system">System</SelectItem>
+                                        <SelectItem value="user">User</SelectItem>
+                                        <SelectItem value="assistant">Assistant</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            )}
 
-                            <div className="flex items-center gap-1">
+                            {!isImagePrompt && <div className="flex items-center gap-1">
                                 <Button
                                     type="button"
                                     variant="ghost"
@@ -348,7 +389,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
-                            </div>
+                            </div>}
                         </div>
 
                         <Textarea
@@ -366,7 +407,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 ))}
             </div>
 
-            <div className="flex gap-2">
+            {!isImagePrompt && <div className="flex gap-2">
                 <Button
                     type="button"
                     variant="outline"
@@ -394,9 +435,9 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                     <Plus className="h-4 w-4" />
                     Assistant
                 </Button>
-            </div>
+            </div>}
 
-            <div className="border-t border-input pt-6">
+            {!isImagePrompt && <div className="border-t border-input pt-6">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="font-medium">Available Models</h3>
                     <div className="flex items-center gap-2">
@@ -415,13 +456,13 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                     {selectedModels.map((model) => (
                         <Badge
                             key={getModelKey(model)}
-                            variant="secondary"
-                            className="flex items-center gap-1 px-3 py-1" 
+                            variant="outline"
+                            className="flex items-center gap-1 border-border bg-elevated px-3 py-1 text-foreground"
                         >
                             {showProviderLabels ? (
                                 <>
-                                    <span className="text-xs opacity-70">{model.provider}:</span>
-                                    <span>{model.name}</span>
+                                    <span className="text-xs text-muted-foreground">{model.provider}:</span>
+                                    <span className="font-medium">{model.name}</span>
                                 </>
                             ) : (
                                 model.name
@@ -429,7 +470,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                             <button
                                 type="button"
                                 onClick={() => removeModel(model)}
-                                className="ml-1 hover:text-destructive"
+                                className="ml-1 text-muted-foreground hover:text-destructive"
                             >
                                 <X className="h-3 w-3" />
                             </button>
@@ -437,7 +478,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                     ))}
                 </div>
 
-                <Popover>
+                <Popover modal={false}>
                     <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full text-left">{selectedModels.length ? `${selectedModels.length} selected` : 'Select a model'}</Button>
                     </PopoverTrigger>
@@ -451,7 +492,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 autoFocus
                             />
 
-                            <div className="max-h-64 overflow-auto">
+                            <div className="max-h-64 overflow-auto" onWheel={handlePickerWheel}>
                                 {Object.keys(filteredModelGroups).length === 0 && (
                                     <div className="p-2 text-sm text-muted-foreground">No models found</div>
                                 )}
@@ -510,7 +551,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                         </div>
                     </PopoverContent>
                 </Popover>
-            </div>
+            </div>}
 
             {/* Multi-Model Comparison Section */}
             <div className="border-t border-input pt-6">
@@ -528,14 +569,14 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                             </Label>
                         </div>
                         {multiModelEnabled && parallelModels.length > 0 && (
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-sm font-medium text-foreground/80">
                                 {parallelModels.length}/3 models selected
                             </span>
                         )}
                     </div>
                     
                     <CollapsibleContent className="mt-4 space-y-4">
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm leading-6 text-foreground/80">
                             Select 2-3 models to compare when using this prompt. In SceneBeat, you can toggle multi-model mode to generate responses from all selected models simultaneously.
                         </p>
                         
@@ -544,13 +585,13 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                             {parallelModels.map((model) => (
                                 <Badge
                                     key={getModelKey(model)}
-                                    variant="secondary"
-                                    className="flex items-center gap-1 px-3 py-1 bg-blue-500/10 border-blue-500/20" 
+                                    variant="outline"
+                                    className="flex items-center gap-1 border-secondary/35 bg-secondary/10 px-3 py-1 text-foreground"
                                 >
                                     {showProviderLabels ? (
                                         <>
-                                            <span className="text-xs opacity-70">{model.provider}:</span>
-                                            <span>{model.name}</span>
+                                            <span className="text-xs text-muted-foreground">{model.provider}:</span>
+                                            <span className="font-medium">{model.name}</span>
                                         </>
                                     ) : (
                                         model.name
@@ -558,7 +599,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                     <button
                                         type="button"
                                         onClick={() => removeParallelModel(model)}
-                                        className="ml-1 hover:text-destructive"
+                                        className="ml-1 text-muted-foreground hover:text-destructive"
                                     >
                                         <X className="h-3 w-3" />
                                     </button>
@@ -573,7 +614,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                         
                         {/* Model selector for parallel models */}
                         {parallelModels.length < 3 && (
-                            <Popover>
+                            <Popover modal={false}>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className="w-full text-left">
                                         <Plus className="h-4 w-4 mr-2" />
@@ -590,7 +631,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                             autoFocus
                                         />
 
-                                        <div className="max-h-64 overflow-auto">
+                                        <div className="max-h-64 overflow-auto" onWheel={handlePickerWheel}>
                                             {Object.keys(filteredParallelModelGroups).length === 0 && (
                                                 <div className="p-2 text-sm text-muted-foreground">No models found</div>
                                             )}
@@ -693,7 +734,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 value={[maxTokens]}
                                 onValueChange={(value) => setMaxTokens(value[0])}
                                 min={1}
-                                max={16384}
+                                max={32768}
                                 className="flex-1"
                             />
                             <Input
@@ -705,7 +746,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                     }
 
                                     const value = parseInt(e.target.value);
-                                    if (!isNaN(value) && value >= 1 && value <= 16384) {
+                                    if (!isNaN(value) && value >= 1 && value <= 32768) {
                                         setMaxTokens(value);
                                     }
                                 }}
@@ -901,4 +942,4 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             </div>
         </form>
     );
-} 
+}

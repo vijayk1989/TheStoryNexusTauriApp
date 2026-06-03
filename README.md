@@ -2,23 +2,42 @@
 
 A local-first desktop application for AI-assisted fiction writing, built with Tauri v2, React, and TypeScript.
 
-## Overview
+The Story Nexus is a local-first desktop writing app for long-form fiction. It combines a chapter-focused editor with story context, lorebook matching, reusable AI prompts, brainstorm chats, and multi-agent generation pipelines.
 
 The Story Nexus runs entirely on your machine. All data is stored locally in IndexedDB — no account, no server, no cloud sync required. You own your stories and your data.
 
 It is designed for writers who want AI assistance integrated directly into their creative workflow. You can write with a full-featured rich text editor, attach a lorebook of characters and locations, generate prose inline using any AI provider (local or cloud), orchestrate multi-step agent pipelines for quality-checked output, and brainstorm ideas in a conversational AI chat — all without leaving the app.
 
-## Screenshots
+The current app is intentionally editor-first: open the app, choose or create a story, choose a chapter, and write. Supporting tools live in the left story/chapter rail and the right editor tool rail.
 
-![Home](screenshots/Home.jpg)
-![Stories](screenshots/Stories.jpg)
-![Editor](screenshots/Editor.jpg)
-![Scene Beat](screenshots/SceneBeat.jpg)
-![Generated Prose](screenshots/GeneratedProse.jpg)
-![Resolved Prompt Preview](screenshots/ResolvedPromptPreview.jpg)
-![Lorebook](screenshots/Lorebook.jpg)
-![Prompts](screenshots/Prompts.jpg)
-![Create Chapter](screenshots/CreateChapter.jpg)
+## Install On Windows
+
+A Windows installer is available from the project Releases section.
+
+1. Open the latest release.
+2. Download the `.msi` installer.
+3. Run the installer and follow the Windows setup prompts.
+4. Launch **The Story Nexus** from the Start menu or desktop shortcut.
+
+Windows may show a SmartScreen warning for new or unsigned builds. If you trust the release source, choose **More info** and then **Run anyway**.
+
+## Linux And Mac Installers
+
+Linux and macOS installers are not published yet, but they can be produced from this Tauri project.
+
+Tauri desktop bundles are best built on the target operating system, or through a CI matrix that runs separate Windows, Linux, and macOS jobs. After installing the normal project dependencies and the Tauri prerequisites for that platform, run:
+
+```sh
+npm install
+npm run tauri build
+```
+
+Typical outputs:
+
+- **Linux**: `.deb`, `.rpm`, and/or AppImage bundles depending on the Tauri bundle configuration and installed Linux packaging tools.
+- **macOS**: `.app` and `.dmg` bundles. Public distribution usually also needs Apple Developer signing and notarization.
+
+The bundle settings live in `src-tauri/tauri.conf.json`. Update the `bundle.targets`, icons, signing, and platform-specific metadata there before publishing Linux or macOS releases.
 
 ## Feature Overview
 
@@ -161,15 +180,15 @@ System prompts (seeded at startup) are read-only and cannot be deleted.
 
 #### Prompts Export / Import
 
-You can export and import prompts from the Prompts Manager UI.
+Prompts can be exported and imported from the Prompts sheet. System prompts are excluded from exports.
 
-**Export**: Click the export button to download a JSON file containing all non-system prompts (system prompts are excluded). The file format is:
+**Export**: Click the export button to download a JSON file containing all non-system prompts. The file format is:
 
 ```json
 {
   "version": "1.0",
   "type": "prompts",
-  "prompts": [ ]
+  "prompts": []
 }
 ```
 
@@ -204,6 +223,7 @@ An **agent** is a specialized AI configuration with a fixed role, system prompt,
 | `chapter_editor` | Rewrites a full chapter based on instructions |
 | `lore_writer` | Creates new lorebook entries from a seed concept |
 | `lore_refiner` | Iteratively refines existing lorebook entries |
+| `judge_aggregator` | Aggregates feedback from multiple judge agents |
 | `custom` | User-defined role with a fully custom system prompt |
 
 Each agent also has a **context configuration** controlling: lorebook mode (matched / all / none / custom), previous-words window (full / limited / summarized / none), and whether to include chapter summary and POV info.
@@ -362,10 +382,9 @@ src/
 │   │   └── AgentOrchestrator.ts   — Multi-step pipeline executor
 │   ├── database.ts                — Dexie schema and table definitions
 │   └── storyExportService.ts      — Export, import, and file-sync logic
-├── Lexical/           — Lexical editor playground with custom plugins and scene beat node
+├── components/        — Shared UI components
 ├── types/story.ts     — All shared TypeScript types
 ├── lib/               — Utilities (think-block parser, token counter, etc.)
-├── components/        — Shared UI components (BulkUpdatePanel, MainLayout, ThemeToggle)
 └── hooks/             — Custom React hooks
 ```
 
@@ -410,6 +429,15 @@ The Story Nexus includes a built-in guide accessible from any story page. It cov
 4. **Prompts** — Template variables, sampling parameters, parallel mode
 5. **Agentic AI** — Agents, roles, pipeline construction, revision loops
 6. **Brainstorm** — Chat usage, lorebook integration, template snippets
+
+---
+
+## Documentation
+
+- [Agents](docs/AGENTS.md) explains agent presets, pipeline presets, roles, context controls, and runtime flow.
+- [Agent Orchestrator](docs/AgentOrchestrator.md) documents the multi-agent execution engine.
+
+The built-in app guide is available from the editor's right tool rail.
 
 ---
 

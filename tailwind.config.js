@@ -11,6 +11,8 @@ export default {
   		},
   		colors: {
   			background: 'hsl(var(--background))',
+  			surface: 'hsl(var(--surface))',
+  			elevated: 'hsl(var(--elevated))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
   				DEFAULT: 'hsl(var(--card))',
@@ -60,6 +62,13 @@ export default {
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
   			}
+  		},
+  		fontFamily: {
+  			heading: 'var(--font-heading)',
+  			body: 'var(--font-body)'
+  		},
+  		boxShadow: {
+  			glow: 'var(--shadow-glow)'
   		},
   		keyframes: {
   			'accordion-down': {

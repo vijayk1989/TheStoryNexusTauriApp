@@ -26,6 +26,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ArrowLeft, Check, X, ChevronDown, ChevronUp, Settings2, Star } from 'lucide-react';
 import { useAgentsStore, DEFAULT_AGENT_PROMPTS } from '../stores/useAgentsStore';
+import { resolveSavedDefaultModel } from '@/features/ai/utils/defaultModels';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 import { useStoryStore } from '@/features/stories/stores/useStoryStore';
@@ -90,7 +91,7 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
     const { currentStoryId } = useStoryContext();
     const { currentStory } = useStoryStore();
     const { createAgentPreset, updateAgentPreset } = useAgentsStore();
-    const { initialize, getAvailableModels, isInitialized, favoriteModelIds, toggleFavoriteModel } = useAIStore();
+    const { initialize, getAvailableModels, isInitialized, favoriteModelIds, toggleFavoriteModel, settings } = useAIStore();
     const { entries: lorebookEntries, loadEntries } = useLorebookStore();
 
     const [name, setName] = useState(agent?.name || '');
@@ -136,6 +137,12 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
             loadEntries(currentStory.lorebookIds);
         }
     }, [currentStory]);
+
+    useEffect(() => {
+        if (!agent && !selectedModel && settings?.enablePromptDefaults) {
+            setSelectedModel(resolveSavedDefaultModel(settings, settings.defaultAgentModelId));
+        }
+    }, [agent, selectedModel, settings]);
 
     const loadModels = async () => {
         try {
@@ -210,6 +217,7 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
             'Favorites': [],
             'Local': [],
             'OpenAI Compatible': [],
+            'Google AI': [],
             'OpenAI': [],
             'NanoGPT': [],
             'OpenRouter': [],
@@ -230,6 +238,8 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
                 groups['OpenAI'].push(model);
             } else if (model.provider === 'nanogpt') {
                 groups['NanoGPT'].push(model);
+            } else if (model.provider === 'google') {
+                groups['Google AI'].push(model);
             } else if (model.provider === 'openrouter') {
                 groups['OpenRouter'].push(model);
             }

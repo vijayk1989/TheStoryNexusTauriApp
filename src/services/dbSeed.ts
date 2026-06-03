@@ -1,5 +1,6 @@
 import { db } from "./database";
 import { Prompt } from "../types/story";
+import { EXAMPLE_STORY_ID, exampleStorySeed } from "../data/exampleStory";
 import systemPrompts from "../data/systemPrompts";
 
 export class DatabaseSeeder {
@@ -31,18 +32,17 @@ export class DatabaseSeeder {
     try {
       console.log("Initializing database with seed data...");
 
-      // Check if we need to seed
-      const needsSeeding = await this.checkIfSeedingNeeded();
+      const needsSystemPromptSeeding = await this.checkIfSystemPromptSeedingNeeded();
 
-      if (needsSeeding || forceReseed) {
-        // Seed system prompts with fixed IDs
+      if (needsSystemPromptSeeding || forceReseed) {
         await this.seedSystemPrompts(forceReseed);
-
-        console.log("Database seeding complete.");
       } else {
-        console.log("Database already contains seed data. Skipping seeding.");
+        console.log("Database already contains system prompts. Skipping prompt seeding.");
       }
 
+      await this.seedExampleStory(forceReseed);
+
+      console.log("Database seeding complete.");
       DatabaseSeeder.isInitialized = true;
     } catch (error) {
       console.error("Error initializing database:", error);
@@ -62,7 +62,7 @@ export class DatabaseSeeder {
   /**
    * Check if seeding is needed by looking for system prompts
    */
-  private async checkIfSeedingNeeded(): Promise<boolean> {
+  private async checkIfSystemPromptSeedingNeeded(): Promise<boolean> {
     // Get all system prompt IDs from the systemPrompts data
     const systemPromptIds = systemPrompts.map((prompt) => prompt.id);
 
@@ -126,6 +126,129 @@ export class DatabaseSeeder {
       }
     }
   }
+
+  /**
+   * Seed the example fantasy story from docs/ExampleStory.md.
+   * This runs independently from prompt seeding so existing local databases get
+   * the test story on their next startup without duplicate rows.
+   */
+  private async seedExampleStory(forceReseed = false): Promise<void> {
+    const existing = await db.stories.get(EXAMPLE_STORY_ID);
+
+    if (existing && !forceReseed) {
+      await this.repairExistingExampleStoryChapters();
+      console.log("Example story already exists. Skipping.");
+      return;
+    }
+
+    if (existing && forceReseed) {
+      console.log("Force reseeding - replacing example story...");
+      await db.deleteStoryWithRelated(EXAMPLE_STORY_ID);
+    }
+
+    const createdAt = new Date();
+
+    await db.transaction(
+      "rw",
+      [db.stories, db.chapters, db.lorebookEntries],
+      async () => {
+        await db.stories.add({
+          ...exampleStorySeed.story,
+          createdAt,
+        });
+
+        await db.chapters.bulkAdd(
+          exampleStorySeed.chapters.map((chapter) => ({
+            ...chapter,
+            createdAt,
+          }))
+        );
+
+        await db.lorebookEntries.bulkAdd(
+          exampleStorySeed.lorebookEntries.map((entry) => ({
+            ...entry,
+            createdAt,
+          }))
+        );
+      }
+    );
+
+    console.log(
+      `Seeded example story "${exampleStorySeed.story.title}" with ${exampleStorySeed.chapters.length} chapters and ${exampleStorySeed.lorebookEntries.length} lore entries.`
+    );
+  }
+
+  private async repairExistingExampleStoryChapters(): Promise<void> {
+    const seedChaptersById = new Map(
+      exampleStorySeed.chapters.map((chapter) => [chapter.id, chapter])
+    );
+    const chapters = await db.chapters
+      .where("storyId")
+      .equals(EXAMPLE_STORY_ID)
+      .toArray();
+    const updates = chapters
+      .map((chapter) => {
+        const seedChapter = seedChaptersById.get(chapter.id);
+        if (!seedChapter || !chapter.isDemo) return null;
+        if (!isSameLexicalPlainText(chapter.content, seedChapter.content)) return null;
+        if (!shouldRepairSeededChapterContent(chapter.content)) return null;
+        return { id: chapter.id, content: seedChapter.content };
+      })
+      .filter((update): update is { id: string; content: string } => update !== null);
+
+    if (updates.length === 0) return;
+
+    await db.transaction("rw", db.chapters, async () => {
+      for (const update of updates) {
+        await db.chapters.update(update.id, { content: update.content });
+      }
+    });
+
+    console.log(`Repaired ${updates.length} existing example story chapter(s).`);
+  }
+}
+
+function shouldRepairSeededChapterContent(content: string): boolean {
+  try {
+    const parsed = JSON.parse(content);
+    const children = parsed?.root?.children;
+    if (!Array.isArray(children)) return false;
+
+    const textNodes = collectTextNodes(parsed.root);
+    const hasTextNodeNewlines = textNodes.some((node) => /\r?\n/.test(node.text));
+    return hasTextNodeNewlines || children.length <= 3;
+  } catch {
+    return false;
+  }
+}
+
+function isSameLexicalPlainText(left: string, right: string): boolean {
+  return normalizePlainText(extractLexicalPlainText(left)) === normalizePlainText(extractLexicalPlainText(right));
+}
+
+function extractLexicalPlainText(content: string): string {
+  try {
+    const parsed = JSON.parse(content);
+    return collectTextNodes(parsed?.root)
+      .map((node) => node.text)
+      .join(" ");
+  } catch {
+    return "";
+  }
+}
+
+function collectTextNodes(node: unknown): Array<{ text: string }> {
+  if (!node || typeof node !== "object") return [];
+  const current = node as { children?: unknown; text?: unknown; type?: unknown };
+  const ownText = current.type === "text" && typeof current.text === "string"
+    ? [{ text: current.text }]
+    : [];
+  if (!Array.isArray(current.children)) return ownText;
+  return ownText.concat(current.children.flatMap(collectTextNodes));
+}
+
+function normalizePlainText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 // Export singleton instance

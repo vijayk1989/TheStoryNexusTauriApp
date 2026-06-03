@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit, Bot, Activity } from "lucide-react";
+import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit, Bot, Activity, Download, RefreshCw, Globe } from "lucide-react";
+import { aiService } from "@/services/ai/AIService";
+import { executeTavilySearch } from "@/services/ai/tools";
 import {
   Collapsible,
   CollapsibleContent,
@@ -48,6 +50,8 @@ import {
 } from "@/components/ui/select";
 import useTemplateStore from '@/features/templates/store/templateStore';
 import CreateTemplateDialog from '@/features/templates/components/CreateTemplateDialog';
+import TemplateManagerDialog from '@/features/templates/components/TemplateManagerDialog';
+import { resolveSavedDefaultModel } from '@/features/ai/utils/defaultModels';
 
 interface ChatInterfaceProps {
   storyId: string;
@@ -98,6 +102,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   const [showAgenticProgress, setShowAgenticProgress] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
+  // Web search state
+  const [enableWebSearch, setEnableWebSearch] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
+
   // Get stores
   const { loadEntries, entries: lorebookEntries } = useLorebookStore();
   const { currentStory } = useStoryStore();
@@ -109,20 +117,18 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   } = usePromptStore();
   const {
     initialize: initializeAI,
+    settings,
     getAvailableModels,
     generateWithPrompt,
     processStreamedResponse,
     abortGeneration,
   } = useAIStore();
-  const {
-    addChat,
-    updateChat,
-    selectedChat,
-    draftMessage,
-    setDraftMessage,
-    clearDraftMessage,
-  } = useBrainstormStore();
-  const { setMessageEdited } = useBrainstormStore();
+  const addChat = useBrainstormStore((state) => state.addChat);
+  const updateChat = useBrainstormStore((state) => state.updateChat);
+  const selectedChat = useBrainstormStore((state) => state.selectedChat);
+  const setDraftMessage = useBrainstormStore((state) => state.setDraftMessage);
+  const clearDraftMessage = useBrainstormStore((state) => state.clearDraftMessage);
+  const setMessageEdited = useBrainstormStore((state) => state.setMessageEdited);
   const { fetchChapters } = useChapterStore();
 
   // Agentic generation hook
@@ -157,8 +163,9 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     }
   }, []);
 
-  // Keep local input in sync with the store draftMessage and reset height when cleared
+  // Keep local input in sync when selected chat changes and reset height when cleared
   useEffect(() => {
+    const draftMessage = useBrainstormStore.getState().draftMessage;
     setInput(draftMessage);
     const ta = textareaRef.current;
     if (ta) {
@@ -174,7 +181,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         ta.style.overflowY = contentHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
       }
     }
-  }, [draftMessage]);
+  }, [selectedChat]);
   const [selectedModel, setSelectedModel] = useState<AllowedModel | null>(null);
   const [availableModels, setAvailableModels] = useState<AllowedModel[]>([]);
 
@@ -266,6 +273,19 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     }
   }, [agenticMode, getAvailablePipelines, selectedPipeline]);
 
+  useEffect(() => {
+    if (!settings?.enablePromptDefaults || selectedPrompt || prompts.length === 0) return;
+
+    const defaultPrompt = settings.defaultBrainstormPromptId
+      ? prompts.find((prompt) => prompt.id === settings.defaultBrainstormPromptId)
+      : prompts.find((prompt) => prompt.promptType === "brainstorm");
+
+    if (!defaultPrompt) return;
+
+    setSelectedPrompt(defaultPrompt);
+    setSelectedModel(resolveSavedDefaultModel(settings, settings.defaultBrainstormModelId));
+  }, [prompts, selectedPrompt, settings]);
+
   // Get filtered entries based on enabled categories
   const getFilteredEntries = () => {
     // Use the centralized method from the store
@@ -344,6 +364,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         selectedChapterContent: includeFullContext
           ? []
           : selectedChapterContent,
+        enableWebSearch,
       },
     };
   };
@@ -455,7 +476,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
       }
 
       const config = createPromptConfig(selectedPrompt);
-      const response = await generateWithPrompt(config, selectedModel);
+      let response = await generateWithPrompt(config, selectedModel);
 
       if (!response.ok && response.status !== 204) {
         throw new Error("Failed to generate response");
@@ -466,6 +487,58 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         setIsGenerating(false);
         return;
       }
+
+      // ── Tool-call loop (Tavily) ────────────────────────────────
+      // Peek at the stream: if the model emits tool_calls before content,
+      // we run the tool and re-submit with the result, then stream normally.
+      if (enableWebSearch) {
+        // Read the full first response to detect tool_calls
+        const cloned = response.clone();
+        const rawText = await cloned.text();
+        const lines = rawText.split('\n');
+        const toolCallChunks: any[] = [];
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const json = JSON.parse(line.substring(6));
+              const tc = json.choices?.[0]?.delta?.tool_calls;
+              if (tc?.length) toolCallChunks.push(...tc);
+            } catch { /* skip */ }
+          }
+        }
+
+        if (toolCallChunks.length > 0) {
+          // Reconstruct the function name and args from streaming chunks
+          let fnName = '';
+          let fnArgs = '';
+          for (const tc of toolCallChunks) {
+            if (tc.function?.name) fnName += tc.function.name;
+            if (tc.function?.arguments) fnArgs += tc.function.arguments;
+          }
+
+          if (fnName === 'search_web') {
+            setToolStatus('searching_web');
+            const tavilyKey = aiService.getTavilyKey() || '';
+            let query = '';
+            try { query = JSON.parse(fnArgs).query || ''; } catch { query = fnArgs; }
+
+            const searchResult = await executeTavilySearch(query, tavilyKey);
+            setToolStatus(null);
+
+            // Build tool result message and re-submit
+            const toolMessages: PromptMessage[] = [
+              ...config.additionalContext?.chatHistory as PromptMessage[] || [],
+              { role: 'assistant', content: null, tool_calls: [{ id: 'call_1', type: 'function', function: { name: fnName, arguments: fnArgs } }] },
+              { role: 'tool', tool_call_id: 'call_1', name: fnName, content: searchResult },
+            ];
+
+            // Re-call without tools to get the final answer
+            const { generateWithParsedMessages } = useAIStore.getState();
+            response = await generateWithParsedMessages(toolMessages, selectedModel, selectedPrompt.id);
+          }
+        }
+      }
+      // ─────────────────────────────────────────────────────────────
 
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -495,6 +568,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         () => {
           setIsGenerating(false);
           setStreamingMessageId(null);
+          setToolStatus(null);
           const { proseText } = splitThinkingContent(fullResponse);
           updateChat(chatId, {
             messages: [...newMessages, { ...assistantMessage, content: proseText }],
@@ -505,6 +579,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           setPreviewError("Failed to stream response");
           setIsGenerating(false);
           setStreamingMessageId(null);
+          setToolStatus(null);
+        },
+        (status) => {
+          setToolStatus(status);
         }
       );
     } catch (error) {
@@ -686,6 +764,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   // Templates dialog state (for creating/editing insert templates)
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Partial<any> | null>(null);
+  const [templateManagerOpen, setTemplateManagerOpen] = useState(false);
 
   const handleExtractFromMessage = async (messageContent: string) => {
     const parsed = parseLorebookJson(messageContent);
@@ -796,6 +875,234 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
     }
   };
 
+  // Regenerate the last assistant response
+  const handleRegenerate = async (assistantMessageId: string) => {
+    if (!selectedPrompt || !selectedModel || isGenerating) return;
+
+    // Find the index of the assistant message we're regenerating
+    const msgIndex = messages.findIndex((m) => m.id === assistantMessageId);
+    if (msgIndex < 0) return;
+
+    // Grab all messages before this assistant response (keeps the user msg)
+    const messagesBeforeRegen = messages.slice(0, msgIndex);
+
+    // Find the last user message for prompt config
+    const lastUserMsg = [...messagesBeforeRegen].reverse().find((m) => m.role === "user");
+    if (!lastUserMsg) {
+      toast.error("No user message to regenerate from");
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      setPreviewError(null);
+
+      // Build a fresh prompt config using the original user input
+      const config: PromptParserConfig = {
+        promptId: selectedPrompt.id,
+        storyId,
+        scenebeat: lastUserMsg.content,
+        additionalContext: {
+          chatHistory: messagesBeforeRegen.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+          includeFullContext,
+          selectedSummaries: includeFullContext ? [] : selectedSummaries,
+          selectedItems: includeFullContext
+            ? []
+            : selectedItems.map((item) => item.id),
+          selectedChapterContent: includeFullContext
+            ? []
+            : selectedChapterContent,
+        },
+      };
+
+      const response = await generateWithPrompt(config, selectedModel);
+
+      if (!response.ok && response.status !== 204) {
+        throw new Error("Failed to generate response");
+      }
+
+      if (response.status === 204) {
+        console.log("Regen aborted.");
+        setIsGenerating(false);
+        return;
+      }
+
+      // Create the replacement assistant message
+      const newAssistantMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+      };
+
+      // Replace the old assistant message with the new one
+      const updatedMessages = [...messagesBeforeRegen, newAssistantMessage];
+      setMessages(updatedMessages);
+      setStreamingMessageId(newAssistantMessage.id);
+
+      let fullResponse = "";
+      await processStreamedResponse(
+        response,
+        (token) => {
+          fullResponse += token;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === newAssistantMessage.id
+                ? { ...msg, content: fullResponse }
+                : msg
+            )
+          );
+        },
+        () => {
+          setIsGenerating(false);
+          setStreamingMessageId(null);
+          const chatId = currentChatId;
+          if (chatId) {
+            updateChat(chatId, {
+              messages: [
+                ...messagesBeforeRegen,
+                { ...newAssistantMessage, content: fullResponse },
+              ],
+            });
+          }
+        },
+        (error) => {
+          console.error("Regen streaming error:", error);
+          setPreviewError("Failed to stream response");
+          setIsGenerating(false);
+          setStreamingMessageId(null);
+        }
+      );
+    } catch (error) {
+      console.error("Error during regen:", error);
+      setPreviewError(
+        error instanceof Error ? error.message : "An unknown error occurred"
+      );
+      setIsGenerating(false);
+    }
+  };
+
+  const renderedMessages = useMemo(() => (
+    <div className="space-y-4">
+      {messages.map((message) => {
+        const parsed = parseLorebookJson(message.content || "");
+        const hasParsableJson = !parsed.error && parsed.entries && parsed.entries.length > 0;
+
+        return (
+          <div
+            key={message.id}
+            className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={`max-w-[80%] rounded-lg p-3 ${
+                message.role === "user"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted"
+              }`}
+            >
+              {editingMessageId === message.id ? (
+                <div>
+                  <Textarea
+                    ref={(el: HTMLTextAreaElement) => (editingTextareaRef.current = el)}
+                    value={editingContent}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                      const newVal = e.target.value;
+                      setEditingContent(newVal);
+                      // Autosize editor textarea
+                      try {
+                        const ta = editingTextareaRef.current;
+                        if (ta) {
+                          ta.style.height = 'auto';
+                          const contentHeight = ta.scrollHeight;
+                          const newHeight = Math.min(Math.max(contentHeight, INITIAL_TEXTAREA_HEIGHT), MAX_TEXTAREA_HEIGHT);
+                          ta.style.height = `${newHeight}px`;
+                          ta.style.overflowY = contentHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+                        }
+                      } catch (err) {
+                        // ignore
+                      }
+                    }}
+                    className="min-h-[80px] max-h-[330px] md:min-w-[520px]"
+                    onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        // Save
+                        handleSaveEdit(message.id);
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        setEditingMessageId(null);
+                        setEditingContent('');
+                      }
+                    }}
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <Button size="sm" onClick={() => handleSaveEdit(message.id)}>Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setEditingMessageId(null); setEditingContent(''); }}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <MarkdownRenderer
+                    content={message.content}
+                    showDelete={true}
+                    onDelete={() => handleDeleteMessage(message.id)}
+                    onEdit={() => {
+                      if (streamingMessageId === message.id) {
+                        if (!confirm('This message is still being generated. Stop generation and edit?')) return;
+                        abortGeneration();
+                        setStreamingMessageId(null);
+                      }
+                      setEditingMessageId(message.id);
+                      setEditingContent(message.content);
+                    }}
+                  />
+
+                  {/* Action buttons for assistant messages */}
+                  {message.role === 'assistant' && (
+                    <div className="flex items-center gap-1 mt-2 pt-1 border-t border-border/40">
+                      {/* Regen button – only on the last assistant message */}
+                      {message.id === [...messages].reverse().find((m) => m.role === 'assistant')?.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-primary gap-1"
+                          onClick={() => handleRegenerate(message.id)}
+                          disabled={isGenerating || streamingMessageId === message.id}
+                          title="Regenerate response"
+                        >
+                          <RefreshCw className={cn("h-3.5 w-3.5", isGenerating && streamingMessageId === message.id && "animate-spin")} />
+                          Regen
+                        </Button>
+                      )}
+
+                      {/* Extract button for parsed JSON -> lorebook entry */}
+                      {hasParsableJson && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-primary gap-1"
+                          onClick={() => handleExtractFromMessage(message.content)}
+                          disabled={streamingMessageId === message.id}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Extract
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      <div ref={messagesEndRef} />
+    </div>
+  ), [messages, editingMessageId, editingContent, streamingMessageId, isGenerating, selectedChat?.id, storyId]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Chat messages */}
@@ -806,101 +1113,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
               <p>No messages yet. Start a conversation!</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {messages.map((message) => {
-                const parsed = parseLorebookJson(message.content || "");
-                const hasParsableJson = !parsed.error && parsed.entries && parsed.entries.length > 0;
-
-                return (
-                <div
-                  key={message.id}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
-                  >
-                    {editingMessageId === message.id ? (
-                      <div>
-                        <Textarea
-                          ref={(el: HTMLTextAreaElement) => (editingTextareaRef.current = el)}
-                          value={editingContent}
-                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                            const newVal = e.target.value;
-                            setEditingContent(newVal);
-                            // Autosize editor textarea
-                            try {
-                              const ta = editingTextareaRef.current;
-                              if (ta) {
-                                ta.style.height = 'auto';
-                                const contentHeight = ta.scrollHeight;
-                                const newHeight = Math.min(Math.max(contentHeight, INITIAL_TEXTAREA_HEIGHT), MAX_TEXTAREA_HEIGHT);
-                                ta.style.height = `${newHeight}px`;
-                                ta.style.overflowY = contentHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
-                              }
-                            } catch (err) {
-                              // ignore
-                            }
-                          }}
-                          className="min-h-[80px] max-h-[330px] md:min-w-[520px]"
-                          onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                              e.preventDefault();
-                              // Save
-                              handleSaveEdit(message.id);
-                            } else if (e.key === 'Escape') {
-                              e.preventDefault();
-                              setEditingMessageId(null);
-                              setEditingContent('');
-                            }
-                          }}
-                        />
-                        <div className="flex gap-2 mt-2">
-                          <Button size="sm" onClick={() => handleSaveEdit(message.id)}>Save</Button>
-                          <Button size="sm" variant="ghost" onClick={() => { setEditingMessageId(null); setEditingContent(''); }}>Cancel</Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="relative">
-                        <MarkdownRenderer
-                          content={message.content}
-                          showDelete={true}
-                          onDelete={() => handleDeleteMessage(message.id)}
-                          onEdit={() => {
-                            if (streamingMessageId === message.id) {
-                              if (!confirm('This message is still being generated. Stop generation and edit?')) return;
-                              abortGeneration();
-                              setStreamingMessageId(null);
-                            }
-                            setEditingMessageId(message.id);
-                            setEditingContent(message.content);
-                          }}
-                        />
-
-                        {/* Extract button for parsed JSON -> lorebook entry */}
-                        {message.role === 'assistant' && hasParsableJson && (
-                          <div className="absolute bottom-2 right-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleExtractFromMessage(message.content)}
-                              disabled={streamingMessageId === message.id}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
+            renderedMessages
           )}
         </ScrollArea>
       </div>
@@ -1277,6 +1490,16 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                   className="data-[state=checked]:bg-primary"
                 />
               </div>
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Web Search</span>
+                <Switch
+                  checked={enableWebSearch}
+                  onCheckedChange={setEnableWebSearch}
+                  className="data-[state=checked]:bg-primary"
+                  disabled={agenticMode}
+                />
+              </div>
               {agenticMode && availablePipelines.length > 0 && (
                 <Select
                   value={selectedPipeline?.id || ""}
@@ -1319,6 +1542,16 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 <span>
                   Step {currentStep + 1}: {currentAgentName || "Initializing..."}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* Web search status indicator */}
+          {toolStatus === 'searching_web' && (
+            <div className="mb-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-md">
+              <div className="flex items-center gap-2 text-sm text-blue-500">
+                <Globe className="h-4 w-4 animate-pulse" />
+                <span>Searching the web…</span>
               </div>
             </div>
           )}
@@ -1385,6 +1618,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                     if (value === 'create-new') {
                       setEditingTemplate(null);
                       setCreateTemplateOpen(true);
+                    } else if (value === '__manage__') {
+                      setTemplateManagerOpen(true);
                     } else if (value) {
                       // value is template id -> insert its content
                       const tpl = useTemplateStore.getState().templates.find(t => t.id === value);
@@ -1416,6 +1651,12 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                     <div className="flex items-center gap-2">
                       <Plus className="h-4 w-4" />
                       Create new...
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="__manage__">
+                    <div className="flex items-center gap-2">
+                      <Download className="h-4 w-4" />
+                      Export / Import...
                     </div>
                   </SelectItem>
                   {/* List persisted templates (fetched via template store) */}
@@ -1538,6 +1779,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
           }
         }}
         template={editingTemplate as any}
+      />
+      {/* Template Export / Import Manager */}
+      <TemplateManagerDialog
+        open={templateManagerOpen}
+        onOpenChange={setTemplateManagerOpen}
       />
     </div>
   );

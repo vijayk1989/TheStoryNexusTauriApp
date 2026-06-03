@@ -1,6 +1,7 @@
 import { AIModel, AIProvider, AISettings, PromptMessage } from '@/types/story';
 import { db } from '../database';
 import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 
 export class AIService {
     private static instance: AIService;
@@ -11,7 +12,9 @@ export class AIService {
     private openAI: OpenAI | null = null;
     private openAICompatibleUrl: string | null = null;
     private openAICompatibleKey: string | null = null;
+    private googleAI: GoogleGenAI | null = null;
     private abortController: AbortController | null = null;
+    private initializePromise: Promise<void> | null = null;
 
     private constructor() { }
 
@@ -23,14 +26,36 @@ export class AIService {
     }
 
     async initialize() {
+        if (this.initializePromise) {
+            return this.initializePromise;
+        }
+
+        this.initializePromise = this.initializeInternal().finally(() => {
+            this.initializePromise = null;
+        });
+        return this.initializePromise;
+    }
+
+    private async initializeInternal() {
         // Load or create settings
         const settings = await db.aiSettings.toArray();
-        this.settings = settings[0] || await this.createInitialSettings();
+        this.settings = this.selectSettings(settings) || await this.createInitialSettings();
         // Initialize provider clients/values based on loaded settings
         this.initializeOpenAI();
         this.initializeOpenRouter();
         this.initializeNanoGPT();
         this.initializeOpenAICompatible();
+        this.initializeGoogle();
+    }
+
+    private selectSettings(settings: AISettings[]): AISettings | undefined {
+        return settings.find(item =>
+            item.openrouterKey?.trim() ||
+            item.openaiKey?.trim() ||
+            item.nanogptKey?.trim() ||
+            item.googleKey?.trim() ||
+            (item.openaiCompatibleKey?.trim() && item.openaiCompatibleUrl?.trim())
+        ) || settings[0];
     }
 
     private async createInitialSettings(): Promise<AISettings> {
@@ -58,14 +83,39 @@ export class AIService {
 
         let response: Response;
         try {
-            response = await fetch(`${apiUrl}/models`);
-        } catch {
-            // Network error — LMStudio not running, or CORS is blocking the request
-            throw new Error(
-                `Could not connect to LMStudio at ${apiUrl}. ` +
-                `Make sure LMStudio is running and CORS is enabled: ` +
-                `open LMStudio → Settings → Server → enable "Enable CORS".`
+            // Always use the URL from settings if available, otherwise fall back to default
+            const apiUrl = this.settings?.localApiUrl || this.LOCAL_API_URL;
+            console.log(`[AIService] Fetching local models from: ${apiUrl}`);
+
+            const response = await fetch(`${apiUrl}/models`);
+            if (!response.ok) {
+                console.error(`[AIService] Failed to fetch local models: ${response.status} ${response.statusText}`);
+                throw new Error('Failed to fetch local models');
+            }
+
+            const result = await response.json();
+            const models = result.data.map((model: { id: string, object: string, owned_by: string }) => ({
+                id: `local/${model.id}`,
+                name: model.id,
+                provider: 'local' as AIProvider,
+                contextLength: 32768,
+                enabled: true
+            }));
+
+            return models;
+        } catch (error) {
+            console.warn(
+                `[AIService] Could not connect to LMStudio at ${this.settings?.localApiUrl || this.LOCAL_API_URL}. ` +
+                `Make sure LMStudio is running and CORS is enabled (Settings → Server → Enable CORS). Error:`,
+                error
             );
+            return [{
+                id: 'local',
+                name: 'Local Model',
+                provider: 'local',
+                contextLength: 32768,
+                enabled: true
+            }];
         }
 
         if (!response.ok) {
@@ -134,6 +184,13 @@ export class AIService {
         });
     }
 
+    private initializeGoogle() {
+        if (!this.settings?.googleKey) return;
+
+        this.googleAI = new GoogleGenAI({ apiKey: this.settings.googleKey });
+        console.log('[AIService] Initialized Google AI client');
+    }
+
     async updateKey(provider: AIProvider, key: string) {
         if (!this.settings) throw new Error('AIService not initialized');
 
@@ -142,7 +199,8 @@ export class AIService {
             ...(provider === 'openai' && { openaiKey: key }),
             ...(provider === 'openrouter' && { openrouterKey: key }),
             ...(provider === 'nanogpt' && { nanogptKey: key }),
-            ...(provider === 'openai_compatible' && { openaiCompatibleKey: key })
+            ...(provider === 'openai_compatible' && { openaiCompatibleKey: key }),
+            ...(provider === 'google' && { googleKey: key })
         };
 
         console.log(`[AIService] Updating database with new key for ${provider}`);
@@ -163,6 +221,9 @@ export class AIService {
         } else if (provider === 'openai_compatible') {
             console.log(`[AIService] Initializing OpenAI-compatible provider`);
             this.initializeOpenAICompatible();
+        } else if (provider === 'google') {
+            console.log(`[AIService] Initializing Google AI client`);
+            this.initializeGoogle();
         }
 
         // Fetch available models when key is updated
@@ -206,6 +267,12 @@ export class AIService {
                         models = await this.fetchOpenAICompatibleModels();
                     }
                     break;
+                case 'google':
+                    if (this.settings.googleKey) {
+                        console.log('[AIService] Fetching Google AI models');
+                        models = await this.fetchGoogleModels();
+                    }
+                    break;
             }
 
             console.log(`[AIService] Fetched ${models.length} models for ${provider}`);
@@ -246,7 +313,7 @@ export class AIService {
                 id: model.id,
                 name: model.id,
                 provider: 'openai' as AIProvider,
-                contextLength: model.context_length || 16384,
+                contextLength: model.context_length || 32768,
                 enabled: true
             }));
     }
@@ -284,7 +351,7 @@ export class AIService {
             id: model.id,
             name: model.name || model.id,
             provider: 'nanogpt' as AIProvider,
-            contextLength: model.context_length || 16384,
+            contextLength: model.context_length || 32768,
             enabled: true
         }));
     }
@@ -322,9 +389,39 @@ export class AIService {
             id: model.id || model.name,
             name: model.name || model.id || String(model.id),
             provider: 'openai_compatible' as AIProvider,
-            contextLength: model.context_length || model.max_context || 16384,
+            contextLength: model.context_length || model.max_context || 32768,
             enabled: true
         }));
+    }
+
+    private async fetchGoogleModels(): Promise<AIModel[]> {
+        if (!this.googleAI) throw new Error('Google AI client not initialized');
+
+        try {
+            const pager = await this.googleAI.models.list({ config: { pageSize: 100 } });
+            const models: AIModel[] = [];
+
+            for await (const model of pager) {
+                // Only include generative models (skip embedding models etc.)
+                if (!model.name || !model.supportedActions?.includes('generateContent')) continue;
+
+                // model.name is like "models/gemini-2.0-flash", extract the id part
+                const modelId = model.name.replace('models/', '');
+                models.push({
+                    id: modelId,
+                    name: model.displayName || modelId,
+                    provider: 'google' as AIProvider,
+                    contextLength: model.inputTokenLimit || 32768,
+                    enabled: true
+                });
+            }
+
+            console.log(`[AIService] Fetched ${models.length} Google AI models`);
+            return models;
+        } catch (error) {
+            console.error('[AIService] Failed to fetch Google AI models:', error);
+            throw error;
+        }
     }
 
     async getAvailableModels(provider?: AIProvider, forceRefresh: boolean = true): Promise<AIModel[]> {
@@ -363,16 +460,13 @@ export class AIService {
         min_p?: number,
         modelId?: string
     ): Promise<Response> {
-        // Strip the "local/" prefix — LMStudio expects bare model IDs (e.g. "llama-3.2-3b-instruct")
-        const bareModelId = modelId
-            ? modelId.replace(/^local\//, '')
-            : (this.settings?.availableModels?.find(m => m.provider === 'local')?.id ?? 'local').replace(/^local\//, '');
+        if (!this.settings) throw new Error('AIService not initialized');
 
         // Create request body with optional parameters
         const requestBody: any = {
             messages,
             stream: true,
-            model: bareModelId,
+            model: this.resolveLocalModelId(modelId),
             temperature,
             max_tokens: maxTokens,
         };
@@ -421,10 +515,20 @@ export class AIService {
         });
     }
 
-    async processStreamedResponse(response: Response,
+    private resolveLocalModelId(modelId?: string): string {
+        const configuredModelId = modelId && modelId !== 'local'
+            ? modelId
+            : this.settings?.availableModels.find(model => model.provider === 'local')?.id;
+
+        return (configuredModelId || 'local/llama-3.2-3b-instruct').replace(/^local\//, '');
+    }
+
+    async processStreamedResponse(
+        response: Response,
         onToken: (text: string) => void,
         onComplete: () => void,
-        onError: (error: Error) => void
+        onError: (error: Error) => void,
+        onStatus?: (status: string) => void
     ) {
         if (!response.body) {
             return onError(new Error('Response body is null'));
@@ -463,6 +567,18 @@ export class AIService {
                         }
                         try {
                             const json = JSON.parse(data);
+                            // Handle tool_status (synthetic event for UI feedback)
+                            if (json.tool_status) {
+                                onStatus?.(json.tool_status);
+                                continue;
+                            }
+                            // Handle tool_calls delta (accumulate for later execution)
+                            const toolCalls = json.choices?.[0]?.delta?.tool_calls;
+                            if (toolCalls?.length) {
+                                // Forward as a synthetic status — the ChatInterface handles execution
+                                onStatus?.('searching_web');
+                                continue;
+                            }
                             const text = json.choices[0]?.delta?.content || '';
                             if (text) {
                                 onToken(text);
@@ -493,7 +609,8 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        tools?: any[]
     ): Promise<Response> {
         if (!this.settings?.openaiKey) {
             throw new Error('OpenAI API key not set');
@@ -507,7 +624,7 @@ export class AIService {
 
         const body: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
             model: modelId,
-            messages: messages,
+            messages: messages as any[],
             temperature: temperature,
             max_tokens: maxTokens,
             stream: true,
@@ -518,20 +635,27 @@ export class AIService {
         // top_k is not directly supported in the same way by OpenAI's API
         if (repetition_penalty !== undefined && repetition_penalty !== 0) { body.frequency_penalty = repetition_penalty; }
         // min_p is not a standard OpenAI parameter
+        if (tools?.length) { (body as any).tools = tools; }
 
         this.abortController = new AbortController();
 
         try {
-            const stream = await this.openAI.chat.completions.create(body, { signal: this.abortController.signal });
+            const stream = await this.openAI.chat.completions.create(body as any, { signal: this.abortController.signal }) as any;
 
             const responseStream = new ReadableStream({
                 async start(controller) {
                     try {
                         for await (const chunk of stream) {
-                            const content = chunk.choices[0]?.delta?.content || '';
-                            if (content) {
-                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                            const toolCalls = (chunk.choices[0]?.delta as any)?.tool_calls;
+                            if (toolCalls?.length) {
+                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: toolCalls } }] })}\n\n`;
                                 controller.enqueue(new TextEncoder().encode(formattedChunk));
+                            } else {
+                                const content = chunk.choices[0]?.delta?.content || '';
+                                if (content) {
+                                    const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                                    controller.enqueue(new TextEncoder().encode(formattedChunk));
+                                }
                             }
                         }
                         controller.close();
@@ -568,7 +692,8 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        tools?: any[]
     ): Promise<Response> {
         if (!this.settings?.openrouterKey) {
             throw new Error('OpenRouter API key not set');
@@ -582,7 +707,7 @@ export class AIService {
 
         const body: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
             model: modelId,
-            messages: messages,
+            messages: messages as any[],
             temperature: temperature,
             max_tokens: maxTokens,
             stream: true,
@@ -599,20 +724,27 @@ export class AIService {
         if (min_p !== undefined && min_p !== 0) {
             Object.assign(body, { min_p });
         }
+        if (tools?.length) { (body as any).tools = tools; }
 
         this.abortController = new AbortController();
 
         try {
-            const stream = await this.openRouter.chat.completions.create(body, { signal: this.abortController.signal });
+            const stream = await this.openRouter.chat.completions.create(body as any, { signal: this.abortController.signal }) as any;
 
             const responseStream = new ReadableStream({
                 async start(controller) {
                     try {
                         for await (const chunk of stream) {
-                            const content = chunk.choices[0]?.delta?.content || '';
-                            if (content) {
-                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                            const toolCalls = (chunk.choices[0]?.delta as any)?.tool_calls;
+                            if (toolCalls?.length) {
+                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { tool_calls: toolCalls } }] })}\n\n`;
                                 controller.enqueue(new TextEncoder().encode(formattedChunk));
+                            } else {
+                                const content = chunk.choices[0]?.delta?.content || '';
+                                if (content) {
+                                    const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
+                                    controller.enqueue(new TextEncoder().encode(formattedChunk));
+                                }
                             }
                         }
                         controller.close();
@@ -649,7 +781,8 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        tools?: any[]
     ): Promise<Response> {
         if (!this.settings?.nanogptKey) {
             throw new Error('NanoGPT API key not set');
@@ -663,7 +796,7 @@ export class AIService {
 
         const body: OpenAI.Chat.Completions.ChatCompletionCreateParams = {
             model: modelId,
-            messages: messages,
+            messages: messages as any[],
             temperature: temperature,
             max_tokens: maxTokens,
             stream: true,
@@ -678,11 +811,12 @@ export class AIService {
         if (min_p !== undefined && min_p !== 0) {
             Object.assign(body, { min_p });
         }
+        if (tools?.length) { (body as any).tools = tools; }
 
         this.abortController = new AbortController();
 
         try {
-            const stream = await this.nanoGPT.chat.completions.create(body, { signal: this.abortController.signal });
+            const stream = await this.nanoGPT.chat.completions.create(body as any, { signal: this.abortController.signal }) as any;
 
             const responseStream = new ReadableStream({
                 async start(controller) {
@@ -728,7 +862,8 @@ export class AIService {
         top_p?: number,
         top_k?: number,
         repetition_penalty?: number,
-        min_p?: number
+        min_p?: number,
+        tools?: any[]
     ): Promise<Response> {
         if (!this.settings?.openaiCompatibleKey || !this.settings?.openaiCompatibleUrl) {
             throw new Error('OpenAI-compatible provider not configured');
@@ -749,6 +884,7 @@ export class AIService {
         if (top_k !== undefined && top_k !== 0) { body.top_k = top_k; }
         if (repetition_penalty !== undefined && repetition_penalty !== 0) { body.repetition_penalty = repetition_penalty; }
         if (min_p !== undefined && min_p !== 0) { body.min_p = min_p; }
+        if (tools?.length) { body.tools = tools; }
 
         this.abortController = new AbortController();
 
@@ -774,6 +910,111 @@ export class AIService {
         }
     }
 
+    async generateWithGoogle(
+        messages: PromptMessage[],
+        modelId: string,
+        temperature: number = 1.0,
+        maxTokens: number = 2048,
+        top_p?: number,
+        top_k?: number,
+        repetition_penalty?: number,
+        min_p?: number
+    ): Promise<Response> {
+        if (!this.settings?.googleKey) {
+            throw new Error('Google AI API key not set');
+        }
+        if (!this.googleAI) {
+            this.initializeGoogle();
+        }
+        if (!this.googleAI) {
+            throw new Error('Google AI client not initialized');
+        }
+
+        // Extract system instruction from messages
+        const systemMessages = messages.filter(m => m.role === 'system');
+        const systemInstruction = systemMessages.map(m => m.content).join('\n\n') || undefined;
+
+        // Convert user/assistant messages to Google's contents format
+        const contents = messages
+            .filter(m => m.role !== 'system')
+            .map(m => ({
+                role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+                parts: [{ text: m.content }]
+            }));
+
+        // Build generation config
+        const config: Record<string, any> = {
+            temperature,
+            maxOutputTokens: maxTokens,
+        };
+
+        if (systemInstruction) {
+            config.systemInstruction = systemInstruction;
+        }
+        if (top_p !== undefined && top_p !== 0) {
+            config.topP = top_p;
+        }
+        if (top_k !== undefined && top_k !== 0) {
+            config.topK = top_k;
+        }
+        // Note: repetition_penalty and min_p are not supported by Google's API
+        // They will be silently ignored
+
+        this.abortController = new AbortController();
+        const signal = this.abortController.signal;
+
+        try {
+            const stream = await this.googleAI.models.generateContentStream({
+                model: modelId,
+                contents,
+                config,
+            });
+
+            // Wrap Google's async iterator into an SSE-formatted ReadableStream
+            // so processStreamedResponse can parse it unchanged
+            const responseStream = new ReadableStream({
+                async start(controller) {
+                    try {
+                        for await (const chunk of stream) {
+                            if (signal.aborted) {
+                                console.log('Google AI stream aborted');
+                                controller.close();
+                                return;
+                            }
+                            const text = chunk.text;
+                            if (text) {
+                                const formattedChunk = `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`;
+                                controller.enqueue(new TextEncoder().encode(formattedChunk));
+                            }
+                        }
+                        // Send the [DONE] marker
+                        controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+                        controller.close();
+                    } catch (error) {
+                        if (signal.aborted) {
+                            console.log('Google AI stream aborted during iteration');
+                            controller.close();
+                        } else {
+                            controller.error(error);
+                        }
+                    }
+                }
+            });
+
+            return new Response(responseStream, {
+                headers: { 'Content-Type': 'text/event-stream' }
+            });
+
+        } catch (error) {
+            if ((error as Error).name === 'AbortError') {
+                console.log('Google AI generation aborted');
+                return new Response(null, { status: 204 });
+            }
+            console.error('Error generating with Google AI:', error);
+            throw error;
+        }
+    }
+
     // Add getter methods for settings
     getOpenAIKey(): string | undefined {
         return this.settings?.openaiKey;
@@ -785,6 +1026,20 @@ export class AIService {
 
     getNanoGPTKey(): string | undefined {
         return this.settings?.nanogptKey;
+    }
+
+    getGoogleKey(): string | undefined {
+        return this.settings?.googleKey;
+    }
+
+    getTavilyKey(): string | undefined {
+        return this.settings?.tavilyKey;
+    }
+
+    async updateTavilyKey(key: string) {
+        if (!this.settings) throw new Error('AIService not initialized');
+        await db.aiSettings.update(this.settings.id, { tavilyKey: key });
+        this.settings.tavilyKey = key;
     }
 
     getOpenAICompatibleKey(): string | undefined {

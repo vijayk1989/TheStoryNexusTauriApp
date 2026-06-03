@@ -1,212 +1,208 @@
-import { Link } from "react-router";
-import { ExternalLink, Bot, BookOpen, PenLine, Sparkles, Settings2, Youtube } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type React from "react";
+import {
+    Bot,
+    BookOpen,
+    CheckCircle2,
+    FilePlus,
+    PanelRightOpen,
+    PenLine,
+    Save,
+    ScrollText,
+    Settings,
+    Sparkles,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function BasicsGuide() {
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-2xl font-bold mb-4">The Absolute Basics</h2>
-                <p className="text-muted-foreground mb-6">
-                    Welcome to The Story Nexus! This guide will walk you through the essential steps to get started with your AI-powered writing journey.
+                <h2 className="mb-4 text-2xl font-bold">The Basics</h2>
+                <p className="mb-6 text-muted-foreground">
+                    The Story Nexus is now centered on one writing workspace. Choose a story and chapter from the left rail, write in the editor, and open supporting tools from the right rail when you need them.
                 </p>
-                <div className="p-4 border rounded-lg bg-card flex items-center gap-4">
-                    <Youtube className="h-8 w-8 text-red-500 flex-shrink-0" />
-                    <div className="flex-1">
-                        <h3 className="font-semibold mb-1">Video Tutorial</h3>
-                        <p className="text-sm text-muted-foreground mb-2">
-                            New to The Story Nexus? Watch this video to learn the absolute basics in just a few minutes.
-                        </p>
-                        <a 
-                            href="https://www.youtube.com/watch?v=9RAsuNBnegc" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                        >
-                            <Button variant="outline" className="gap-2">
-                                <Youtube className="h-4 w-4 text-red-500" />
-                                Watch Tutorial on YouTube
-                                <ExternalLink className="h-3 w-3" />
-                            </Button>
-                        </a>
-                    </div>
-                </div>
             </div>
 
             <div className="space-y-6">
-                <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
-                    <h3 className="text-xl font-semibold flex items-center gap-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center">1</span>
-                        Set Up Your AI Connection
-                    </h3>
+                <GuideStep
+                    number="1"
+                    icon={<BookOpen className="h-5 w-5 text-primary" />}
+                    title="Pick Or Create A Story"
+                >
                     <p>
-                        Before you can use AI features, you'll need to connect to an AI provider. The Story Nexus supports OpenAI, OpenRouter, or a local AI model.
+                        The left rail is your story and chapter navigator. Use the story selector at the top to switch projects, or open the menu beside it to create, import, edit, export, or delete a story.
                     </p>
-                    <div className="flex items-center gap-2 my-2">
-                        <Bot className="h-5 w-5 text-primary" />
-                        <Link to="/ai-settings">
-                            <Button variant="outline" className="gap-1">
-                                Go to AI Settings
-                                <ExternalLink className="h-3 w-3" />
-                            </Button>
-                        </Link>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <div className="border rounded-lg p-4 bg-card">
-                            <h4 className="font-medium mb-2">OpenRouter</h4>
-                            <p className="text-sm text-muted-foreground">
-                                Enter your OpenRouter API key to access a variety of models from different providers.
-                            </p>
-                        </div>
-                        <div className="border rounded-lg p-4 bg-card">
-                            <h4 className="font-medium mb-2">OpenAI</h4>
-                            <p className="text-sm text-muted-foreground">
-                                Enter your OpenAI API key to access models like GPT-4 and GPT-3.5.
-                            </p>
-                        </div>
-                        <div className="border rounded-lg p-4 bg-card">
-                            <h4 className="font-medium mb-2">Local</h4>
-                            <p className="text-sm text-muted-foreground">
-                                Connect to a locally hosted model by entering the API URL (default: http://localhost:1234/v1).
-                            </p>
-                        </div>
-                    </div>
-                    <Alert>
-                        <AlertTitle>Important</AlertTitle>
-                        <AlertDescription>
-                            After adding your API key, available models will be automatically retrieved. For local models, you'll need to click the "Refresh Models" button.
-                        </AlertDescription>
-                    </Alert>
-                </div>
-
-                <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
-                    <h3 className="text-xl font-semibold flex items-center gap-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center">2</span>
-                        Create Your First Story
-                    </h3>
-                    <p>
-                        Once your AI connection is set up, you can create your first story.
-                    </p>
-                    <ol className="list-decimal list-inside space-y-2 ml-4">
-                        <li>Go to the <strong>Home</strong> page and click on <strong>Stories</strong></li>
-                        <li>Click the <strong>Create New Story</strong> button</li>
-                        <li>Enter a title, author name, and optional synopsis</li>
-                        <li>Click <strong>Create</strong> to save your new story</li>
-                        <li>Click on the story card to access your story dashboard</li>
-                    </ol>
-                    <div className="flex items-center gap-2 my-2">
-                        <BookOpen className="h-5 w-5 text-primary" />
-                        <Link to="/stories">
-                            <Button variant="outline" className="gap-1">
-                                Go to Stories
-                                <ExternalLink className="h-3 w-3" />
-                            </Button>
-                        </Link>
-                    </div>
-                </div>
-
-                <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
-                    <h3 className="text-xl font-semibold flex items-center gap-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center">3</span>
-                        Configure Prompts with Allowed Models
-                    </h3>
-                    <p>
-                        <strong className="text-destructive">This step is essential!</strong> Before you can generate content, you need to configure which AI models are allowed for each prompt template.
-                    </p>
-                    <ol className="list-decimal list-inside space-y-2 ml-4">
-                        <li>Go to the <strong>Prompts</strong> section from the sidebar</li>
-                        <li>Click on a prompt template you want to use (e.g., "Story Writing Prompt")</li>
-                        <li>In the prompt editor, find the <strong>Allowed Models</strong> section</li>
-                        <li>Click on the models you want to enable for this prompt (they will be highlighted when selected)</li>
-                        <li>Click <strong>Save Changes</strong> to update the prompt</li>
-                    </ol>
-                    <div className="flex items-center gap-2 my-2">
-                        <Settings2 className="h-5 w-5 text-primary" />
-                        <Link to="/prompts">
-                            <Button variant="outline" className="gap-1">
-                                Go to Prompts
-                                <ExternalLink className="h-3 w-3" />
-                            </Button>
-                        </Link>
-                    </div>
-                    <Alert variant="destructive">
-                        <AlertTitle>Required Step</AlertTitle>
-                        <AlertDescription>
-                            If you skip this step, AI generation will not work. The model dropdown in Scene Beats will only show models that have been allowed for the selected prompt.
-                        </AlertDescription>
-                    </Alert>
-                </div>
-
-                <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
-                    <h3 className="text-xl font-semibold flex items-center gap-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center">4</span>
-                        Create Your First Chapter
-                    </h3>
-                    <p>
-                        Now that you have a story, it's time to create your first chapter.
-                    </p>
-                    <ol className="list-decimal list-inside space-y-2 ml-4">
-                        <li>From your story dashboard, click <strong>Create New Chapter</strong></li>
-                        <li>Enter a title for your chapter</li>
-                        <li>Optionally, set a POV (Point of View) character and type</li>
-                        <li>Click <strong>Create</strong> to save your new chapter</li>
-                        <li>Click the <strong>Write</strong> button on the chapter card to open the editor</li>
-                    </ol>
-                    <div className="flex items-center gap-2 my-2">
-                        <PenLine className="h-5 w-5 text-primary" />
-                    </div>
-                </div>
-
-                <div className="space-y-4 border-l-4 border-primary pl-4 py-2">
-                    <h3 className="text-xl font-semibold flex items-center gap-2">
-                        <span className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center">5</span>
-                        Write with AI Assistance
-                    </h3>
-                    <p>
-                        The Story Nexus editor allows you to write manually or with AI assistance through Scene Beats.
-                    </p>
-                    <div className="bg-muted p-4 rounded-md">
-                        <h4 className="font-medium mb-2">Using Scene Beats</h4>
-                        <p className="mb-2">Scene Beats are commands you give to the AI to generate content based on your instructions.</p>
-                        <ol className="list-decimal list-inside space-y-2 ml-4">
-                            <li>
-                                Press <kbd className="px-2 py-1 bg-background rounded border">Alt + S</kbd> (Windows) or <kbd className="px-2 py-1 bg-background rounded border">Option + S</kbd> (Mac) to insert a Scene Beat
-                                <br />
-                                <span className="text-sm text-muted-foreground">Alternatively, click on the menu and select Insert → Scene Beat</span>
-                            </li>
-                            <li>Enter your command describing what you want the AI to write</li>
-                            <li>Select a prompt template and AI model from the dropdown menus</li>
-                            <li>Click <strong>Generate Prose</strong> to create content</li>
-                            <li>Review the generated content and click <strong>Accept</strong> to insert it into your story, or <strong>Reject</strong> to try again</li>
-                        </ol>
-                    </div>
-                    <div className="flex items-center gap-2 my-2">
-                        <Sparkles className="h-5 w-5 text-primary" />
-                    </div>
-                    <Alert className="bg-primary/10 border-primary">
-                        <AlertTitle>Pro Tip</AlertTitle>
-                        <AlertDescription>
-                            Be specific in your Scene Beat commands. Instead of "continue the story," try something like "describe the character's reaction to the surprising news, showing their inner conflict."
-                        </AlertDescription>
-                    </Alert>
-                </div>
-
-                <div className="mt-8 p-6 border rounded-lg bg-muted/30">
-                    <h3 className="text-xl font-semibold mb-4">What's Next?</h3>
-                    <p className="mb-4">
-                        These are just the basics to get you started. The Story Nexus offers many more advanced features to enhance your writing experience:
-                    </p>
-                    <ul className="list-disc list-inside space-y-2 ml-4">
-                        <li>Create a <strong>Lorebook</strong> to manage characters, locations, and other story elements</li>
-                        <li>Customize <strong>Prompts</strong> to tailor the AI's writing style and behavior</li>
-                        <li>Use <strong>Brainstorming</strong> tools to develop ideas and overcome writer's block</li>
-                        <li>Export your stories in different formats</li>
+                    <ul className="ml-4 list-disc space-y-2 text-sm text-muted-foreground">
+                        <li>Stories are containers for chapters and story-scoped context.</li>
+                        <li>The app remembers your last edited story and chapter.</li>
+                        <li>Imported and exported stories use local files, keeping the workflow local-first.</li>
                     </ul>
-                    <p className="mt-4">
-                        Explore the other guides to learn more about these advanced features.
+                </GuideStep>
+
+                <GuideStep
+                    number="2"
+                    icon={<FilePlus className="h-5 w-5 text-primary" />}
+                    title="Create A Chapter"
+                >
+                    <p>
+                        In the left rail, click <strong>New</strong> under Chapters. Give the chapter a title and, if useful, set the point of view type and POV character.
                     </p>
+                    <p className="text-sm text-muted-foreground">
+                        Chapters can be reordered by dragging them in the chapter list. Each chapter has its own content, summary, outline, notes, POV data, drafts, and matched lore context.
+                    </p>
+                </GuideStep>
+
+                <GuideStep
+                    number="3"
+                    icon={<PenLine className="h-5 w-5 text-primary" />}
+                    title="Write In The Editor"
+                >
+                    <p>
+                        Select a chapter and start writing directly in the editor. The top bar shows the active chapter name and autosave state.
+                    </p>
+                    <div className="rounded-md border bg-muted/30 p-4">
+                        <div className="mb-2 flex items-center gap-2 font-medium">
+                            <Save className="h-4 w-4" />
+                            Autosave
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            The editor saves automatically after changes. The status indicator shows when work is saved, saving, waiting to save, or if a save failed.
+                        </p>
+                    </div>
+                </GuideStep>
+
+                <GuideStep
+                    number="4"
+                    icon={<Settings className="h-5 w-5 text-primary" />}
+                    title="Connect AI"
+                >
+                    <p>
+                        Open <strong>AI Settings</strong> from the right tool rail. Add an API key for your preferred hosted provider or configure a local OpenAI-compatible endpoint.
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-3">
+                        <InfoCard
+                            title="OpenRouter"
+                            body="Good default choice for model variety. Current defaults prefer Google Gemma through OpenRouter when a key is available."
+                        />
+                        <InfoCard
+                            title="Local"
+                            body="Use a local server such as LM Studio or another OpenAI-compatible endpoint. This is the fallback when OpenRouter is not configured."
+                        />
+                        <InfoCard
+                            title="Other Providers"
+                            body="OpenAI, Google, NanoGPT, and custom OpenAI-compatible providers are available from AI Settings."
+                        />
+                    </div>
+                </GuideStep>
+
+                <GuideStep
+                    number="5"
+                    icon={<ScrollText className="h-5 w-5 text-primary" />}
+                    title="Set Prompt Defaults"
+                >
+                    <p>
+                        Open <strong>Prompt Defaults</strong> from the right tool rail. Defaults let Scene Beats, Brainstorm, and new Agents start with useful prompt and model selections.
+                    </p>
+                    <Alert>
+                        <CheckCircle2 className="h-4 w-4" />
+                        <AlertTitle>Recommended</AlertTitle>
+                        <AlertDescription>
+                            Enable defaults once your models are configured. The app will prefer OpenRouter Gemma when available and fall back to a local model when needed.
+                        </AlertDescription>
+                    </Alert>
+                </GuideStep>
+
+                <GuideStep
+                    number="6"
+                    icon={<Sparkles className="h-5 w-5 text-primary" />}
+                    title="Generate With Scene Beats"
+                >
+                    <p>
+                        Scene Beats are inline instructions for AI prose generation. Insert one in the editor, describe what should happen, choose a prompt/model or agentic pipeline, and generate.
+                    </p>
+                    <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
+                        <li>Add a Scene Beat in the editor.</li>
+                        <li>Write a specific instruction, such as a character reaction, conflict beat, or transition.</li>
+                        <li>Choose normal generation, multi-model comparison, or Agentic Mode.</li>
+                        <li>Accept the generated prose when it fits, or reject and revise the instruction.</li>
+                    </ol>
+                </GuideStep>
+
+                <GuideStep
+                    number="7"
+                    icon={<PanelRightOpen className="h-5 w-5 text-primary" />}
+                    title="Use The Right Tool Rail"
+                >
+                    <p>
+                        Most story tools now open as right-side sheets from the editor. You do not need to leave the writing workspace to manage context or settings.
+                    </p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                        <ToolItem name="Matched Tags" body="See lorebook entries matched in the current chapter." />
+                        <ToolItem name="Outline" body="Edit the current chapter outline." />
+                        <ToolItem name="Chapter Notes" body="Keep chapter-specific notes and scratch work." />
+                        <ToolItem name="Drafts" body="Review saved generated prose drafts." />
+                        <ToolItem name="Brainstorm" body="Chat about ideas, manage brainstorm chats, and extract lore JSON." />
+                        <ToolItem name="Lorebook" body="Create and manage characters, places, events, and other context." />
+                        <ToolItem name="Prompts" body="Edit prompt templates and allowed models." />
+                        <ToolItem name="Agents" body="Create reusable agents and multi-step pipelines." />
+                    </div>
+                </GuideStep>
+
+                <div className="rounded-lg border bg-muted/30 p-6">
+                    <h3 className="mb-4 text-xl font-semibold">A Good First Workflow</h3>
+                    <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
+                        <li>Create a story and first chapter.</li>
+                        <li>Add key characters or places in the Lorebook.</li>
+                        <li>Write a rough opening paragraph manually.</li>
+                        <li>Add a Scene Beat for the next moment.</li>
+                        <li>Use Brainstorm when you get stuck, then return to the chapter.</li>
+                        <li>Use Outline and Chapter Notes to keep the chapter focused.</li>
+                    </ol>
                 </div>
             </div>
         </div>
     );
-} 
+}
+
+function GuideStep({
+    number,
+    icon,
+    title,
+    children,
+}: {
+    number: string;
+    icon: React.ReactNode;
+    title: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <section className="space-y-4 border-l-4 border-primary py-2 pl-4">
+            <h3 className="flex items-center gap-2 text-xl font-semibold">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    {number}
+                </span>
+                {icon}
+                {title}
+            </h3>
+            <div className="space-y-4">{children}</div>
+        </section>
+    );
+}
+
+function InfoCard({ title, body }: { title: string; body: string }) {
+    return (
+        <div className="rounded-lg border bg-card p-4">
+            <h4 className="mb-2 font-medium">{title}</h4>
+            <p className="text-sm text-muted-foreground">{body}</p>
+        </div>
+    );
+}
+
+function ToolItem({ name, body }: { name: string; body: string }) {
+    return (
+        <div className="rounded-md border bg-card p-3">
+            <div className="font-medium">{name}</div>
+            <div className="text-sm text-muted-foreground">{body}</div>
+        </div>
+    );
+}

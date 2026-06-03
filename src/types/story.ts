@@ -86,6 +86,7 @@ export interface Draft extends BaseEntity {
 // AI Chat types
 export interface AIChat extends BaseEntity {
   storyId: string;
+  chapterId?: string;
   title: string;
   messages: ChatMessage[];
   updatedAt?: Date;
@@ -105,8 +106,11 @@ export interface ChatMessage {
 
 // Prompt related types
 export interface PromptMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
+  role: "system" | "user" | "assistant" | "tool" | "function";
+  content: string | null;
+  tool_calls?: any[];
+  tool_call_id?: string;
+  name?: string;
 }
 
 export interface AllowedModel {
@@ -120,6 +124,7 @@ export interface Prompt extends BaseEntity {
   description?: string;
   promptType:
     | "scene_beat"
+    | "image_gen"
     | "gen_summary"
     | "selection_specific"
     | "continue_writing"
@@ -156,7 +161,8 @@ export type AIProvider =
   | "openrouter"
   | "local"
   | "openai_compatible"
-  | "nanogpt";
+  | "nanogpt"
+  | "google";
 
 export interface AIModel {
   id: string;
@@ -170,6 +176,8 @@ export interface AISettings extends BaseEntity {
   openaiKey?: string;
   openrouterKey?: string;
   nanogptKey?: string;
+  googleKey?: string;
+  tavilyKey?: string;
   // OpenAI-compatible provider (custom URL + key)
   openaiCompatibleKey?: string;
   openaiCompatibleUrl?: string;
@@ -178,6 +186,110 @@ export interface AISettings extends BaseEntity {
   lastModelsFetch?: Date;
   localApiUrl?: string;
   favoriteModelIds?: string[]; // User's favorited model IDs
+  
+  // Prompt Defaults
+  enablePromptDefaults?: boolean;
+  defaultSceneBeatPromptId?: string;
+  defaultSceneBeatModelId?: string;
+  defaultBrainstormPromptId?: string;
+  defaultBrainstormModelId?: string;
+  defaultAgentModelId?: string;
+
+  // Image generation defaults and provider settings
+  defaultImageProvider?: ImageGenerationProvider;
+  defaultImagePromptId?: string;
+  defaultOpenRouterImageModelId?: string;
+  openRouterImageModels?: ImageGenerationModel[];
+  comfyBaseUrl?: string;
+  comfyTxt2ImgWorkflowJson?: string;
+  comfyImg2ImgWorkflowJson?: string;
+  comfyTxt2ImgMapping?: ComfyWorkflowMapping;
+  comfyImg2ImgMapping?: ComfyWorkflowMapping;
+  defaultImageAspectRatio?: string;
+  defaultImageWidth?: number;
+  defaultImageHeight?: number;
+  defaultImageSeedMode?: "random" | "fixed";
+  defaultImageSteps?: number;
+  defaultImageCfg?: number;
+}
+
+export type MediaAssetKind = "generated" | "uploaded" | "imported";
+export type MediaAssetStorageBackend = "tauri_file" | "indexeddb_blob";
+export type MediaAssetSource = "comfyui" | "openrouter" | "upload" | "import";
+export type ImageGenerationMode = "txt2img" | "img2img";
+export type ImageGenerationProvider = "comfyui" | "openrouter";
+export type ImageGenerationStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
+
+export interface MediaAsset extends BaseEntity {
+  storyId: string;
+  chapterId?: string;
+  kind: MediaAssetKind;
+  mimeType: string;
+  filename: string;
+  storageBackend: MediaAssetStorageBackend;
+  storageKey: string;
+  sizeBytes: number;
+  width?: number;
+  height?: number;
+  source: MediaAssetSource;
+  archivedAt?: Date;
+  metadata?: Record<string, unknown>;
+}
+
+export interface MediaBlob {
+  assetId: string;
+  blob: Blob;
+  createdAt: Date;
+}
+
+export interface ImageGenerationSettings {
+  width: number;
+  height: number;
+  aspectRatio?: string;
+  seedMode: "random" | "fixed";
+  seed?: number;
+  steps?: number;
+  cfg?: number;
+  imageStrength?: number;
+}
+
+export interface ImageGenerationRecord extends BaseEntity {
+  storyId: string;
+  chapterId?: string;
+  mode: ImageGenerationMode;
+  provider: ImageGenerationProvider;
+  prompt: string;
+  resolvedPrompt: string;
+  promptId?: string;
+  modelId?: string;
+  workflowId?: string;
+  sourceAssetIds: string[];
+  outputAssetIds: string[];
+  settings: ImageGenerationSettings;
+  status: ImageGenerationStatus;
+  error?: string;
+  completedAt?: Date;
+}
+
+export interface ImageGenerationModel {
+  id: string;
+  name: string;
+  provider: "openrouter";
+  supportsImageInput?: boolean;
+  outputModalities?: string[];
+}
+
+export interface ComfyWorkflowMapping {
+  positivePrompt?: string;
+  sourceImage?: string;
+  seed?: string;
+  width?: string;
+  height?: string;
+  steps?: string;
+  cfg?: string;
+  sampler?: string;
+  model?: string;
+  outputNodeId?: string;
 }
 
 // Note types
@@ -214,6 +326,8 @@ export interface LorebookEntry extends BaseEntity {
       type: string;
       description?: string;
     }>;
+    chapterOrder?: number; // Added for Timeline isolation
+    participantIds?: string[]; // Added for Timeline isolation
     customFields?: Record<string, unknown>;
   };
   isDisabled?: boolean;

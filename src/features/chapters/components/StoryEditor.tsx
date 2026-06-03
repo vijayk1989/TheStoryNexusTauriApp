@@ -1,20 +1,10 @@
 import { useState, useCallback, useRef } from "react";
-import { BookOpen, Tags, Maximize, Minimize, User, Download, StickyNote, MoreVertical, ArrowLeft, FileText, Settings, HelpCircle, ScrollText, Book, Microscope, Loader2, Check } from "lucide-react";
+import { BookOpen, Maximize, Minimize, User, Download, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Microscope, Loader2, Check, Settings2, Clock, MessageSquarePlus, Bot, ImageIcon } from "lucide-react";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { Button } from "@/components/ui/button";
-import EmbeddedPlayground from "@/Lexical/lexical-playground/src/EmbeddedPlayground";
-import { MatchedTagEntries } from "@/features/chapters/components/MatchedTagEntries";
+import { MainLexicalEditor } from "@/components/editor/mainLexicalEditor";
 import { ChapterOutline } from "./ChapterOutline";
 import { ChapterPOVEditor } from "@/features/chapters/components/ChapterPOVEditor";
-import {
-    Drawer,
-    DrawerClose,
-    DrawerContent,
-    DrawerDescription,
-    DrawerFooter,
-    DrawerHeader,
-    DrawerTitle,
-} from "@/components/ui/drawer";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { DownloadMenu } from "@/components/ui/DownloadMenu";
 import { ChapterNotesEditor } from "@/features/chapters/components/ChapterNotesEditor";
@@ -22,7 +12,10 @@ import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
 import { AIEditorialPanel } from "@/features/chapters/components/AIEditorialPanel";
 import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
 import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
+import { PromptDefaultsPanel } from "@/features/prompts/components/PromptDefaultsPanel";
+import { BrainstormPanel } from "@/features/brainstorm/components/BrainstormPanel";
 import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
+import { AgentsManager } from "@/features/agents/components/AgentsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BasicsGuide from "@/features/guide/components/BasicsGuide";
 import AdvancedGuide from "@/features/guide/components/AdvancedGuide";
@@ -41,15 +34,15 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useNavigate } from "react-router";
+import { TimelineExtractionDialog } from "@/features/chapters/components/TimelineExtractionDialog";
+import { ImageGalleryPanel } from "@/features/images/components/ImageGalleryPanel";
 
-type DrawerType = "matchedTags" | "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "chapterReview" | null;
+type ToolPanelType = "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "brainstorm" | "imageGallery" | "chapterReview" | null;
 
 export function StoryEditor() {
-    const [openDrawer, setOpenDrawer] = useState<DrawerType>(null);
+    const [openPanel, setOpenPanel] = useState<ToolPanelType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
     const EDITORIAL_WIDTH_KEY = 'editorial-panel-width';
     const [editorialWidth, setEditorialWidth] = useState(() => {
@@ -63,10 +56,10 @@ export function StoryEditor() {
         return Math.round(window.innerWidth * 0.6);
     });
     const dragWidthRef = useRef(editorialWidth);
+    const [isTimelineDialogOpen, setIsTimelineDialogOpen] = useState(false);
     const { currentChapterId, currentStoryId } = useStoryContext();
     const saveStatus = useChapterStore((s) => s.saveStatus);
     const isMobile = useIsMobile();
-    const navigate = useNavigate();
 
     const startEditorialDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -93,8 +86,13 @@ export function StoryEditor() {
         el.addEventListener('pointerup', onPointerUp);
     }, [editorialWidth]);
 
-    const handleOpenDrawer = (drawer: DrawerType) => {
-        setOpenDrawer(drawer === openDrawer ? null : drawer);
+    const handleExtractTimeline = () => {
+        if (!currentStoryId || !currentChapterId) return;
+        setIsTimelineDialogOpen(true);
+    };
+
+    const handleOpenPanel = (panel: ToolPanelType) => {
+        setOpenPanel(panel === openPanel ? null : panel);
     };
 
     const toggleMaximize = () => {
@@ -128,43 +126,44 @@ export function StoryEditor() {
     const sidebarButtons = (
         <>
             <Button
-                variant={openDrawer === "matchedTags" ? "default" : "outline"}
+                variant={openPanel === "chapterOutline" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("matchedTags")}
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("chapterOutline")}
             >
-                <Tags className="h-4 w-4 mr-2" />
-                Matched Tags
+                <BookOpen className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Outline</span>
             </Button>
 
             <Button
-                variant={openDrawer === "chapterOutline" ? "default" : "outline"}
+                variant={openPanel === "chapterPOV" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("chapterOutline")}
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("chapterPOV")}
             >
-                <BookOpen className="h-4 w-4 mr-2" />
-                Outline
+                <User className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Edit Chapter POV</span>
             </Button>
 
             <Button
-                variant={openDrawer === "chapterPOV" ? "default" : "outline"}
+                variant="outline"
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("chapterPOV")}
+                className="justify-start w-full"
+                onClick={handleExtractTimeline}
+                disabled={!currentChapterId}
             >
-                <User className="h-4 w-4 mr-2" />
-                Edit POV
+                <Clock className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Extract Timeline</span>
             </Button>
 
             <Button
-                variant={openDrawer === "chapterNotes" ? "default" : "outline"}
+                variant={openPanel === "chapterNotes" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("chapterNotes")}
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("chapterNotes")}
             >
-                <StickyNote className="h-4 w-4 mr-2" />
-                Chapter Notes
+                <StickyNote className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Chapter Notes</span>
             </Button>
 
             {currentChapterId && (
@@ -175,90 +174,131 @@ export function StoryEditor() {
                     size="sm"
                     showIcon={true}
                     label="Download"
-                    className="mx-2 justify-start"
+                    className="justify-start w-full"
                 />
             )}
 
             <Button
-                variant={openDrawer === "drafts" ? "default" : "outline"}
+                variant={openPanel === "drafts" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("drafts")}
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("drafts")}
             >
-                <FileText className="h-4 w-4 mr-2" />
-                Drafts
+                <FileText className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Drafts</span>
             </Button>
 
             <Button
-                variant={openDrawer === "lorebook" ? "default" : "outline"}
+                variant={openPanel === "brainstorm" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("lorebook")}
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("brainstorm")}
             >
-                <Book className="h-4 w-4 mr-2" />
-                Lorebook
+                <MessageSquarePlus className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Brainstorm</span>
             </Button>
 
             <Button
-                variant={openDrawer === "prompts" ? "default" : "outline"}
+                variant={openPanel === "imageGallery" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("prompts")}
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("imageGallery")}
             >
-                <ScrollText className="h-4 w-4 mr-2" />
-                Prompts
+                <ImageIcon className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Images</span>
             </Button>
 
             <Button
-                variant={openDrawer === "chapterReview" ? "default" : "outline"}
+                variant={openPanel === "chapterReview" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("chapterReview")}
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("chapterReview")}
             >
-                <Microscope className="h-4 w-4 mr-2" />
-                AI Editorial
+                <Microscope className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">AI Editorial</span>
             </Button>
 
             <Button
-                variant={openDrawer === "aiSettings" ? "default" : "outline"}
+                variant={openPanel === "lorebook" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("aiSettings")}
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("lorebook")}
             >
-                <Settings className="h-4 w-4 mr-2" />
-                AI Settings
+                <Book className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Lorebook</span>
+            </Button>
+
+            <Button
+                variant={openPanel === "agents" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("agents")}
+            >
+                <Bot className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Agents</span>
+            </Button>
+
+            <Button
+                variant={openPanel === "prompts" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("prompts")}
+            >
+                <ScrollText className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Prompts</span>
+            </Button>
+
+            <Button
+                variant={openPanel === "promptDefaults" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("promptDefaults")}
+            >
+                <Settings2 className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Prompt Defaults</span>
+            </Button>
+
+            <Button
+                variant={openPanel === "aiSettings" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("aiSettings")}
+            >
+                <Settings className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">AI Settings</span>
             </Button>
             
              <Button
-                variant={openDrawer === "guide" ? "default" : "outline"}
+                variant={openPanel === "guide" ? "default" : "outline"}
                 size="sm"
-                className="mx-2 justify-start"
-                onClick={() => handleOpenDrawer("guide")}
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("guide")}
             >
-                <HelpCircle className="h-4 w-4 mr-2" />
-                Guide
+                <HelpCircle className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Guide</span>
             </Button>
         </>
     );
 
     return (
-        <div className="h-full flex relative overflow-hidden">
+        <div className="flex min-h-screen bg-background">
             {/* Main Editor Area */}
-            <div className={`flex-1 flex justify-center overflow-hidden min-w-0 ${isMaximized ? '' : 'px-2 md:px-4'}`}>
-                <div className={`h-full flex flex-col min-w-0 ${isMaximized ? 'w-full' : 'max-w-[1024px] w-full'}`}>
-                    <EmbeddedPlayground maximizeButton={maximizeButton} />
+            <div className={`flex-1 flex justify-center min-w-0 ${isMaximized ? '' : 'px-2 md:px-6'}`}>
+                <div className={`min-w-0 ${isMaximized ? 'w-full' : 'max-w-[1200px] w-full'}`}>
+                    <MainLexicalEditor maximizeButton={maximizeButton} />
                 </div>
             </div>
 
-            {/* Desktop: Right Sidebar with Buttons */}
-            <div className="hidden md:flex w-48 border-l h-full flex-col py-4 space-y-2 bg-muted/20 flex-shrink-0">
-                {/* Save status indicator */}
+            {/* Desktop: Right Sidebar with Tools */}
+            <div className="sticky top-0 hidden h-screen w-80 flex-shrink-0 flex-col border-l border-border bg-surface md:flex">
                 {saveIndicator && (
-                    <div className="mx-2 pb-1 border-b">
+                    <div className="px-3 py-2 border-b">
                         {saveIndicator}
                     </div>
                 )}
-                {sidebarButtons}
+                <div className="grid grid-cols-2 gap-2 overflow-y-auto p-3">
+                    {sidebarButtons}
+                </div>
             </div>
 
             {/* Mobile: Floating Action Button with Dropdown */}
@@ -274,48 +314,56 @@ export function StoryEditor() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" side="top" className="w-48">
-                        <DropdownMenuItem onClick={() => navigate(`/dashboard/${currentStoryId}/chapters`)}>
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back to Chapters
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("matchedTags")}>
-                            <Tags className="h-4 w-4 mr-2" />
-                            Matched Tags
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterOutline")}>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("chapterOutline")}>
                             <BookOpen className="h-4 w-4 mr-2" />
                             Outline
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterPOV")}>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("chapterPOV")}>
                             <User className="h-4 w-4 mr-2" />
-                            Edit POV
+                            Edit Chapter POV
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterNotes")}>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("chapterNotes")}>
                             <StickyNote className="h-4 w-4 mr-2" />
                             Chapter Notes
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("drafts")}>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("drafts")}>
                             <FileText className="h-4 w-4 mr-2" />
                             Drafts
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("lorebook")}>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("brainstorm")}>
+                            <MessageSquarePlus className="h-4 w-4 mr-2" />
+                            Brainstorm
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("imageGallery")}>
+                            <ImageIcon className="h-4 w-4 mr-2" />
+                            Images
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("lorebook")}>
                             <Book className="h-4 w-4 mr-2" />
                             Lorebook
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("prompts")}>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("agents")}>
+                            <Bot className="h-4 w-4 mr-2" />
+                            Agents
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("prompts")}>
                             <ScrollText className="h-4 w-4 mr-2" />
                             Prompts
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("chapterReview")}>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("chapterReview")}>
                             <Microscope className="h-4 w-4 mr-2" />
                             AI Editorial
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("aiSettings")}>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("promptDefaults")}>
+                            <Settings2 className="h-4 w-4 mr-2" />
+                            Prompt Defaults
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("aiSettings")}>
+
                             <Settings className="h-4 w-4 mr-2" />
                             AI Settings
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenDrawer("guide")}>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("guide")}>
                             <HelpCircle className="h-4 w-4 mr-2" />
                             Guide
                         </DropdownMenuItem>
@@ -323,68 +371,38 @@ export function StoryEditor() {
                 </DropdownMenu>
             )}
 
-            {/* Matched Tags Drawer */}
-            <Drawer open={openDrawer === "matchedTags"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
-                <DrawerContent className="max-h-[80vh]">
-                    <DrawerHeader>
-                        <DrawerTitle>Matched Tag Entries</DrawerTitle>
-                        <DrawerDescription>
-                            Lorebook entries that match tags in your current chapter.
-                        </DrawerDescription>
-                    </DrawerHeader>
-                    <div className="px-4 overflow-y-auto max-h-[60vh]">
-                        <MatchedTagEntries />
-                    </div>
-                    <DrawerFooter>
-                        <DrawerClose asChild>
-                            <Button variant="outline">Close</Button>
-                        </DrawerClose>
-                    </DrawerFooter>
-                </DrawerContent>
-            </Drawer>
-
-            {/* Chapter Outline Drawer */}
-            <Drawer open={openDrawer === "chapterOutline"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
-                <DrawerContent className="max-h-[80vh]">
-                    <DrawerHeader>
-                        <DrawerTitle>Chapter Outline</DrawerTitle>
-                        <DrawerDescription>
-                            Outline and notes for your current chapter.
-                        </DrawerDescription>
-                    </DrawerHeader>
-                    <div className="px-4 overflow-y-auto max-h-[60vh]">
+            {/* Chapter Outline Sheet */}
+            <Sheet open={openPanel === "chapterOutline"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Chapter Outline</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
                         <ChapterOutline />
                     </div>
-                    <DrawerFooter>
-                        <DrawerClose asChild>
-                            <Button variant="outline">Close</Button>
-                        </DrawerClose>
-                    </DrawerFooter>
-                </DrawerContent>
-            </Drawer>
+                </SheetContent>
+            </Sheet>
 
-            {/* Chapter POV Drawer */}
-            <Drawer open={openDrawer === "chapterPOV"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
-                <DrawerContent className="max-h-[80vh]">
-                    <DrawerHeader>
-                        <DrawerTitle>Edit Chapter POV</DrawerTitle>
-                        <DrawerDescription>
-                            Change the point of view character and perspective for this chapter.
-                        </DrawerDescription>
-                    </DrawerHeader>
-                    <div className="px-4 overflow-y-auto max-h-[60vh]">
-                        <ChapterPOVEditor onClose={() => setOpenDrawer(null)} />
+            {/* Chapter POV Sheet */}
+            <Sheet open={openPanel === "chapterPOV"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Edit Chapter POV</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <ChapterPOVEditor onClose={() => setOpenPanel(null)} />
                     </div>
-                    <DrawerFooter>
-                        <DrawerClose asChild>
-                            <Button variant="outline">Close</Button>
-                        </DrawerClose>
-                    </DrawerFooter>
-                </DrawerContent>
-            </Drawer>
+                </SheetContent>
+            </Sheet>
 
             {/* Chapter Notes Sheet - responsive width */}
-            <Sheet open={openDrawer === "chapterNotes"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+            <Sheet open={openPanel === "chapterNotes"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full md:min-w-[800px] md:w-auto"
@@ -393,13 +411,13 @@ export function StoryEditor() {
                         <SheetTitle>Scribble</SheetTitle>
                     </SheetHeader>
                     <div className="overflow-y-auto h-[100vh]">
-                        <ChapterNotesEditor onClose={() => setOpenDrawer(null)} />
+                        <ChapterNotesEditor onClose={() => setOpenPanel(null)} />
                     </div>
                 </SheetContent>
             </Sheet>
 
             {/* Drafts Sheet */}
-            <Sheet open={openDrawer === "drafts"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+            <Sheet open={openPanel === "drafts"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
@@ -414,7 +432,7 @@ export function StoryEditor() {
             </Sheet>
 
             {/* AI Settings Sheet */}
-            <Sheet open={openDrawer === "aiSettings"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+            <Sheet open={openPanel === "aiSettings"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
@@ -429,7 +447,7 @@ export function StoryEditor() {
             </Sheet>
 
             {/* Guide Sheet */}
-            <Sheet open={openDrawer === "guide"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+            <Sheet open={openPanel === "guide"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full md:min-w-[700px] md:w-auto"
@@ -461,7 +479,7 @@ export function StoryEditor() {
             </Sheet>
 
             {/* Lorebook Sheet */}
-            <Sheet open={openDrawer === "lorebook"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+            <Sheet open={openPanel === "lorebook"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full md:min-w-[600px] md:w-auto"
@@ -475,8 +493,21 @@ export function StoryEditor() {
                 </SheetContent>
             </Sheet>
 
+            {/* Agents Sheet */}
+            <Sheet open={openPanel === "agents"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="flex h-[100vh] w-full flex-col overflow-hidden md:min-w-[800px] md:w-auto lg:min-w-[960px] p-0"
+                >
+                    <SheetHeader className="sr-only">
+                        <SheetTitle>Agents</SheetTitle>
+                    </SheetHeader>
+                    <AgentsManager />
+                </SheetContent>
+            </Sheet>
+
             {/* Prompts Sheet */}
-            <Sheet open={openDrawer === "prompts"} onOpenChange={(open) => !open && setOpenDrawer(null)}>
+            <Sheet open={openPanel === "prompts"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full md:min-w-[600px] md:w-auto"
@@ -491,7 +522,7 @@ export function StoryEditor() {
             </Sheet>
 
             {/* AI Editorial Sheet */}
-            <Sheet open={openDrawer === "chapterReview"} onOpenChange={(open) => { if (!open) { setOpenDrawer(null); } }}>
+            <Sheet open={openPanel === "chapterReview"} onOpenChange={(open) => { if (!open) { setOpenPanel(null); } }}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full max-w-none overflow-hidden"
@@ -517,6 +548,65 @@ export function StoryEditor() {
                         />
                     </div>
                 </SheetContent>
-            </Sheet>        </div>
+            </Sheet>
+
+            {/* Prompt Defaults Sheet */}
+            <Sheet open={openPanel === "promptDefaults"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Prompt Defaults</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <PromptDefaultsPanel />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Brainstorm Sheet */}
+            <Sheet open={openPanel === "brainstorm"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[600px] lg:min-w-[800px] md:w-auto p-0"
+                >
+                    <div className="h-full flex flex-col pt-6">
+                        <SheetHeader className="px-4 pb-2 border-b flex-shrink-0 text-left">
+                            <SheetTitle>Brainstorm</SheetTitle>
+                        </SheetHeader>
+                        <div className="flex-1 overflow-hidden">
+                            {currentStoryId ? <BrainstormPanel storyId={currentStoryId} /> : null}
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Image Gallery Sheet */}
+            <Sheet open={openPanel === "imageGallery"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[560px] md:w-auto p-0"
+                >
+                    <div className="h-full flex flex-col pt-6">
+                        <SheetHeader className="px-4 pb-2 border-b flex-shrink-0 text-left">
+                            <SheetTitle>Images</SheetTitle>
+                        </SheetHeader>
+                        <div className="flex-1 overflow-y-auto">
+                            <ImageGalleryPanel />
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {currentStoryId && currentChapterId && (
+                <TimelineExtractionDialog
+                    isOpen={isTimelineDialogOpen}
+                    onClose={() => setIsTimelineDialogOpen(false)}
+                    storyId={currentStoryId}
+                    chapterId={currentChapterId}
+                />
+            )}
+        </div>
     );
 }

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { db } from '../../../services/database';
 import type { Chapter, ChapterOutline, ChapterNotes } from '../../../types/story';
 import { storyExportService } from '../../../services/storyExportService';
+import { normalizeChapterContent } from '../utils/emptyChapterContent';
 
 // Per-story debounce timers for auto-sync to linked file (5 second delay)
 const fileSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -110,12 +111,15 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
 
             const chapterId = crypto.randomUUID();
 
+            const content = normalizeChapterContent(chapterData.content);
+
             await db.chapters.add({
                 ...chapterData,
                 id: chapterId,
+                content,
                 order: nextOrder,
                 createdAt: new Date(),
-                wordCount: chapterData.content.split(/\s+/).length
+                wordCount: content.split(/\s+/).filter(Boolean).length
             });
 
             const newChapter = await db.chapters.get(chapterId);
@@ -141,8 +145,9 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
     updateChapter: async (id: string, chapterData: Partial<Chapter>) => {
         set({ loading: true, error: null });
         try {
-            if (chapterData.content) {
-                chapterData.wordCount = chapterData.content.split(/\s+/).length;
+            if (chapterData.content !== undefined) {
+                chapterData.content = normalizeChapterContent(chapterData.content);
+                chapterData.wordCount = chapterData.content.split(/\s+/).filter(Boolean).length;
                 const chapter = await db.chapters.get(id);
                 if (chapter) {
                     // Store last edited with storyId
@@ -554,4 +559,4 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
             throw error;
         }
     },
-})); 
+}));

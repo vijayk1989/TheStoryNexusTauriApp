@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useLorebookStore } from "../stores/useLorebookStore";
 import { toast } from "react-toastify";
-import type { LorebookEntry } from "@/types/story";
+import type { LoreBook, LorebookEntry } from "@/types/story";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import {
@@ -31,7 +31,10 @@ import { Switch } from "@/components/ui/switch";
 interface CreateEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  storyId: string;
+  /** The lore book to save the entry into (when creating). */
+  lorebookId: string;
+  /** All lore books available for this story; when >1 a selector is shown. */
+  availableLoreBooks?: LoreBook[];
   entry?: LorebookEntry;
 }
 
@@ -56,10 +59,14 @@ type StatusOption = (typeof STATUS_OPTIONS)[number];
 export function CreateEntryDialog({
   open,
   onOpenChange,
-  storyId,
+  lorebookId,
+  availableLoreBooks = [],
   entry,
 }: CreateEntryDialogProps) {
   const { createEntry, updateEntryAndRebuildTags } = useLorebookStore();
+  const [selectedLorebookId, setSelectedLorebookId] = useState(
+    entry?.lorebookId ?? lorebookId
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
@@ -117,12 +124,12 @@ export function CreateEntryDialog({
       };
 
       if (entry) {
-        await updateEntryAndRebuildTags(entry.id, dataToSubmit);
+        await updateEntryAndRebuildTags(entry.id, { ...dataToSubmit, lorebookId: selectedLorebookId });
         toast.success("Entry updated successfully");
       } else {
         await createEntry({
           ...dataToSubmit,
-          storyId,
+          lorebookId: selectedLorebookId,
         } as Omit<LorebookEntry, "id" | "createdAt">);
         toast.success("Entry created successfully");
         resetForm();
@@ -142,6 +149,28 @@ export function CreateEntryDialog({
           <DialogTitle>{entry ? "Edit Entry" : "Create New Entry"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {availableLoreBooks.length > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="lorebookId">Lore Book</Label>
+              <Select value={selectedLorebookId} onValueChange={setSelectedLorebookId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select lore book" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableLoreBooks.map((book) => (
+                    <SelectItem key={book.id} value={book.id}>
+                      {book.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {availableLoreBooks.length === 1 && (
+            <p className="text-xs text-muted-foreground">
+              Lore book: <span className="font-medium">{availableLoreBooks[0].name}</span>
+            </p>
+          )}
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input

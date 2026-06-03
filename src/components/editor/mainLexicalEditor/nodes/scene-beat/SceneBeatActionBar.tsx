@@ -2,8 +2,8 @@
  * SceneBeat action bar — agentic/multi-model toggles, prompt select,
  * preview/edit buttons, generate button, accept/reject buttons.
  */
-import { useState, useMemo } from 'react';
-import { Bot, Sparkles, Stethoscope, Loader2, Pencil, Square, Save, RefreshCw } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { Bot, Sparkles, Stethoscope, Loader2, Pencil, Square, Save, MessageSquareDiff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { PromptSelectMenu } from '@/components/ui/prompt-select-menu';
@@ -32,6 +32,7 @@ interface SceneBeatActionBarProps {
     onParallelGenerate: () => Promise<void>;
     onAccept: () => Promise<void>;
     onReject: () => void;
+    onRejectWithFeedback: (feedback: string) => void;
     onRegenerate: (msg: string) => Promise<void>;
 }
 
@@ -50,8 +51,13 @@ export function SceneBeatActionBar({
     onParallelGenerate,
     onAccept,
     onReject,
+    onRejectWithFeedback,
     onRegenerate,
 }: SceneBeatActionBarProps) {
+    const [feedbackInputValue, setFeedbackInputValue] = useState('');
+    const [showFeedbackInput, setShowFeedbackInput] = useState(false);
+    const feedbackInputRef = useRef<HTMLTextAreaElement>(null);
+    const rejectionFeedback = useSBStore((s) => s.rejectionFeedback);
     const streaming = useSBStore((s) => s.streaming);
     const streamComplete = useSBStore((s) => s.streamComplete);
     const selectedPrompt = useSBStore((s) => s.selectedPrompt);
@@ -119,7 +125,9 @@ export function SceneBeatActionBar({
                             }}
                         >
                             <option value="">Select Pipeline</option>
-                            {availablePipelines.map((p) => (
+                            {availablePipelines
+                                .filter((p, i, arr) => arr.findIndex((q) => q.name === p.name) === i)
+                                .map((p) => (
                                 <option key={p.name} value={p.name}>{p.name}</option>
                             ))}
                         </select>
@@ -259,32 +267,104 @@ export function SceneBeatActionBar({
 
             {/* Accept / Reject / Save Draft buttons */}
             {streamComplete && (
-                <div className="flex items-center gap-2 mt-2">
-                    <Button size="sm" onClick={onAccept} className="text-xs md:text-sm" data-testid="scene-beat-accept">
-                        Accept
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={onReject} className="text-xs md:text-sm" data-testid="scene-beat-reject">
-                        Reject
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs md:text-sm"
-                        onClick={() => set({ showRegenerateDialog: true })}
-                    >
-                        <RefreshCw className="h-3 w-3 mr-1" />
-                        Regenerate
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs md:text-sm ml-auto"
-                        onClick={() => setSaveDraftOpen(true)}
-                    >
-                        <Save className="h-3 w-3 mr-1" />
-                        Save Draft
-                    </Button>
-                </div>
+                <>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <Button size="sm" onClick={onAccept} className="text-xs md:text-sm" data-testid="scene-beat-accept">
+                            Accept
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => { setShowFeedbackInput(false); onReject(); }} className="text-xs md:text-sm" data-testid="scene-beat-reject">
+                            Reject
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs md:text-sm"
+                            onClick={() => {
+                                setShowFeedbackInput(true);
+                                setTimeout(() => feedbackInputRef.current?.focus(), 50);
+                            }}
+                            title="Reject and provide feedback for the next generation attempt"
+                        >
+                            <MessageSquareDiff className="h-3 w-3 mr-1" />
+                            Reject with Feedback
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs md:text-sm"
+                            onClick={() => set({ showRegenerateDialog: true })}
+                        >
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Regenerate
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs md:text-sm ml-auto"
+                            onClick={() => setSaveDraftOpen(true)}
+                        >
+                            <Save className="h-3 w-3 mr-1" />
+                            Save Draft
+                        </Button>
+                    </div>
+                    {/* Queued feedback badge — shows when feedback is stored for next run */}
+                    {rejectionFeedback && !showFeedbackInput && (
+                        <div className="mt-1 px-2 py-1 rounded bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs">
+                            Feedback queued for next generation: "{rejectionFeedback.slice(0, 60)}{rejectionFeedback.length > 60 ? '…' : ''}"
+                        </div>
+                    )}
+                    {/* Inline feedback input */}
+                    {showFeedbackInput && (
+                        <div className="mt-2 space-y-1">
+                            <textarea
+                                ref={feedbackInputRef}
+                                value={feedbackInputValue}
+                                onChange={(e) => setFeedbackInputValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        if (feedbackInputValue.trim()) {
+                                            onRejectWithFeedback(feedbackInputValue.trim());
+                                            setFeedbackInputValue('');
+                                            setShowFeedbackInput(false);
+                                        }
+                                    }
+                                    if (e.key === 'Escape') {
+                                        setShowFeedbackInput(false);
+                                        setFeedbackInputValue('');
+                                    }
+                                }}
+                                placeholder="What was wrong? (Enter to confirm, Shift+Enter for newline, Esc to cancel)"
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring min-h-[60px]"
+                                rows={2}
+                            />
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    className="text-xs h-7"
+                                    disabled={!feedbackInputValue.trim()}
+                                    onClick={() => {
+                                        if (feedbackInputValue.trim()) {
+                                            onRejectWithFeedback(feedbackInputValue.trim());
+                                            setFeedbackInputValue('');
+                                            setShowFeedbackInput(false);
+                                        }
+                                    }}
+                                >
+                                    Confirm Feedback
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs h-7"
+                                    onClick={() => { setShowFeedbackInput(false); setFeedbackInputValue(''); }}
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </>
             )}
 
             {/* Save Draft dialog */}

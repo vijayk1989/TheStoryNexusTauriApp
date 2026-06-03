@@ -83,6 +83,36 @@ const CONTEXT_CONFIGS: Record<string, AgentContextConfig> = {
         includeChapterSummary: false,
         includePovInfo: false,
     },
+    chapter_reviewer: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    chapter_editor: {
+        lorebookMode: 'matched',
+        previousWordsMode: 'full',
+        includeChapterSummary: false,
+        includePovInfo: true,
+    },
+    lore_writer: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    lore_refiner: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
+    judge_aggregator: {
+        lorebookMode: 'none',
+        previousWordsMode: 'none',
+        includeChapterSummary: false,
+        includePovInfo: false,
+    },
 };
 
 // System agent presets with template variables
@@ -143,13 +173,16 @@ Check for:
 - Relationship dynamics matching established patterns
 - Factual contradictions with established lore
 
-Response format:
-- If everything is consistent, respond with exactly: CONSISTENT
-- If there are issues, list each one briefly:
-  ISSUE: [Brief description of the inconsistency]
-  SUGGESTION: [How to fix it]
+Response format — FOLLOW EXACTLY:
+- If prose is fully consistent with the lorebook: respond with only this word: CONSISTENT
+- If there are contradictions, use this exact format for each:
+  ##LORE_ISSUE##
+  DESCRIPTION: [specific factual contradiction with lorebook]
+  SUGGESTION: [minimum prose change to fix it]
 
-Be thorough but concise. Focus on actual contradictions, not stylistic preferences.`,
+Do NOT use the word "issue" anywhere except inside a ##LORE_ISSUE## block.
+Do NOT write CONSISTENT if any ##LORE_ISSUE## blocks follow.
+Flag only factual contradictions. Style differences, omissions of lore the writer wasn't given, and personal preference are NOT issues.`,
         temperature: 0.2,
         maxTokens: 800,
         isSystem: true,
@@ -158,10 +191,10 @@ Be thorough but concise. Focus on actual contradictions, not stylistic preferenc
     },
     {
         name: 'System Continuity Checker',
-        description: 'Checks for plot holes and character consistency.',
+        description: 'Checks for plot holes, character consistency, and in-scene physical detail drift.',
         role: 'continuity_checker',
         model: DEFAULT_MODELS.utility,
-        systemPrompt: `You are a continuity expert for fiction writing. Check for plot holes, timeline issues, and character consistency.
+        systemPrompt: `You are a continuity expert for fiction writing. Check for plot holes, timeline issues, character consistency, and in-scene physical detail drift.
 
 Review for:
 - Timeline inconsistencies (events happening out of order)
@@ -169,20 +202,49 @@ Review for:
 - Forgotten plot threads or unresolved setups
 - Physical impossibilities (character in two places at once)
 - Emotional continuity (reactions matching previous scenes)
+- In-scene appearance drift: clothing, jewellery, accessories, tattoos, hairstyle, injuries, or skin marks that change within the scene without explanation
+- Object state continuity: items placed, held, drawn, or described in one paragraph that are forgotten or contradicted later in the same scene
+- Physical state persistence: wounds, blood, mud, wet clothing, or dishevelled appearance that should persist across paragraphs unless explicitly addressed
+- Environmental state: doors open/closed, candles lit/unlit, weather or lighting established mid-scene that silently changes
 
-Response format:
-- If consistent, respond with exactly: CONSISTENT
-- If there are issues:
-  CONTINUITY ISSUE: [Description]
-  CONTEXT: [What was established earlier]
-  SUGGESTION: [How to resolve]
+Response format — FOLLOW EXACTLY:
+- If consistent: respond with only: CONSISTENT
+- If there are issues, use this exact format for each:
+  ##CONTINUITY_ISSUE##
+  DESCRIPTION: [what contradicts earlier content or changes without explanation]
+  CONTEXT: [what was previously established]
+  SUGGESTION: [how to resolve]
 
-Focus on narrative logic, not style preferences.`,
+Do NOT use the word "issue" outside of ##CONTINUITY_ISSUE## blocks.
+Focus on narrative logic and physical consistency, not style preferences.`,
         temperature: 0.2,
-        maxTokens: 600,
+        maxTokens: 800,
         isSystem: true,
         storyId: null,
         contextConfig: CONTEXT_CONFIGS.continuity_checker,
+    },
+    {
+        name: 'System Judge Aggregator',
+        description: 'Synthesises outputs from all judges since the last prose step into a single PASS or ISSUES_FOUND decision.',
+        role: 'judge_aggregator',
+        model: DEFAULT_MODELS.utility,
+        systemPrompt: `You are a judge aggregator for fiction writing. Your job is to review the outputs from multiple judge agents (lore judge, continuity checker, etc.) and produce a single clear verdict.
+
+Rules:
+- If ALL judges found no issues (each returned CONSISTENT or similar): respond with only: PASS
+- If ANY judge found issues: respond with ISSUES_FOUND on the first line, then a concise, prioritised list of the problems to fix and how to fix them.
+
+Format when issues exist:
+ISSUES_FOUND
+[Numbered list of issues, most critical first. For each: what is wrong and the suggested fix.]
+
+Be concise and actionable. Merge duplicate issues from different judges. Omit style preferences — only flag factual contradictions and continuity errors.
+Do NOT use the word "issue" outside of the ISSUES_FOUND block.`,
+        temperature: 0.2,
+        maxTokens: 800,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.judge_aggregator,
     },
     {
         name: 'System Style Editor',
@@ -316,6 +378,106 @@ Response format:
         storyId: null,
         contextConfig: CONTEXT_CONFIGS.refusal_checker,
     },
+    {
+        name: 'System Chapter Reviewer',
+        description: 'Reviews an entire chapter for prose quality, consistency, pacing, and provides editorial feedback.',
+        role: 'chapter_reviewer',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are an expert fiction editor and literary critic. Your job is to review a complete chapter and provide detailed, constructive feedback.
+
+Review the chapter across these dimensions:
+
+1. **Prose Quality**: Sentence variety, word choice, show vs. tell balance, rhythm and flow
+2. **Character Consistency**: Are characters acting true to their established traits? Is dialogue authentic?
+3. **Pacing**: Does the chapter move at an appropriate speed? Are there slow or rushed sections?
+4. **Scene Structure**: Is there a clear opening, middle, and payoff? Does tension build effectively?
+5. **Lore & Continuity**: Any contradictions with established world-building or character facts?
+6. **Dialogue**: Natural? Distinct character voices? Subtext present where appropriate?
+7. **Emotional Impact**: Does the chapter land emotionally? Are the stakes clear and felt?
+8. **Strengths**: What works well and should be preserved?
+9. **Suggestions**: Specific, actionable improvements with brief examples where helpful.
+
+Be honest but constructive. Lead with what works, then address what can be improved. Be specific — generic praise or criticism is not useful.`,
+        temperature: 0.4,
+        maxTokens: 3000,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.chapter_reviewer,
+    },
+    {
+        name: 'System Chapter Editor',
+        description: 'Rewrites and edits an entire chapter based on instructions. Uses high token limit for full-chapter output.',
+        role: 'chapter_editor',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a professional fiction editor. You will receive the full text of a chapter and editing instructions (if any). Your task is to rewrite and edit the chapter while preserving the author's voice and intent.
+
+If no specific instructions are given, perform a thorough editorial pass:
+- Improve sentence variety and pacing
+- Tighten prose (remove redundancy and unnecessary words)
+- Enhance show vs. tell throughout
+- Polish dialogue for naturalness and distinct character voice
+- Fix pacing and tension issues
+- Improve transitions between scenes and paragraphs
+- Strengthen the opening and closing lines
+
+CRITICAL LENGTH RULE: Your output MUST be approximately the same length as the input chapter (within ±10%). Do not summarise, truncate, or significantly expand the text. Every scene that exists in the original must exist in the edited version.
+
+Return ONLY the edited chapter text. Do not include commentary, preamble, explanations, or headings. Output the full chapter from start to finish.`,
+        temperature: 0.7,
+        maxTokens: 8192,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.chapter_editor,
+    },
+    {
+        name: 'System Lore Writer',
+        description: 'Creates new lorebook entries from a seed concept. Use in the Lorebook Workshop.',
+        role: 'lore_writer',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a lorebook entry creator for a fiction writing tool. Your job is to generate a single, well-structured lorebook entry from a seed concept provided by the user.
+
+Output ONLY a single JSON object wrapped in a \`\`\`json code fence — no prose, no commentary, nothing else.
+
+The JSON object must use these fields:
+- "name": string (required) — the entry's primary name
+- "category": one of "character" | "location" | "item" | "event" | "note" | "synopsis" | "starting scenario" | "timeline" (required)
+- "description": string (required) — rich, detailed description covering all relevant aspects
+- "tags": string[] — keywords for matching this entry in context (include aliases, related terms)
+- "metadata": object (optional) — may include:
+  - "type": string (e.g. "Protagonist", "Villain", "Capital City", "Weapon")
+  - "importance": "major" | "minor" | "background"
+  - "status": "active" | "inactive" | "historical"
+
+Write a description that is vivid and specific. Use the aspects the user requests or the template guidance they provide. Do not pad with generic filler.`,
+        temperature: 0.75,
+        maxTokens: 2048,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.lore_writer,
+    },
+    {
+        name: 'System Lore Refiner',
+        description: 'Iteratively refines existing lorebook entries based on user instructions. Use in the Lorebook Workshop.',
+        role: 'lore_refiner',
+        model: DEFAULT_MODELS.creative,
+        systemPrompt: `You are a lorebook entry editor for a fiction writing tool. You will receive an existing lorebook entry as your prior output, and the user will give you instructions to refine it.
+
+Output ONLY the updated JSON object wrapped in a \`\`\`json code fence — no prose, no commentary, nothing else.
+
+Use the same field structure as the entry you received:
+- "name": string (required)
+- "category": one of "character" | "location" | "item" | "event" | "note" | "synopsis" | "starting scenario" | "timeline" (required)
+- "description": string (required)
+- "tags": string[]
+- "metadata": object (optional) with "type", "importance", "status"
+
+Preserve existing content that the user does not ask you to change. Apply the user's refinement instructions precisely. Return the complete updated entry, not just the changed fields.`,
+        temperature: 0.7,
+        maxTokens: 2048,
+        isSystem: true,
+        storyId: null,
+        contextConfig: CONTEXT_CONFIGS.lore_refiner,
+    },
 ];
 
 // System pipeline presets
@@ -351,6 +513,49 @@ const SYSTEM_PIPELINE_PRESETS: {
             { role: 'lore_judge' },
             // Revision step: only runs if lore judge found issues
             { role: 'prose_writer', condition: 'roleOutputContains:lore_judge:ISSUE', isRevision: true, streamOutput: true },
+        ],
+    },
+    {
+        name: 'Quality Prose with Verification',
+        description: 'Writes prose, checks lore, revises up to twice if issues found, then re-checks to confirm all issues were resolved.',
+        agentRoles: [
+            { role: 'summarizer', condition: 'wordCount > 3000' },  // 0
+            { role: 'prose_writer', streamOutput: true },            // 1
+            { role: 'lore_judge' },                                  // 2
+            // Revision step: executes up to 2 times when lore issues found,
+            // then jumps back to the lore_judge (step 2) to re-check the revised prose.
+            {
+                role: 'prose_writer',
+                condition: 'roleOutputContains:lore_judge:ISSUE',
+                isRevision: true,
+                streamOutput: true,
+                retryFromStep: 2,
+                maxIterations: 2,
+            },                                                       // 3
+            // Verification pass: re-runs the lore judge on the final revision to confirm resolution
+            { role: 'lore_judge' },                                  // 4
+        ],
+    },
+    {
+        name: 'Quality Prose with Judge Loop',
+        description: 'Writes prose, runs lore + continuity judges, aggregates feedback, then revises in a loop until all issues are resolved or the iteration limit is reached.',
+        agentRoles: [
+            { role: 'summarizer', condition: 'wordCount > 3000' },  // 0
+            { role: 'prose_writer', streamOutput: true },            // 1
+            { role: 'lore_judge' },                                  // 2
+            { role: 'continuity_checker' },                          // 3
+            { role: 'judge_aggregator' },                            // 4
+            // Revision step: executes up to 3 times when the aggregator finds issues,
+            // then jumps back to the lore_judge (step 2) so all judges re-check the
+            // revised prose before the next revision pass.
+            {
+                role: 'prose_writer',
+                condition: 'roleOutputContains:judge_aggregator:ISSUES_FOUND',
+                isRevision: true,
+                streamOutput: true,
+                retryFromStep: 2,
+                maxIterations: 3,
+            },                                                       // 5
         ],
     },
     {
@@ -409,6 +614,37 @@ const SYSTEM_PIPELINE_PRESETS: {
             },
         ],
     },
+    {
+        name: 'Chapter Review',
+        description: 'Reviews an entire chapter for prose quality, consistency, pacing, and provides detailed editorial feedback.',
+        agentRoles: [
+            { role: 'chapter_reviewer', streamOutput: true },
+        ],
+    },
+    {
+        name: 'Chapter Deep Review',
+        description: 'Reviews a chapter then follows up with a lore and continuity check.',
+        agentRoles: [
+            { role: 'chapter_reviewer', streamOutput: true },
+            { role: 'lore_judge' },
+            { role: 'continuity_checker' },
+        ],
+    },
+    {
+        name: 'Chapter Edit',
+        description: 'Rewrites and edits the full chapter in a single pass. Best for general editorial polish.',
+        agentRoles: [
+            { role: 'chapter_editor', streamOutput: true },
+        ],
+    },
+    {
+        name: 'Chapter Review then Edit',
+        description: 'Reviews the chapter first, then produces a fully edited version addressing the identified issues.',
+        agentRoles: [
+            { role: 'chapter_reviewer' },
+            { role: 'chapter_editor', streamOutput: true },
+        ],
+    },
 ];
 
 // Simple lock to prevent concurrent seeding
@@ -430,6 +666,22 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
     try {
         console.log(`[AgentSeeder] Checking for system agents... (force update: ${force})`);
 
+        // When force=true, wipe all existing system agents and pipelines so everything
+        // is recreated from the current SYSTEM_AGENT_PRESETS definitions.
+        if (force) {
+            console.log('[AgentSeeder] Force mode: deleting all existing system agents and pipelines...');
+            const systemAgentIds = await db.agentPresets
+                .filter(a => a.isSystem === true)
+                .primaryKeys();
+            await db.agentPresets.bulkDelete(systemAgentIds as string[]);
+
+            const systemPipelineIds = await db.pipelinePresets
+                .filter(p => p.isSystem === true)
+                .primaryKeys();
+            await db.pipelinePresets.bulkDelete(systemPipelineIds as string[]);
+            console.log(`[AgentSeeder] Deleted ${systemAgentIds.length} agents and ${systemPipelineIds.length} pipelines.`);
+        }
+
         // Get existing system agents and pipelines by name for uniqueness check
         const existingAgents = await db.agentPresets
             .filter(a => a.isSystem === true)
@@ -448,12 +700,9 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
         }, {} as Record<AgentRole, AgentPreset>);
 
         // Create system agent presets (only if not already exists by name)
-        // Note: We generally don't force update agents to avoid overwriting user customizations to system prompts
         const createdAgents: AgentPreset[] = [];
         for (const preset of SYSTEM_AGENT_PRESETS) {
             if (existingAgentNames.has(preset.name)) {
-                // If force is true, we could update agents here, but it's risky.
-                // For now, we assume agent definitions act as templates that users might tweak.
                 continue;
             }
 

@@ -8,6 +8,7 @@
 import { createStore, type StoreApi } from 'zustand';
 import { useStore } from 'zustand';
 import { createContext, useContext } from 'react';
+import { splitThinkingContent } from '@/lib/thinking';
 import type {
     Prompt,
     AllowedModel,
@@ -17,6 +18,39 @@ import type {
     AgentResult,
 } from '@/types/story';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
+
+// ── Defaults persistence ────────────────────────────────────────
+// Last-used prompt/model/pipeline are saved globally so all SceneBeat
+// instances inherit the same defaults across sessions.
+
+const SCENEBEAT_DEFAULTS_KEY = 'scenebeat-defaults';
+
+interface SBDefaults {
+    promptId?: string;
+    modelId?: string;
+    modelName?: string;
+    modelProvider?: string;
+    pipelineId?: string;
+    agenticMode?: boolean;
+}
+
+function saveSBDefaults(data: Partial<SBDefaults>) {
+    try {
+        const existing = loadSBDefaults();
+        localStorage.setItem(SCENEBEAT_DEFAULTS_KEY, JSON.stringify({ ...existing, ...data }));
+    } catch {
+        // localStorage unavailable — silently ignore
+    }
+}
+
+export function loadSBDefaults(): SBDefaults {
+    try {
+        const raw = localStorage.getItem(SCENEBEAT_DEFAULTS_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
 
 // ── Types ──────────────────────────────────────────────────────
 export type PovType = 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
@@ -53,7 +87,12 @@ export interface SceneBeatInstanceState {
 
     // Generation
     streaming: boolean;
+    /** Raw token stream including any <think>...</think> blocks. */
+    rawStreamedText: string;
+    /** Prose-only output — <think> blocks stripped out. */
     streamedText: string;
+    /** Content extracted from <think>...</think> blocks. */
+    thinkingText: string;
     streamComplete: boolean;
 
     // Regeneration
@@ -69,6 +108,16 @@ export interface SceneBeatInstanceState {
 
     // Agentic results (kept for diagnostics dialog)
     agenticStepResults: AgentResult[];
+
+    // Inline judge feedback (Area 4)
+    agenticJudgeResults: AgentResult[];
+    latestJudgeFeedback: string | null;
+    showJudgeFeedback: boolean;
+
+    // Reject-with-feedback state (Area 6)
+    rejectedOutput: string | null;
+    rejectionFeedback: string | null;
+    showRejectionInput: boolean;
 
     // Tag matching
     localMatchedEntries: Map<string, LorebookEntry>;
@@ -99,6 +148,8 @@ export interface SceneBeatInstanceState {
 
     // Prompt
     handlePromptSelect: (prompt: Prompt, model: AllowedModel) => void;
+    /** Restore last-used prompt/model/pipeline/agenticMode from localStorage */
+    hydrateFromDefaults: (prompts: Prompt[], pipelines: PipelinePreset[]) => void;
 
     // Context
     handleItemSelect: (itemId: string) => void;
@@ -145,7 +196,9 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
 
         // Generation
         streaming: false,
+        rawStreamedText: '',
         streamedText: '',
+        thinkingText: '',
         streamComplete: false,
 
         // Regeneration
@@ -161,6 +214,16 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
 
         // Agentic results
         agenticStepResults: [],
+
+        // Inline judge feedback
+        agenticJudgeResults: [],
+        latestJudgeFeedback: null,
+        showJudgeFeedback: false,
+
+        // Reject-with-feedback
+        rejectedOutput: null,
+        rejectionFeedback: null,
+        showRejectionInput: false,
 
         // Tag matching
         localMatchedEntries: new Map(),
@@ -182,7 +245,20 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
 
         // ── Actions ────────────────────────────────────────────
 
-        set: (partial) => set(partial),
+        set: (partial) => {
+            set(partial);
+            // Persist agenticMode and selectedPipeline whenever they change
+            if ('agenticMode' in partial || 'selectedPipeline' in partial) {
+                const state = get();
+                const agenticMode = 'agenticMode' in partial
+                    ? (partial.agenticMode as boolean)
+                    : state.agenticMode;
+                const pipeline = 'selectedPipeline' in partial
+                    ? (partial.selectedPipeline as PipelinePreset | null)
+                    : state.selectedPipeline;
+                saveSBDefaults({ agenticMode, pipelineId: pipeline?.id });
+            }
+        },
 
         handlePovTypeChange: (value) => {
             set({ tempPovType: value });
@@ -206,6 +282,42 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
                 previewMessages: undefined,
                 previewError: null,
             });
+            // Persist selection so next session starts with the same defaults
+            saveSBDefaults({
+                promptId: prompt.id,
+                modelId: model.id,
+                modelName: model.name,
+                modelProvider: model.provider,
+            });
+        },
+
+        hydrateFromDefaults: (prompts, pipelines) => {
+            // Only hydrate if nothing is already selected (don't overwrite manual choices)
+            const state = get();
+            const defaults = loadSBDefaults();
+
+            if (!state.selectedPrompt && defaults.promptId) {
+                const prompt = prompts.find(p => p.id === defaults.promptId);
+                if (prompt && defaults.modelId && defaults.modelProvider && defaults.modelName) {
+                    const model: AllowedModel = {
+                        id: defaults.modelId,
+                        name: defaults.modelName,
+                        provider: defaults.modelProvider as AllowedModel['provider'],
+                    };
+                    set({ selectedPrompt: prompt, selectedModel: model });
+                }
+            }
+
+            if (defaults.agenticMode !== undefined && !state.agenticMode) {
+                set({ agenticMode: defaults.agenticMode });
+            }
+
+            if (!state.selectedPipeline && defaults.pipelineId && pipelines.length > 0) {
+                const pipeline = pipelines.find(p => p.id === defaults.pipelineId);
+                if (pipeline) {
+                    set({ selectedPipeline: pipeline });
+                }
+            }
         },
 
         handleItemSelect: (itemId) => {
@@ -233,17 +345,30 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
         },
 
         appendStreamedText: (token) => {
-            set((state) => ({ streamedText: state.streamedText + token }));
+            set((state) => {
+                const raw = state.rawStreamedText + token;
+                const { proseText, thinkingText } = splitThinkingContent(raw);
+                return { rawStreamedText: raw, streamedText: proseText, thinkingText };
+            });
         },
 
         resetGeneration: () => {
             set({
+                rawStreamedText: '',
                 streamedText: '',
+                thinkingText: '',
                 streamComplete: false,
                 streaming: false,
                 lastGenerationMessages: undefined,
                 lastGenerationResponse: '',
                 showRegenerateDialog: false,
+                // Clear inline judge feedback
+                agenticJudgeResults: [],
+                latestJudgeFeedback: null,
+                showJudgeFeedback: false,
+                showRejectionInput: false,
+                // Note: rejectedOutput and rejectionFeedback are intentionally NOT cleared here.
+                // They are preserved for the next generation run and cleared there after use.
             });
         },
     }));

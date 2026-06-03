@@ -1,14 +1,27 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Bot, GitBranch, History } from 'lucide-react';
+import { Plus, Bot, GitBranch, History, RotateCcw } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'react-toastify';
 import { useAgentsStore } from '../stores/useAgentsStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 import { AgentPresetList } from './AgentPresetList';
 import { AgentPresetForm } from './AgentPresetForm';
 import { PipelinePresetList } from './PipelinePresetList';
 import { PipelinePresetForm } from './PipelinePresetForm';
-import type { AgentPreset, PipelinePreset } from '@/types/story';
+import { BulkUpdatePanel } from '@/components/BulkUpdatePanel';
+import type { AgentPreset, PipelinePreset, AllowedModel } from '@/types/story';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function AgentsManager() {
@@ -18,6 +31,8 @@ export function AgentsManager() {
         pipelinePresets,
         loadAgentPresets,
         loadPipelinePresets,
+        resetSystemDefaults,
+        bulkUpdateAgentModel,
         isLoadingPresets,
         isLoadingPipelines,
     } = useAgentsStore();
@@ -27,11 +42,37 @@ export function AgentsManager() {
     const [showPipelineForm, setShowPipelineForm] = useState(false);
     const [editingAgent, setEditingAgent] = useState<AgentPreset | undefined>();
     const [editingPipeline, setEditingPipeline] = useState<PipelinePreset | undefined>();
+    const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
+    const [showBulkUpdate, setShowBulkUpdate] = useState(false);
+    const [isApplyingBulkUpdate, setIsApplyingBulkUpdate] = useState(false);
 
     useEffect(() => {
         loadAgentPresets(currentStoryId);
         loadPipelinePresets(currentStoryId);
     }, [currentStoryId, loadAgentPresets, loadPipelinePresets]);
+
+    const handleResetDefaults = async () => {
+        try {
+            await resetSystemDefaults(currentStoryId);
+            toast.success('System agents and pipelines restored to defaults');
+        } catch (err) {
+            console.error('[AgentsManager] Reset failed:', err);
+            toast.error('Failed to reset defaults — check the console for details');
+        }
+    };
+
+    const handleBulkUpdateModel = async (model: AllowedModel) => {
+        if (selectedAgentIds.length === 0) return;
+        
+        setIsApplyingBulkUpdate(true);
+        try {
+            await bulkUpdateAgentModel(selectedAgentIds, model);
+            setSelectedAgentIds([]);
+            setShowBulkUpdate(false);
+        } finally {
+            setIsApplyingBulkUpdate(false);
+        }
+    };
 
     const handleNewAgent = (e?: React.MouseEvent) => {
         e?.preventDefault();
@@ -105,6 +146,30 @@ export function AgentsManager() {
                             Configure AI agents and pipelines for multi-step generation
                         </p>
                     </div>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="flex items-center gap-2">
+                                <RotateCcw className="h-4 w-4" />
+                                Reset Defaults
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Reset system agents &amp; pipelines?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will recreate any missing system agents and force-update all system
+                                    pipeline definitions to their defaults. Your custom agents and pipelines
+                                    will not be affected.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleResetDefaults}>
+                                    Reset
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </div>
 
@@ -149,6 +214,13 @@ export function AgentsManager() {
                             <AgentPresetList
                                 agents={agentPresets}
                                 onEdit={handleEditAgent}
+                                selectedAgentIds={selectedAgentIds}
+                                onSelectionChange={(ids) => {
+                                    setSelectedAgentIds(ids);
+                                    if (ids.length > 0) {
+                                        setShowBulkUpdate(true);
+                                    }
+                                }}
                             />
                         )}
                     </TabsContent>
@@ -193,6 +265,17 @@ export function AgentsManager() {
                     </TabsContent>
                 </ScrollArea>
             </Tabs>
+            
+            <BulkUpdatePanel
+                selectedCount={selectedAgentIds.length}
+                isVisible={showBulkUpdate && activeTab === 'agents'}
+                onClose={() => {
+                    setShowBulkUpdate(false);
+                    setSelectedAgentIds([]);
+                }}
+                onApplyModel={handleBulkUpdateModel}
+                isApplying={isApplyingBulkUpdate}
+            />
         </div>
     );
 }

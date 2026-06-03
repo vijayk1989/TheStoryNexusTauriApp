@@ -1,4 +1,14 @@
-import { Story, Chapter, LorebookEntry } from '../types/story';
+import { Story, Chapter, LoreBook, LorebookEntry } from '../types/story';
+
+const DEMO_LOREBOOK_ID = 'demo-lorebook-1';
+
+export const demoLoreBook: LoreBook = {
+    id: DEMO_LOREBOOK_ID,
+    name: 'Demo SciFi Story',
+    description: 'Lore book for the Demo SciFi Story',
+    createdAt: new Date('2024-01-01'),
+    isDemo: true,
+};
 
 // Helper function to convert plain text to Lexical JSON format
 function formatContentForLexical(content: string): string {
@@ -44,6 +54,7 @@ const demoStory = {
     synopsis: 'A science fiction tale about the crew of the research vessel Hyperion',
     author: 'Demo Author',
     language: 'English',
+    lorebookIds: [DEMO_LOREBOOK_ID],
     isDemo: true,
     chapters: [
         {
@@ -185,6 +196,7 @@ Something evolving.`),
     lorebookEntries: [
         {
             id: 'lorebook-entry-1',
+            lorebookId: DEMO_LOREBOOK_ID,
             name: 'Captain Elena Reyes',
             description: `A veteran space explorer with 15 years of experience commanding deep space missions. Reyes is known for her calm demeanor in crisis situations and analytical approach to problem-solving. She has a background in astrophysics and was specifically chosen to lead the Hyperion mission due to her expertise in anomalous celestial phenomena. She carries the weight of her crew's safety on her shoulders and struggles with the responsibility of making decisions that could affect humanity's future.
 
@@ -202,6 +214,7 @@ Relationships:
         },
         {
             id: 'lorebook-entry-2',
+            lorebookId: DEMO_LOREBOOK_ID,
             name: 'Dr. Marcus Wei',
             description: `The Hyperion's brilliant but socially awkward science officer. Wei has three PhDs in quantum physics, xenobiology, and computational mathematics. He's the first to recognize the anomaly's significance and becomes increasingly obsessed with understanding it. Wei struggles with expressing emotions and often misses social cues, but his analytical mind proves invaluable to the mission. He secretly harbors feelings for Engineer Patel but doesn't know how to express them.
 
@@ -219,6 +232,7 @@ Relationships:
         },
         {
             id: 'lorebook-entry-3',
+            lorebookId: DEMO_LOREBOOK_ID,
             name: 'Engineer Aisha Patel',
             description: `The Hyperion's chief engineer and resident pragmatist. Patel has an intuitive understanding of machinery and can fix almost anything with limited resources. She's skeptical of Wei's theories about the anomaly but is the one who develops the technology to safely approach and study it. Patel comes from a long line of engineers who worked on Earth's space elevators. She values practical solutions over theoretical possibilities and often serves as the voice of reason when the others get carried away with speculation.
 
@@ -236,6 +250,7 @@ Relationships:
         },
         {
             id: 'lorebook-entry-4',
+            lorebookId: DEMO_LOREBOOK_ID,
             name: 'The Anomaly',
             description: 'A perfectly geometric dodecahedron approximately 15 meters in diameter, embedded within Saturn\'s rings. The object appears to be made of an unknown material that absorbs all electromagnetic radiation directed at it. It emits no heat or radiation but creates localized gravitational distortions. Carbon dating suggests it\'s over 2 billion years old, predating Earth\'s formation. When approached, it seems to respond to conscious thought, creating visual hallucinations unique to each observer.',
             category: 'item',
@@ -249,6 +264,7 @@ Relationships:
         },
         {
             id: 'lorebook-entry-5',
+            lorebookId: DEMO_LOREBOOK_ID,
             name: 'Hyperion Research Vessel',
             description: 'A state-of-the-art research vessel designed for deep space exploration and extended missions. The Hyperion features experimental quantum communication arrays, allowing near-instantaneous communication with Earth despite the distance. It\'s equipped with advanced sensors capable of detecting minute changes in radiation, gravitational fields, and spatial distortions. The ship\'s AI, ARIA (Advanced Research Intelligence Assistant), helps manage ship systems and analyze data. The Hyperion has living quarters for up to 12 crew members and can sustain life support for three years without resupply.',
             category: 'item',

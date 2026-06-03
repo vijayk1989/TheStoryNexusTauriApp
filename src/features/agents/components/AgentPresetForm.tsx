@@ -29,6 +29,7 @@ import { useAgentsStore, DEFAULT_AGENT_PROMPTS } from '../stores/useAgentsStore'
 import { resolveSavedDefaultModel } from '@/features/ai/utils/defaultModels';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
+import { useStoryStore } from '@/features/stories/stores/useStoryStore';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import type { 
     AgentPreset, 
@@ -52,14 +53,19 @@ interface AgentPresetFormProps {
 const AGENT_ROLES: { value: AgentRole; label: string; description: string }[] = [
     { value: 'summarizer', label: 'Summarizer', description: 'Condenses content to reduce tokens' },
     { value: 'prose_writer', label: 'Prose Writer', description: 'Main creative writing agent' },
+    { value: 'lore_writer', label: 'Lore Writer', description: 'Creates new lorebook entries from a seed concept' },
+    { value: 'lore_refiner', label: 'Lore Refiner', description: 'Iteratively refines existing lorebook entries' },
     { value: 'lore_judge', label: 'Lore Judge', description: 'Validates lore consistency' },
     { value: 'continuity_checker', label: 'Continuity Checker', description: 'Checks plot/character continuity' },
+    { value: 'judge_aggregator', label: 'Judge Aggregator', description: 'Synthesises all judge outputs since last prose into a single PASS or ISSUES_FOUND verdict' },
     { value: 'style_editor', label: 'Style Editor', description: 'Refines prose style and tone' },
     { value: 'dialogue_specialist', label: 'Dialogue Specialist', description: 'Improves dialogue authenticity' },
     { value: 'expander', label: 'Expander', description: 'Expands brief notes into prose' },
     { value: 'outline_generator', label: 'Outline Generator', description: 'Generates structured story/chapter outlines' },
     { value: 'style_extractor', label: 'Style Extractor', description: 'Analyzes text to extract writing style' },
     { value: 'scenebeat_generator', label: 'Scene Beat Generator', description: 'Generates scene beat commands' },
+    { value: 'chapter_reviewer', label: 'Chapter Reviewer', description: 'Reviews an entire chapter for quality, consistency, and suggestions' },
+    { value: 'chapter_editor', label: 'Chapter Editor', description: 'Rewrites/edits an entire chapter based on instructions' },
     { value: 'custom', label: 'Custom', description: 'User-defined agent role' },
 ];
 
@@ -83,6 +89,7 @@ interface ModelsByProvider {
 
 export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProps) {
     const { currentStoryId } = useStoryContext();
+    const { currentStory } = useStoryStore();
     const { createAgentPreset, updateAgentPreset } = useAgentsStore();
     const { initialize, getAvailableModels, isInitialized, favoriteModelIds, toggleFavoriteModel, settings } = useAIStore();
     const { entries: lorebookEntries, loadEntries } = useLorebookStore();
@@ -126,10 +133,10 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
 
     useEffect(() => {
         loadModels();
-        if (currentStoryId) {
-            loadEntries(currentStoryId);
+        if (currentStory?.lorebookIds?.length) {
+            loadEntries(currentStory.lorebookIds);
         }
-    }, [currentStoryId]);
+    }, [currentStory]);
 
     useEffect(() => {
         if (!agent && !selectedModel && settings?.enablePromptDefaults) {

@@ -17,10 +17,6 @@ export default function ChapterEditorPage() {
         if (storyId) {
             setCurrentStoryId(storyId);
             getStory(storyId);
-            // Initialize lorebook data
-            loadEntries(storyId).then(() => {
-                buildTagMap();
-            });
         }
         if (chapterId) {
             setCurrentChapterId(chapterId);
@@ -30,7 +26,16 @@ export default function ChapterEditorPage() {
         return () => {
             setCurrentChapterId(null);
         };
-    }, [storyId, chapterId, getStory, getChapter, setCurrentStoryId, setCurrentChapterId, loadEntries, buildTagMap]);
+    }, [storyId, chapterId, getStory, getChapter, setCurrentStoryId, setCurrentChapterId]);
+
+    // Load lorebook entries once the story (and its lorebookIds) is available
+    useEffect(() => {
+        if (currentStory?.lorebookIds) {
+            loadEntries(currentStory.lorebookIds).then(() => {
+                buildTagMap();
+            });
+        }
+    }, [currentStory, loadEntries, buildTagMap]);
 
     if (!currentStory) {
         return (

@@ -1,13 +1,14 @@
 import { useState, useCallback } from 'react';
 import { agentOrchestrator, PipelineInput, PipelineResult, ExecutablePipelineStep } from '@/services/ai/AgentOrchestrator';
 import { useAgentsStore } from '../stores/useAgentsStore';
-import { AgentResult, LorebookEntry, Chapter, PipelinePreset } from '@/types/story';
+import { AgentResult, LorebookEntry, Chapter, PipelinePreset, StoryFormat, UniverseType } from '@/types/story';
 import { db } from '@/services/database';
 
 export interface AgenticGenerationCallbacks {
     onStepStart?: (stepIndex: number, agentName: string, step?: ExecutablePipelineStep) => void;
     onStepComplete?: (result: AgentResult, stepIndex: number) => void;
     onToken?: (token: string) => void;
+    onNewStreamingStep?: () => void;
     onComplete?: (result: PipelineResult) => void;
     onError?: (error: Error) => void;
 }
@@ -17,10 +18,16 @@ export interface AgenticGenerationContext {
     previousWords: string;
     matchedEntries: LorebookEntry[];
     allEntries?: LorebookEntry[];
+    chapterSummaries?: string;
     povType?: string;
     povCharacter?: string;
     currentChapter?: Chapter;
     storyLanguage?: string;
+    storyFormat?: StoryFormat;
+    universeType?: UniverseType;
+    // Rejection feedback — if set, the first prose step uses a multi-turn conversation
+    rejectionFeedback?: string;
+    rejectedOutput?: string;
 }
 
 export function useAgenticGeneration() {
@@ -53,10 +60,15 @@ export function useAgenticGeneration() {
                 previousWords: context.previousWords,
                 lorebookEntries: context.matchedEntries,
                 allLorebookEntries: context.allEntries,
+                chapterSummaries: context.chapterSummaries,
                 povType: context.povType,
                 povCharacter: context.povCharacter,
                 currentChapter: context.currentChapter,
                 storyLanguage: context.storyLanguage,
+                storyFormat: context.storyFormat,
+                universeType: context.universeType,
+                rejectionFeedback: context.rejectionFeedback,
+                rejectedOutput: context.rejectedOutput,
             };
 
             // Execute the pipeline
@@ -74,6 +86,7 @@ export function useAgenticGeneration() {
                         callbacks?.onStepComplete?.(stepResult, stepIndex);
                     },
                     onToken: callbacks?.onToken,
+                    onNewStreamingStep: callbacks?.onNewStreamingStep,
                 }
             );
 

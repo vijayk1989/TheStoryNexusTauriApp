@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useStoryStore } from "@/features/stories/stores/useStoryStore";
 import { CreateStoryDialog } from "@/features/stories/components/CreateStoryDialog";
 import { EditStoryDialog } from "@/features/stories/components/EditStoryDialog";
@@ -10,11 +10,10 @@ import { Upload } from "lucide-react";
 import { storyExportService } from "@/services/storyExportService";
 
 export default function Home() {
-    const { stories, fetchStories } = useStoryStore();
+    const { stories, fetchStories, importFromFile } = useStoryStore();
     const { resetContext } = useStoryContext();
     const [editingStory, setEditingStory] = useState<Story | null>(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         resetContext();
@@ -30,33 +29,8 @@ export default function Home() {
         storyExportService.exportStory(story.id);
     };
 
-    const handleImportClick = () => {
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
-        }
-    };
-
-    const handleImportStory = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (!event.target.files || event.target.files.length === 0) return;
-
-        const file = event.target.files[0];
-        const reader = new FileReader();
-
-        reader.onload = async (e) => {
-            try {
-                const content = e.target?.result as string;
-                await storyExportService.importStory(content);
-
-                // Just refresh the story list without navigating
-                await fetchStories();
-            } catch (error) {
-                console.error("Import failed:", error);
-            }
-        };
-
-        reader.readAsText(file);
-        // Reset the input
-        event.target.value = '';
+    const handleImportClick = async () => {
+        await importFromFile();
     };
 
     return (
@@ -70,13 +44,6 @@ export default function Home() {
                             <Upload className="w-4 h-4 mr-2" />
                             Import Story
                         </Button>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".json"
-                            className="hidden"
-                            onChange={handleImportStory}
-                        />
                     </div>
                 </div>
 
@@ -105,4 +72,4 @@ export default function Home() {
             </div>
         </div>
     );
-} 
+}

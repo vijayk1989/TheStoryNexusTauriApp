@@ -7,6 +7,7 @@ import {
     Prompt,
     AISettings,
     LorebookEntry,
+    LoreBook,
     Template,
     SceneBeat,
     Draft,
@@ -25,6 +26,7 @@ export class StoryDatabase extends Dexie {
     aiChats!: Table<AIChat>;
     prompts!: Table<Prompt>;
     aiSettings!: Table<AISettings>;
+    loreBooks!: Table<LoreBook>;
     lorebookEntries!: Table<LorebookEntry>;
     templates!: Table<Template>;
     sceneBeats!: Table<SceneBeat>;
@@ -88,9 +90,9 @@ export class StoryDatabase extends Dexie {
             drafts: 'id, storyId, chapterId, createdAt',
         });
 
-        // Version 16: Media asset metadata, browser blob storage, and image generation records.
+        // Version 16: Add saveFilePath index to stories + media asset tables
         this.version(16).stores({
-            stories: 'id, title, createdAt, language, isDemo',
+            stories: 'id, title, createdAt, language, isDemo, saveFilePath',
             chapters: 'id, storyId, order, createdAt, isDemo',
             aiChats: 'id, storyId, createdAt, isDemo',
             prompts: 'id, name, promptType, storyId, createdAt, isSystem',
@@ -106,6 +108,77 @@ export class StoryDatabase extends Dexie {
             mediaAssets: 'id, storyId, chapterId, kind, source, storageBackend, createdAt, archivedAt',
             mediaBlobs: 'assetId, createdAt',
             imageGenerations: 'id, storyId, chapterId, provider, mode, status, createdAt',
+        });
+
+        // Version 17: Add storyFormat and universeType to stories (no new indexes needed)
+        this.version(17).stores({
+            stories: 'id, title, createdAt, language, isDemo, saveFilePath',
+            chapters: 'id, storyId, order, createdAt, isDemo',
+            aiChats: 'id, storyId, createdAt, isDemo',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
+            templates: 'id, name, templateType, storyId, createdAt, isSystem',
+            aiSettings: 'id, lastModelsFetch',
+            lorebookEntries: 'id, storyId, name, category, *tags, isDemo',
+            sceneBeats: 'id, storyId, chapterId',
+            notes: 'id, storyId, title, type, createdAt, updatedAt',
+            agentPresets: 'id, name, role, storyId, createdAt, isSystem',
+            pipelinePresets: 'id, name, storyId, createdAt, isSystem',
+            pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
+            drafts: 'id, storyId, chapterId, createdAt',
+            mediaAssets: 'id, storyId, chapterId, kind, source, storageBackend, createdAt, archivedAt',
+            mediaBlobs: 'assetId, createdAt',
+            imageGenerations: 'id, storyId, chapterId, provider, mode, status, createdAt',
+        }).upgrade(async tx => {
+            await tx.table('stories').toCollection().modify((story: Record<string, unknown>) => {
+                if (!story.storyFormat) {
+                    story.storyFormat = 'novel';
+                }
+            });
+        });
+
+        // Version 18: Introduce LoreBook as a first-class entity (shared lore books across stories).
+        // - Add loreBooks table
+        // - stories gains *lorebookIds multi-entry index for reverse lookup
+        // - lorebookEntries switches from storyId to lorebookId
+        // Migration: for each existing story, create a LoreBook named after it, migrate its entries.
+        this.version(18).stores({
+            stories: 'id, title, createdAt, language, isDemo, saveFilePath, *lorebookIds',
+            chapters: 'id, storyId, order, createdAt, isDemo',
+            aiChats: 'id, storyId, createdAt, isDemo',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
+            templates: 'id, name, templateType, storyId, createdAt, isSystem',
+            aiSettings: 'id, lastModelsFetch',
+            loreBooks: 'id, name, createdAt, isDemo',
+            lorebookEntries: 'id, lorebookId, name, category, *tags, isDemo',
+            sceneBeats: 'id, storyId, chapterId',
+            notes: 'id, storyId, title, type, createdAt, updatedAt',
+            agentPresets: 'id, name, role, storyId, createdAt, isSystem',
+            pipelinePresets: 'id, name, storyId, createdAt, isSystem',
+            pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
+            drafts: 'id, storyId, chapterId, createdAt',
+            mediaAssets: 'id, storyId, chapterId, kind, source, storageBackend, createdAt, archivedAt',
+            mediaBlobs: 'assetId, createdAt',
+            imageGenerations: 'id, storyId, chapterId, provider, mode, status, createdAt',
+        }).upgrade(async tx => {
+            const stories = await tx.table('stories').toArray();
+            for (const story of stories) {
+                const lorebookId = crypto.randomUUID();
+                await tx.table('loreBooks').add({
+                    id: lorebookId,
+                    name: story.title,
+                    createdAt: new Date(),
+                    isDemo: story.isDemo,
+                });
+                await tx.table('lorebookEntries')
+                    .filter((entry: Record<string, unknown>) => entry['storyId'] === story.id)
+                    .modify((entry: Record<string, unknown>) => {
+                        entry.lorebookId = lorebookId;
+                        delete entry['storyId'];
+                    });
+                await tx.table('stories').update(story.id, {
+                    lorebookIds: [lorebookId],
+                });
+            }
         });
 
         this.on('populate', async () => {
@@ -158,26 +231,40 @@ export class StoryDatabase extends Dexie {
         };
     }
 
-    // Add helper method for lorebook entries
-    async getLorebookEntriesByStory(storyId: string) {
-        return await this.lorebookEntries
-            .where('storyId')
-            .equals(storyId)
-            .toArray();
+    // LoreBook helpers
+    async createLoreBook(data: Omit<LoreBook, 'createdAt'>): Promise<string> {
+        await this.loreBooks.add({
+            ...data,
+            createdAt: new Date(),
+        });
+        return data.id;
     }
 
-    async getLorebookEntriesByTag(storyId: string, tag: string) {
-        return await this.lorebookEntries
-            .where(['storyId', 'tags'])
-            .equals([storyId, tag])
-            .toArray();
+    async getLoreBooksByStory(storyId: string): Promise<LoreBook[]> {
+        const story = await this.stories.get(storyId);
+        const ids = story?.lorebookIds ?? [];
+        if (ids.length === 0) return [];
+        return this.loreBooks.where('id').anyOf(ids).toArray();
     }
 
-    async getLorebookEntriesByCategory(storyId: string, category: LorebookEntry['category']) {
-        return await this.lorebookEntries
-            .where(['storyId', 'category'])
-            .equals([storyId, category])
-            .toArray();
+    /** All stories that list this lorebookId (uses *lorebookIds multi-entry index). */
+    async getLoreBookReferences(lorebookId: string): Promise<Story[]> {
+        return this.stories.where('lorebookIds').equals(lorebookId).toArray();
+    }
+
+    async getLorebookEntriesByLoreBooks(lorebookIds: string[]): Promise<LorebookEntry[]> {
+        if (lorebookIds.length === 0) return [];
+        return this.lorebookEntries.where('lorebookId').anyOf(lorebookIds).toArray();
+    }
+
+    async deleteLoreBookWithEntries(lorebookId: string): Promise<void> {
+        await this.lorebookEntries.where('lorebookId').equals(lorebookId).delete();
+        await this.loreBooks.delete(lorebookId);
+    }
+
+    // Lorebook entry helpers
+    async getLorebookEntriesByLoreBook(lorebookId: string): Promise<LorebookEntry[]> {
+        return this.lorebookEntries.where('lorebookId').equals(lorebookId).toArray();
     }
 
     // Helper methods for SceneBeats
@@ -234,59 +321,35 @@ export class StoryDatabase extends Dexie {
     }
 
     /**
-     * Deletes a story and all related data (chapters, lorebook entries, etc.)
-     * @param storyId The ID of the story to delete
-     * @returns Promise that resolves when the deletion is complete
+     * Deletes a story and all related data (chapters, scene beats, drafts, AI chats).
+     * For lore books: only deletes a lore book and its entries if no other story references it.
+     * Shared lore books are left intact.
      */
     async deleteStoryWithRelated(storyId: string): Promise<void> {
         return await this.transaction('rw',
-            [this.stories, this.chapters, this.lorebookEntries, this.aiChats, this.sceneBeats, this.drafts, this.mediaAssets, this.mediaBlobs, this.imageGenerations],
+            [this.stories, this.chapters, this.loreBooks, this.lorebookEntries, this.aiChats, this.sceneBeats, this.drafts, this.mediaAssets, this.mediaBlobs, this.imageGenerations],
             async () => {
-                // Delete all related chapters
-                await this.chapters
-                    .where('storyId')
-                    .equals(storyId)
-                    .delete();
+                const story = await this.stories.get(storyId);
+                const lorebookIds = story?.lorebookIds ?? [];
 
-                // Delete all related lorebook entries
-                await this.lorebookEntries
-                    .where('storyId')
-                    .equals(storyId)
-                    .delete();
+                // For each associated lore book, delete it only if this is the sole referencing story
+                for (const lorebookId of lorebookIds) {
+                    const refs = await this.stories.where('lorebookIds').equals(lorebookId).toArray();
+                    if (refs.length <= 1) {
+                        await this.lorebookEntries.where('lorebookId').equals(lorebookId).delete();
+                        await this.loreBooks.delete(lorebookId);
+                    }
+                    // If shared (refs.length > 1), leave the book and its entries intact
+                }
 
-                // Delete all related AI chats
-                await this.aiChats
-                    .where('storyId')
-                    .equals(storyId)
-                    .delete();
-
-                // Delete all related SceneBeats
-                await this.sceneBeats
-                    .where('storyId')
-                    .equals(storyId)
-                    .delete();
-
-                // Delete all related Drafts
-                await this.drafts
-                    .where('storyId')
-                    .equals(storyId)
-                    .delete();
-
-                const mediaAssets = await this.mediaAssets
-                    .where('storyId')
-                    .equals(storyId)
-                    .toArray();
+                await this.chapters.where('storyId').equals(storyId).delete();
+                await this.aiChats.where('storyId').equals(storyId).delete();
+                await this.sceneBeats.where('storyId').equals(storyId).delete();
+                await this.drafts.where('storyId').equals(storyId).delete();
+                const mediaAssets = await this.mediaAssets.where('storyId').equals(storyId).toArray();
                 await Promise.all(mediaAssets.map(asset => this.mediaBlobs.delete(asset.id)));
-                await this.mediaAssets
-                    .where('storyId')
-                    .equals(storyId)
-                    .delete();
-                await this.imageGenerations
-                    .where('storyId')
-                    .equals(storyId)
-                    .delete();
-
-                // Finally delete the story itself
+                await this.mediaAssets.where('storyId').equals(storyId).delete();
+                await this.imageGenerations.where('storyId').equals(storyId).delete();
                 await this.stories.delete(storyId);
 
                 console.log(`Deleted story ${storyId} and all related data`);

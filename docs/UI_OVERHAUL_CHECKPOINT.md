@@ -185,6 +185,8 @@ Important variables include:
 - `{{scenebeat}}`
 - `{{previous_words}}` and `{{previous_words(1000)}}`
 - `{{summaries}}`
+- `{{all_previous_chapters}}`
+- `{{previous_chapter(2)}}`
 - `{{pov}}`
 - `{{chapter_content}}`
 - `{{selected_text}}` / `{{selection}}`

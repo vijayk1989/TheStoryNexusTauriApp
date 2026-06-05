@@ -1,3 +1,5 @@
+/// <reference path="./e2e-globals.d.ts" />
+
 import { expect, type Page, test } from "@playwright/test";
 
 type EditorSnapshot = {
@@ -85,6 +87,42 @@ test.describe("main Lexical editor", () => {
       timeout: 8_000,
     }).toContain(marker.trim());
   });
+
+  test("resolves chapter_content from the current chapter", async ({ page }) => {
+    const messages = await resolvePromptMessages(page, "Chapter text:\n{{chapter_content}}");
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("Chapter text:");
+    expect(messages[0]).toContain("Tavin");
+    expect(messages[0]).not.toContain("{{chapter_content}}");
+  });
+
+  test("resolves full previous chapter content variables", async ({ page }) => {
+    const chapterThreeId = `${EXAMPLE_STORY_ID}-chapter-3`;
+    const messages = await resolvePromptMessages(
+      page,
+      [
+        "All previous:",
+        "{{all_previous_chapters}}",
+        "Last previous:",
+        "{{previous_chapter(1)}}",
+      ].join("\n"),
+      { chapterId: chapterThreeId }
+    );
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("Chapter 1: Chapter One");
+    expect(messages[0]).toContain("Tavin broke the");
+    expect(messages[0]).toContain("Chapter 2: Chapter Two");
+    expect(messages[0]).toContain("The fever hit before dawn.");
+    expect(messages[0]).not.toContain("Chapter 3: Chapter Three");
+    expect(messages[0]).not.toContain("{{all_previous_chapters}}");
+    expect(messages[0]).not.toContain("{{previous_chapter(1)}}");
+
+    const lastPrevious = messages[0]?.split("Last previous:")[1] || "";
+    expect(lastPrevious).not.toContain("Chapter 1: Chapter One");
+    expect(lastPrevious).toContain("Chapter 2: Chapter Two");
+  });
 });
 
 async function openEditor(page: Page) {
@@ -152,4 +190,18 @@ async function getPersistedChapterContent(page: Page): Promise<string | null> {
     }
     return api.getPersistedChapterContent();
   });
+}
+
+async function resolvePromptMessages(
+  page: Page,
+  content: string,
+  options?: { chapterId?: string }
+): Promise<Array<string | null>> {
+  return page.evaluate(({ promptContent, promptOptions }) => {
+    const api = window.__STORY_NEXUS_E2E__;
+    if (!api) {
+      throw new Error("Story Nexus E2E API is not available.");
+    }
+    return api.resolvePromptMessages(promptContent, promptOptions);
+  }, { promptContent: content, promptOptions: options });
 }

@@ -42,6 +42,7 @@ interface PromptFormProps {
 }
 
 export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
+    const isSystemPrompt = prompt?.isSystem === true;
     const [name, setName] = useState(prompt?.name || '');
     const [messages, setMessages] = useState<PromptMessage[]>(
         prompt?.messages || [{ role: 'system', content: '' }]
@@ -53,13 +54,13 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const { createPrompt, updatePrompt } = usePromptStore();
     const [temperature, setTemperature] = useState(prompt?.temperature || 1.0);
     const [maxTokens, setMaxTokens] = useState(prompt?.maxTokens || 2048);
-    const [topP, setTopP] = useState(prompt?.top_p !== undefined ? prompt.top_p : 1.0);
-    const [topK, setTopK] = useState(prompt?.top_k !== undefined ? prompt.top_k : 50);
+    const [topP, setTopP] = useState(isSystemPrompt ? 0 : (prompt?.top_p !== undefined ? prompt.top_p : 1.0));
+    const [topK, setTopK] = useState(isSystemPrompt ? 0 : (prompt?.top_k !== undefined ? prompt.top_k : 50));
     const [repetitionPenalty, setRepetitionPenalty] = useState(
-        prompt?.repetition_penalty !== undefined ? prompt.repetition_penalty : 1.0
+        isSystemPrompt ? 0 : (prompt?.repetition_penalty !== undefined ? prompt.repetition_penalty : 1.0)
     );
     const [minP, setMinP] = useState(
-        prompt?.min_p !== undefined ? prompt.min_p : 0.0
+        isSystemPrompt ? 0 : (prompt?.min_p !== undefined ? prompt.min_p : 0.0)
     );
     const [showProviderLabels, setShowProviderLabels] = useState(true);
     

@@ -21,13 +21,16 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { PovInfoPopover } from "@/features/chapters/components/PovInfoPopover";
+import { POV_OPTIONS, povUsesCharacter } from "@/features/chapters/utils/pov";
+import type { PovType } from "@/types/story";
 
 interface ChapterPOVEditorProps {
     onClose?: () => void;
 }
 
 interface POVForm {
-    povType: 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
+    povType: PovType;
     povCharacter?: string;
 }
 
@@ -49,9 +52,9 @@ export function ChapterPOVEditor({ onClose }: ChapterPOVEditorProps) {
 
     const povType = form.watch('povType');
 
-    // Reset POV character when switching to omniscient
+    // Reset POV character when switching to a narrator style without a character.
     useEffect(() => {
-        if (povType === 'Third Person Omniscient') {
+        if (!povUsesCharacter(povType)) {
             form.setValue('povCharacter', undefined);
         }
     }, [povType, form]);
@@ -60,8 +63,7 @@ export function ChapterPOVEditor({ onClose }: ChapterPOVEditorProps) {
         if (!currentChapter) return;
 
         try {
-            // Only include povCharacter if not omniscient
-            const povCharacter = data.povType !== 'Third Person Omniscient' ? data.povCharacter : undefined;
+            const povCharacter = povUsesCharacter(data.povType) ? data.povCharacter : undefined;
 
             await updateChapter(currentChapter.id, {
                 povType: data.povType,
@@ -98,7 +100,10 @@ export function ChapterPOVEditor({ onClose }: ChapterPOVEditorProps) {
                         name="povType"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Point of View</FormLabel>
+                                <div className="flex items-center gap-1">
+                                    <FormLabel>Point of View</FormLabel>
+                                    <PovInfoPopover />
+                                </div>
                                 <Select
                                     onValueChange={field.onChange}
                                     defaultValue={field.value}
@@ -109,9 +114,11 @@ export function ChapterPOVEditor({ onClose }: ChapterPOVEditorProps) {
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="First Person">First Person</SelectItem>
-                                        <SelectItem value="Third Person Limited">Third Person Limited</SelectItem>
-                                        <SelectItem value="Third Person Omniscient">Third Person Omniscient</SelectItem>
+                                        {POV_OPTIONS.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -119,7 +126,7 @@ export function ChapterPOVEditor({ onClose }: ChapterPOVEditorProps) {
                         )}
                     />
 
-                    {povType !== 'Third Person Omniscient' && (
+                    {povUsesCharacter(povType) && (
                         <FormField
                             control={form.control}
                             name="povCharacter"
@@ -171,4 +178,4 @@ export function ChapterPOVEditor({ onClose }: ChapterPOVEditorProps) {
             </Form>
         </div>
     );
-} 
+}

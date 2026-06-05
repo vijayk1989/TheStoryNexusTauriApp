@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Copy, ImageIcon, Trash2, Wand2 } from "lucide-react";
+import { Copy, Download, ImageIcon, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { useImageGenerationStore } from "@/features/images/stores/useImageGenerationStore";
-import { assetReference, resolveAssetDisplayUrl } from "@/features/images/services/assetStorage";
+import { assetReference, assetRepository, resolveAssetDisplayUrl } from "@/features/images/services/assetStorage";
 import { dispatchInsertAssetImage } from "@/components/editor/mainLexicalEditor/plugins/AssetImageInsertPlugin";
 import type { MediaAsset } from "@/types/story";
 import { toast } from "react-toastify";
@@ -51,8 +51,30 @@ export function ImageGalleryPanel() {
 
     const visibleAssets = assets.filter((asset) => !asset.archivedAt);
 
+    const handleDownloadAll = async () => {
+        try {
+            for (const asset of visibleAssets) {
+                await downloadAsset(asset);
+                await new Promise((resolve) => setTimeout(resolve, 80));
+            }
+            toast.success(`Started ${visibleAssets.length} image download${visibleAssets.length === 1 ? "" : "s"}`);
+        } catch (error) {
+            console.error("Failed to download images:", error);
+            toast.error(error instanceof Error ? error.message : "Failed to download images");
+        }
+    };
+
     return (
         <div className="space-y-3 p-3">
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm leading-6 text-foreground">
+                Images are not included in Site Backup. Download them separately if you want to move them to another device.
+            </div>
+            {visibleAssets.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleDownloadAll}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download All Images
+                </Button>
+            )}
             {visibleAssets.length === 0 ? (
                 <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
                     <ImageIcon className="mx-auto mb-2 h-8 w-8 opacity-60" />
@@ -75,6 +97,23 @@ export function ImageGalleryPanel() {
             )}
         </div>
     );
+}
+
+async function downloadAsset(asset: MediaAsset): Promise<void> {
+    const bytes = await assetRepository.readAssetBytes(asset.id);
+    const blob = new Blob([bytes], { type: asset.mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = safeFilename(asset.filename || `${asset.id}.png`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function safeFilename(filename: string): string {
+    return filename.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-") || "story-nexus-image.png";
 }
 
 function GalleryAssetCard({

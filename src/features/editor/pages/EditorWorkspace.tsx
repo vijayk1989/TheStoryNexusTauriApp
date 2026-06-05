@@ -73,10 +73,13 @@ import { useAIStore } from "@/features/ai/stores/useAIStore";
 import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
 import { StoryEditor } from "@/features/chapters/components/StoryEditor";
+import { PovInfoPopover } from "@/features/chapters/components/PovInfoPopover";
+import { POV_OPTIONS, povUsesCharacter } from "@/features/chapters/utils/pov";
 import { db } from "@/services/database";
 import { dbSeeder } from "@/services/dbSeed";
 import { storyExportService } from "@/services/storyExportService";
-import type { AllowedModel, Chapter, Prompt, PromptParserConfig, Story } from "@/types/story";
+import { siteBackupService } from "@/services/siteBackupService";
+import type { AllowedModel, Chapter, PovType, Prompt, PromptParserConfig, Story } from "@/types/story";
 import { cn } from "@/lib/utils";
 import {
     readLastEditorTarget,
@@ -85,7 +88,7 @@ import {
 
 type ChapterForm = {
     title: string;
-    povType: "First Person" | "Third Person Limited" | "Third Person Omniscient";
+    povType: PovType;
     povCharacter?: string;
 };
 
@@ -108,8 +111,9 @@ export default function EditorWorkspace() {
     const [hasGeneratedSummary, setHasGeneratedSummary] = useState(false);
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const siteBackupInputRef = useRef<HTMLInputElement>(null);
 
-    const { stories, fetchStories, getStory, currentStory, deleteStory } = useStoryStore();
+    const { stories, fetchStories, getStory, currentStory, deleteStory, setCurrentStory } = useStoryStore();
     const {
         chapters,
         currentChapter,
@@ -264,6 +268,23 @@ export default function EditorWorkspace() {
         event.target.value = "";
     };
 
+    const handleImportSiteBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const result = await siteBackupService.importSiteBackup(await file.text());
+            await handleSiteDataChanged(result.importedStoryIds[0] || null);
+            toast.success(`Imported ${result.stories} stor${result.stories === 1 ? "y" : "ies"} from Site Backup`);
+            result.warnings.forEach((warning) => toast.warning(warning));
+        } catch (error) {
+            console.error("Site Backup import failed:", error);
+            toast.error(error instanceof Error ? error.message : "Failed to import Site Backup");
+        } finally {
+            event.target.value = "";
+        }
+    };
+
     const handleDeleteStory = async () => {
         if (!currentStoryId || !currentStory) return;
         if (!window.confirm(`Delete "${currentStory.title}" and its related data?`)) return;
@@ -305,7 +326,7 @@ export default function EditorWorkspace() {
         event.preventDefault();
         if (!currentStoryId || !chapterForm.title.trim()) return;
 
-        const povCharacter = chapterForm.povType !== "Third Person Omniscient"
+        const povCharacter = povUsesCharacter(chapterForm.povType)
             ? chapterForm.povCharacter
             : undefined;
         const chapterId = await createChapter({
@@ -328,7 +349,7 @@ export default function EditorWorkspace() {
         event.preventDefault();
         if (!editingChapter || !chapterForm.title.trim()) return;
 
-        const povCharacter = chapterForm.povType !== "Third Person Omniscient"
+        const povCharacter = povUsesCharacter(chapterForm.povType)
             ? chapterForm.povCharacter
             : undefined;
         await updateChapter(editingChapter.id, {
@@ -448,6 +469,26 @@ export default function EditorWorkspace() {
         setLeftSheetOpen(false);
     };
 
+    const handleSiteDataChanged = async (preferredStoryId?: string | null) => {
+        await Promise.all([fetchStories(), fetchPrompts()]);
+        const allStories = await db.stories.toArray();
+
+        if (preferredStoryId && allStories.some((story) => story.id === preferredStoryId)) {
+            await activateStory(preferredStoryId);
+            return;
+        }
+
+        if (allStories.length > 0) {
+            await activateStory(allStories[0].id);
+            return;
+        }
+
+        setCurrentStoryId(null);
+        setCurrentChapterId(null);
+        setCurrentChapter(null);
+        setCurrentStory(null);
+    };
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id || !currentStoryId) return;
@@ -506,17 +547,25 @@ export default function EditorWorkspace() {
                 className="hidden"
                 onChange={handleImportStory}
             />
+            <input
+                ref={siteBackupInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={handleImportSiteBackup}
+            />
 
             <div className="hidden min-h-screen md:grid md:grid-cols-[300px_minmax(0,1fr)]">
                 {leftRail}
                 <main className="min-w-0">
                     {currentStoryId && currentChapterId ? (
-                        <StoryEditor />
+                        <StoryEditor onSiteDataChanged={handleSiteDataChanged} />
                     ) : (
                         <EditorEmptyState
                             hasStories={stories.length > 0}
                             onCreateStory={handleCreatedStory}
                             onImportClick={() => fileInputRef.current?.click()}
+                            onImportSiteBackupClick={() => siteBackupInputRef.current?.click()}
                             onCreateChapter={openCreateChapter}
                         />
                     )}
@@ -545,12 +594,13 @@ export default function EditorWorkspace() {
                 </div>
                 <main className="flex-1">
                     {currentStoryId && currentChapterId ? (
-                        <StoryEditor />
+                        <StoryEditor onSiteDataChanged={handleSiteDataChanged} />
                     ) : (
                         <EditorEmptyState
                             hasStories={stories.length > 0}
                             onCreateStory={handleCreatedStory}
                             onImportClick={() => fileInputRef.current?.click()}
+                            onImportSiteBackupClick={() => siteBackupInputRef.current?.click()}
                             onCreateChapter={openCreateChapter}
                         />
                     )}
@@ -899,7 +949,7 @@ function ChapterDialog({
     onSubmit: (event: React.FormEvent) => void;
     submitLabel: string;
 }) {
-    const showCharacter = form.povType !== "Third Person Omniscient";
+    const showCharacter = povUsesCharacter(form.povType);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -921,7 +971,10 @@ function ChapterDialog({
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label>POV Type</Label>
+                            <div className="flex items-center gap-1">
+                                <Label>POV Type</Label>
+                                <PovInfoPopover />
+                            </div>
                             <Select
                                 value={form.povType}
                                 onValueChange={(value: ChapterForm["povType"]) =>
@@ -929,9 +982,7 @@ function ChapterDialog({
                                         ...form,
                                         povType: value,
                                         povCharacter:
-                                            value === "Third Person Omniscient"
-                                                ? undefined
-                                                : form.povCharacter,
+                                            povUsesCharacter(value) ? form.povCharacter : undefined,
                                     })
                                 }
                             >
@@ -939,9 +990,11 @@ function ChapterDialog({
                                     <SelectValue placeholder="Select POV type" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="First Person">First Person</SelectItem>
-                                    <SelectItem value="Third Person Limited">Third Person Limited</SelectItem>
-                                    <SelectItem value="Third Person Omniscient">Third Person Omniscient</SelectItem>
+                                    {POV_OPTIONS.map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -1080,11 +1133,13 @@ function EditorEmptyState({
     hasStories,
     onCreateStory,
     onImportClick,
+    onImportSiteBackupClick,
     onCreateChapter,
 }: {
     hasStories: boolean;
     onCreateStory: (storyId: string) => void;
     onImportClick: () => void;
+    onImportSiteBackupClick: () => void;
     onCreateChapter: () => void;
 }) {
     return (
@@ -1100,10 +1155,16 @@ function EditorEmptyState({
                 </p>
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                     {hasStories ? (
-                        <Button onClick={onCreateChapter}>
-                            <FilePlus className="mr-2 h-4 w-4" />
-                            New Chapter
-                        </Button>
+                        <>
+                            <Button onClick={onCreateChapter}>
+                                <FilePlus className="mr-2 h-4 w-4" />
+                                New Chapter
+                            </Button>
+                            <Button variant="outline" onClick={onImportSiteBackupClick}>
+                                <Import className="mr-2 h-4 w-4" />
+                                Import Site Backup
+                            </Button>
+                        </>
                     ) : (
                         <>
                             <CreateStoryDialog
@@ -1118,6 +1179,10 @@ function EditorEmptyState({
                             <Button variant="outline" onClick={onImportClick}>
                                 <Import className="mr-2 h-4 w-4" />
                                 Import Story
+                            </Button>
+                            <Button variant="outline" onClick={onImportSiteBackupClick}>
+                                <Import className="mr-2 h-4 w-4" />
+                                Import Site Backup
                             </Button>
                         </>
                     )}

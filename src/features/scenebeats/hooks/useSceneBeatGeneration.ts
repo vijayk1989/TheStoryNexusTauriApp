@@ -21,6 +21,7 @@ import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { sceneBeatService } from '@/features/scenebeats/services/sceneBeatService';
 import { useAgenticGeneration, type AgenticGenerationContext, type AgenticGenerationCallbacks } from '@/features/agents/hooks/useAgenticGeneration';
 import { useParallelGeneration } from '@/features/agents/hooks/useParallelGeneration';
+import { povUsesCharacter } from '@/features/chapters/utils/pov';
 import type {
     Prompt,
     PromptParserConfig,
@@ -122,7 +123,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 s.localMatchedEntries ? Array.from(s.localMatchedEntries.values()) : []
             ),
             povType: s.povType,
-            povCharacter: s.povType !== 'Third Person Omniscient' ? s.povCharacter : undefined,
+            povCharacter: povUsesCharacter(s.povType) ? s.povCharacter : undefined,
             sceneBeatContext: {
                 useMatchedChapter: s.useMatchedChapter,
                 useMatchedSceneBeat: s.useMatchedSceneBeat,
@@ -372,7 +373,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 matchedEntries: combinedEntries,
                 allEntries: entries,
                 povType: s.povType,
-                povCharacter: s.povType !== 'Third Person Omniscient' ? s.povCharacter : undefined,
+                povCharacter: povUsesCharacter(s.povType) ? s.povCharacter : undefined,
                 currentChapter,
             };
 

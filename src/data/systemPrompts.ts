@@ -35,9 +35,9 @@ const systemPrompts: Partial<Prompt>[] = [
         isSystem: true,
         temperature: 1.0,
         maxTokens: 32768,
-        top_p: 1.0,
-        top_k: 50,
-        repetition_penalty: 1.0,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
         min_p: 0.0
     },
     {
@@ -65,9 +65,9 @@ const systemPrompts: Partial<Prompt>[] = [
         isSystem: true,
         temperature: 1.0,
         maxTokens: 512,
-        top_p: 1.0,
-        top_k: 50,
-        repetition_penalty: 1.0,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
         min_p: 0.0
     },
     {
@@ -95,9 +95,10 @@ const systemPrompts: Partial<Prompt>[] = [
         isSystem: true,
         temperature: 1.0,
         maxTokens: 512,
-        top_p: 1.0,
-        top_k: 50,
-        repetition_penalty: 1.0
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
+        min_p: 0.0
     },
     {
         id: "selection-rewrite-system",
@@ -124,9 +125,9 @@ const systemPrompts: Partial<Prompt>[] = [
         isSystem: true,
         temperature: 1.0,
         maxTokens: 512,
-        top_p: 1.0,
-        top_k: 50,
-        repetition_penalty: 1.0,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
         min_p: 0.0
     },
     {
@@ -154,9 +155,9 @@ const systemPrompts: Partial<Prompt>[] = [
         isSystem: true,
         temperature: 1.0,
         maxTokens: 512,
-        top_p: 1.0,
-        top_k: 50,
-        repetition_penalty: 1.0,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
         min_p: 0.0
     },
     {
@@ -188,9 +189,9 @@ const systemPrompts: Partial<Prompt>[] = [
         isSystem: true,
         temperature: 1.0,
         maxTokens: 32768,
-        top_p: 1.0,
-        top_k: 50,
-        repetition_penalty: 1.0,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
         min_p: 0.0
     },
     {
@@ -228,9 +229,9 @@ If no significant events occur, return an empty array [].`
         isSystem: true,
         temperature: 0.3,
         maxTokens: 2048,
-        top_p: 1.0,
-        top_k: 50,
-        repetition_penalty: 1.0,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
         min_p: 0.0
     }
     ,
@@ -249,9 +250,9 @@ If no significant events occur, return an empty array [].`
         isSystem: true,
         temperature: 1.0,
         maxTokens: 1024,
-        top_p: 1.0,
-        top_k: 50,
-        repetition_penalty: 1.0,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
         min_p: 0.0
     }
 ];

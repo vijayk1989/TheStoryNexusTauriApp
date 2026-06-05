@@ -1,3 +1,5 @@
+/// <reference path="./e2e-globals.d.ts" />
+
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import {

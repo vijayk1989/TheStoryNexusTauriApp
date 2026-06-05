@@ -40,6 +40,7 @@ export class DatabaseSeeder {
         console.log("Database already contains system prompts. Skipping prompt seeding.");
       }
 
+      await this.disableSystemPromptAdvancedSampling();
       await this.seedExampleStory(forceReseed);
 
       console.log("Database seeding complete.");
@@ -125,6 +126,22 @@ export class DatabaseSeeder {
         } as Prompt);
       }
     }
+  }
+
+  private async disableSystemPromptAdvancedSampling(): Promise<void> {
+    await db.transaction("rw", db.prompts, async () => {
+      for (const promptData of systemPrompts) {
+        const existingPrompt = await db.prompts.get(promptData.id!);
+        if (!existingPrompt?.isSystem) continue;
+
+        await db.prompts.update(promptData.id!, {
+          top_p: 0,
+          top_k: 0,
+          repetition_penalty: 0,
+          min_p: 0,
+        });
+      }
+    });
   }
 
   /**

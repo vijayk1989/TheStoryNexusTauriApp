@@ -71,11 +71,19 @@ export function PromptSelectMenu({
                                                 <MenubarItem
                                                     key={model.id}
                                                     onClick={() => onSelect(prompt, model)}
-                                                    className={isSelectedModel ? "bg-accent text-accent-foreground" : ""}
+                                                    className={isSelectedModel
+                                                        ? "group bg-accent text-accent-foreground"
+                                                        : "group"
+                                                    }
                                                 >
                                                     <div className="flex flex-col">
                                                         <span>{model.name}</span>
-                                                        <span className={isSelectedModel ? "text-xs text-accent-foreground/80" : "text-xs text-muted-foreground"}>
+                                                        <span
+                                                            className={isSelectedModel
+                                                                ? "text-xs text-accent-foreground/80"
+                                                                : "text-xs text-muted-foreground group-focus:text-accent-foreground/80"
+                                                            }
+                                                        >
                                                             {model.provider}
                                                         </span>
                                                     </div>

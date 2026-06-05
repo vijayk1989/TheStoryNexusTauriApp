@@ -27,6 +27,8 @@ Windows may show a SmartScreen warning for new or unsigned builds. If you trust 
 - **Brainstorm**: keep story-scoped brainstorm chats, add context, rename or delete chats from the chat selector, and optionally use agentic generation.
 - **Prompts and defaults**: manage reusable prompts, import/export prompt packs, and set default models for scene beats, brainstorm, and agents.
 - **Agents and pipelines**: build reusable AI workers and multi-step workflows such as summarize -> draft -> lore check -> revise.
+- **Themes**: choose a built-in color preset or tune a custom local palette.
+- **Site Backup**: export and import written content, prompts, agents, and pipelines without copying API keys or images.
 - **Local-first storage**: app data is stored locally in IndexedDB through Dexie.
 
 ## App Layout
@@ -35,7 +37,7 @@ The root route opens the editor workspace directly.
 
 - **Left rail**: story selector, story actions, import/export, chapter list, chapter ordering, chapter summary, and chapter actions.
 - **Main editor**: the writing surface, editor toolbar, chapter title, save status, and inline scene beats.
-- **Right tool rail**: matched lore tags, outline, POV, timeline extraction, notes, drafts, brainstorm, lorebook, agents, prompts, prompt defaults, AI settings, and guide.
+- **Right tool rail**: matched lore tags, outline, POV, timeline extraction, notes, drafts, brainstorm, lorebook, agents, prompts, prompt defaults, AI settings, theme settings, Misc Settings, and guide.
 - **Slide-out sheets**: most supporting tools open from the right so the chapter remains the center of the app.
 
 On mobile, the story/chapter rail becomes a left sheet and editor tools move into a floating menu.
@@ -71,6 +73,12 @@ Build the frontend:
 
 ```sh
 npm run build
+```
+
+Run service and utility unit tests:
+
+```sh
+npm run test:unit
 ```
 
 Preview the production frontend build:
@@ -138,6 +146,7 @@ The bundle settings live in `src-tauri/tauri.conf.json`. Update the `bundle.targ
 - `src/features/agents/` - agent and pipeline management
 - `src/features/ai/` - AI settings and provider state
 - `src/services/` - database, export/import, AI service, and orchestration helpers
+- `tests/unit/` - Vitest tests for services and utilities
 - `src/types/` - shared TypeScript types
 - `docs/` - implementation notes and deeper agent documentation
 - `src-tauri/` - Tauri desktop shell
@@ -157,6 +166,12 @@ The prompt export format is:
 ```
 
 Imported prompts are validated, assigned fresh IDs, and created as editable non-system prompts. If a prompt name already exists, the importer adds an `Imported` suffix.
+
+## Site Backup
+
+Site Backup lives in the editor's Misc Settings sheet. It exports stories, chapters, lorebook entries, scene beats, drafts, brainstorm chats, notes, user prompts, user agents, user pipelines, and pipeline execution history.
+
+Site Backup intentionally does not include API keys, AI provider settings, generated images, or uploaded images. Importing a backup creates new content with fresh IDs and does not overwrite existing data. Images can be downloaded separately from the Image Gallery.
 
 ## Documentation
 

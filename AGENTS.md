@@ -19,6 +19,8 @@ Run enough tests for the risk of the change. Do not leave testing as an aftertho
 
 - `npm.cmd run build`
   - Run after TypeScript, Vite, dependency, routing, AI service, database, or shared component changes.
+- `npm.cmd run test:unit`
+  - Run after service, utility, database helper, parser, backup/import/export, or other non-UI logic changes.
 - `npm.cmd run test:e2e:editor`
   - Run after editor, Lexical, chapter content, SceneBeat insertion/removal, autosave, or editor layout changes.
 - `npm.cmd run test:e2e:llm`
@@ -92,7 +94,7 @@ Use `docs/PLAYWRIGHT_EDITOR_TESTING.md` for Playwright/editor/LLM test notes.
 
 ```powershell
 npm.cmd run build
+npm.cmd run test:unit
 npm.cmd run test:e2e:editor
 npm.cmd run test:e2e:llm
 ```
-

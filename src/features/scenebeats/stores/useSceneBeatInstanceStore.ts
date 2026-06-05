@@ -15,12 +15,12 @@ import type {
     LorebookEntry,
     PipelinePreset,
     AgentResult,
+    PovType,
 } from '@/types/story';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
+import { povUsesCharacter } from '@/features/chapters/utils/pov';
 
 // ── Types ──────────────────────────────────────────────────────
-export type PovType = 'First Person' | 'Third Person Limited' | 'Third Person Omniscient';
-
 export interface SceneBeatInstanceState {
     // Identity
     nodeKey: string;
@@ -186,7 +186,7 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
 
         handlePovTypeChange: (value) => {
             set({ tempPovType: value });
-            if (value === 'Third Person Omniscient') {
+            if (!povUsesCharacter(value)) {
                 set({ tempPovCharacter: undefined });
             }
         },

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot, ImageIcon } from "lucide-react";
+import { BookOpen, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot, ImageIcon, Wrench, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MainLexicalEditor } from "@/components/editor/mainLexicalEditor";
 import { ChapterOutline } from "./ChapterOutline";
@@ -36,10 +36,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TimelineExtractionDialog } from "@/features/chapters/components/TimelineExtractionDialog";
 import { ImageGalleryPanel } from "@/features/images/components/ImageGalleryPanel";
+import { MiscSettingsPanel } from "@/features/settings/components/MiscSettingsPanel";
+import { ThemeSettingsPanel } from "@/features/theme/components/ThemeSettingsPanel";
 
-type ToolPanelType = "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "brainstorm" | "imageGallery" | null;
+type ToolPanelType = "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "brainstorm" | "imageGallery" | "themeSettings" | "miscSettings" | null;
 
-export function StoryEditor() {
+interface StoryEditorProps {
+    onSiteDataChanged?: (preferredStoryId?: string | null) => Promise<void> | void;
+}
+
+export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
     const [openPanel, setOpenPanel] = useState<ToolPanelType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
     const [isTimelineDialogOpen, setIsTimelineDialogOpen] = useState(false);
@@ -205,6 +211,16 @@ export function StoryEditor() {
                 <Settings className="h-4 w-4 mr-2 shrink-0" />
                 <span className="truncate">AI Settings</span>
             </Button>
+
+            <Button
+                variant={openPanel === "themeSettings" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("themeSettings")}
+            >
+                <Palette className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Theme</span>
+            </Button>
             
              <Button
                 variant={openPanel === "guide" ? "default" : "outline"}
@@ -214,6 +230,16 @@ export function StoryEditor() {
             >
                 <HelpCircle className="h-4 w-4 mr-2 shrink-0" />
                 <span className="truncate">Guide</span>
+            </Button>
+
+            <Button
+                variant={openPanel === "miscSettings" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("miscSettings")}
+            >
+                <Wrench className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Misc Settings</span>
             </Button>
         </>
     );
@@ -291,9 +317,17 @@ export function StoryEditor() {
                             <Settings className="h-4 w-4 mr-2" />
                             AI Settings
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("themeSettings")}>
+                            <Palette className="h-4 w-4 mr-2" />
+                            Theme
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenPanel("guide")}>
                             <HelpCircle className="h-4 w-4 mr-2" />
                             Guide
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("miscSettings")}>
+                            <Wrench className="h-4 w-4 mr-2" />
+                            Misc Settings
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -370,6 +404,21 @@ export function StoryEditor() {
                     </SheetHeader>
                     <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
                         <AISettingsPanel />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Theme Settings Sheet */}
+            <Sheet open={openPanel === "themeSettings"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[560px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Theme</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <ThemeSettingsPanel />
                     </div>
                 </SheetContent>
             </Sheet>
@@ -494,6 +543,21 @@ export function StoryEditor() {
                         <div className="flex-1 overflow-y-auto">
                             <ImageGalleryPanel />
                         </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+
+            {/* Misc Settings Sheet */}
+            <Sheet open={openPanel === "miscSettings"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[560px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Misc Settings</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <MiscSettingsPanel onSiteDataChanged={onSiteDataChanged} />
                     </div>
                 </SheetContent>
             </Sheet>

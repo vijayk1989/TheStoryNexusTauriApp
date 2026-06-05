@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "shared/*": ["src/Lexical/shared/src/*"]
+      "shared/*": ["./src/Lexical/shared/src/*"]
     },
     "target": "ES2020",
     "useDefineForClassFields": true,

@@ -11,6 +11,7 @@ import {
 
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
+import { createPromptParser } from "@/features/prompts/services/promptParser";
 import { db } from "@/services/database";
 import type { AISettings } from "@/types/story";
 
@@ -26,6 +27,10 @@ type ConfigureLocalLLMOptions = {
     apiUrl: string;
     modelId: string;
     modelName?: string;
+};
+
+type ResolvePromptMessagesOptions = {
+    chapterId?: string;
 };
 
 export type EditorE2ESnapshot = {
@@ -55,6 +60,7 @@ export type EditorE2ESnapshot = {
 export type StoryNexusE2EApi = {
     getEditorSnapshot: () => EditorE2ESnapshot;
     getPersistedChapterContent: () => Promise<string | null>;
+    resolvePromptMessages: (content: string, options?: ResolvePromptMessagesOptions) => Promise<Array<string | null>>;
     placeCursorAtTopLevelNode: (index: number, position?: CursorPosition) => Promise<void>;
     configureLocalLLM: (options: ConfigureLocalLLMOptions) => Promise<void>;
 };
@@ -120,6 +126,36 @@ function createApi(
             if (!chapterId) return null;
             const chapter = await db.chapters.get(chapterId);
             return chapter?.content ?? null;
+        },
+
+        resolvePromptMessages: async (content, options = {}) => {
+            const storyId = context.getCurrentStoryId();
+            const chapterId = options.chapterId || context.getCurrentChapterId();
+            if (!storyId || !chapterId) {
+                throw new Error("No story or chapter context is available.");
+            }
+
+            const promptId = `e2e-prompt-${crypto.randomUUID()}`;
+            await db.prompts.add({
+                id: promptId,
+                name: "E2E prompt parser check",
+                promptType: "other",
+                messages: [{ role: "user", content }],
+                allowedModels: [],
+                storyId,
+                createdAt: new Date(),
+            });
+
+            try {
+                const parser = createPromptParser();
+                const result = await parser.parse({ storyId, chapterId, promptId });
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                return result.messages.map((message) => message.content);
+            } finally {
+                await db.prompts.delete(promptId);
+            }
         },
 
         placeCursorAtTopLevelNode: async (index, position = "end") => {
@@ -188,6 +224,7 @@ function createApi(
                 error: null,
             });
         },
+
     };
 }
 

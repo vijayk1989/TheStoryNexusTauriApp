@@ -9,6 +9,7 @@ import {
 } from '@/types/story';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
+import { povUsesCharacter } from '@/features/chapters/utils/pov';
 
 export class PromptParser {
     private readonly variableResolvers: Record<string, VariableResolver>;
@@ -21,6 +22,8 @@ export class PromptParser {
             'lorebook_data': this.resolveMatchedEntriesChapter.bind(this),
             'summaries': this.resolveChapterSummaries.bind(this),
             'previous_words': this.resolvePreviousWords.bind(this),
+            'previous_chapter': this.resolvePreviousChapters.bind(this),
+            'all_previous_chapters': this.resolveAllPreviousChapters.bind(this),
             'pov': this.resolvePoV.bind(this),
             'chapter_content': this.resolveChapterContent.bind(this),
             'selected_text': this.resolveSelectedText.bind(this),
@@ -65,10 +68,16 @@ export class PromptParser {
 
     private async buildContext(config: PromptParserConfig): Promise<PromptContext> {
 
-        const [chapters, currentChapter] = await Promise.all([
+        const activeChapter = useChapterStore.getState().currentChapter;
+        const activeStoryChapter = activeChapter?.storyId === config.storyId
+            ? activeChapter
+            : undefined;
+
+        const [chapters, configuredChapter] = await Promise.all([
             this.database.chapters.where('storyId').equals(config.storyId).toArray(),
             config.chapterId ? this.database.chapters.get(config.chapterId) : undefined
         ]);
+        const currentChapter = configuredChapter ?? (!config.chapterId ? activeStoryChapter : undefined);
 
         return {
             ...config,
@@ -104,6 +113,10 @@ export class PromptParser {
             }
             if (func === 'chapter_data') {
                 const resolved = await this.resolveChapterData(args.trim());
+                parsedContent = parsedContent.replace(fullMatch, resolved);
+            }
+            if (func === 'previous_chapter') {
+                const resolved = await this.resolvePreviousChapters(context, args.trim());
                 parsedContent = parsedContent.replace(fullMatch, resolved);
             }
         }
@@ -281,6 +294,44 @@ export class PromptParser {
         }
     }
 
+    private async resolveAllPreviousChapters(context: PromptContext): Promise<string> {
+        return this.resolvePreviousChapterContent(context);
+    }
+
+    private async resolvePreviousChapters(context: PromptContext, count: string = '1'): Promise<string> {
+        const requestedChapterCount = Math.max(1, parseInt(count, 10) || 1);
+        return this.resolvePreviousChapterContent(context, requestedChapterCount);
+    }
+
+    private async resolvePreviousChapterContent(context: PromptContext, limit?: number): Promise<string> {
+        if (!context.currentChapter) return '';
+
+        const chapters = (context.chapters || await this.database.chapters
+            .where('storyId')
+            .equals(context.storyId)
+            .toArray())
+            .filter(chapter => chapter.order < context.currentChapter!.order)
+            .sort((a, b) => a.order - b.order);
+
+        const selectedChapters = typeof limit === 'number'
+            ? chapters.slice(-limit)
+            : chapters;
+
+        if (selectedChapters.length === 0) return '';
+
+        const { getChapterPlainText } = useChapterStore.getState();
+        const chapterTexts = await Promise.all(
+            selectedChapters.map(async chapter => {
+                const content = await getChapterPlainText(chapter.id);
+                if (!content.trim()) return '';
+
+                return `Chapter ${chapter.order}: ${chapter.title}\n${content}`;
+            })
+        );
+
+        return chapterTexts.filter(Boolean).join('\n\n');
+    }
+
     private async resolvePreviousWords(context: PromptContext, count: string = '1000'): Promise<string> {
         // Parse the count parameter - default to 1000 if not a valid number
         const requestedWordCount = parseInt(count, 10) || 1000;
@@ -325,11 +376,10 @@ export class PromptParser {
                     const prevPovType = previousChapter.povType;
                     const prevPovCharacter = previousChapter.povCharacter;
 
-                    const povMatches =
-                        // If both are omniscient, they match
-                        (currentPovType === 'Third Person Omniscient' && prevPovType === 'Third Person Omniscient') ||
-                        // If both are the same type and have the same character
-                        (currentPovType === prevPovType && currentPovCharacter === prevPovCharacter);
+                    const povMatches = currentPovType === prevPovType && (
+                        !povUsesCharacter(currentPovType) ||
+                        currentPovCharacter === prevPovCharacter
+                    );
 
                     if (povMatches) {
                         // Get the plain text content of the previous chapter
@@ -375,7 +425,7 @@ export class PromptParser {
     private async resolvePoV(context: PromptContext): Promise<string> {
         // First check if scene beat has specific POV settings
         if (context.povType) {
-            const povCharacter = context.povType !== 'Third Person Omniscient' && context.povCharacter
+            const povCharacter = povUsesCharacter(context.povType) && context.povCharacter
                 ? ` (${context.povCharacter})`
                 : '';
             return `${context.povType}${povCharacter}`;
@@ -383,7 +433,7 @@ export class PromptParser {
 
         // Fall back to chapter POV if available
         if (context.currentChapter?.povType) {
-            const povCharacter = context.currentChapter.povType !== 'Third Person Omniscient' && context.currentChapter.povCharacter
+            const povCharacter = povUsesCharacter(context.currentChapter.povType) && context.currentChapter.povCharacter
                 ? ` (${context.currentChapter.povCharacter})`
                 : '';
             return `${context.currentChapter.povType}${povCharacter}`;
@@ -452,13 +502,13 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
     private async resolveChapterContent(context: PromptContext): Promise<string> {
         if (!context.currentChapter) return '';
 
-        // Use the plain text content if available in additionalContext
-        if (context.additionalContext?.plainTextContent) {
+        // Prefer caller-provided text so flows with unsaved/editor-local content keep that exact view.
+        if (typeof context.additionalContext?.plainTextContent === 'string') {
             return context.additionalContext.plainTextContent;
         }
 
-        console.warn('No plain text content found for chapter:', context.currentChapter.id);
-        return '';
+        const { getChapterPlainText } = useChapterStore.getState();
+        return getChapterPlainText(context.currentChapter.id);
     }
 
     private async resolveSelectedText(context: PromptContext): Promise<string> {
@@ -800,4 +850,4 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
     }
 }
 
-export const createPromptParser = () => new PromptParser(db); 
+export const createPromptParser = () => new PromptParser(db);

@@ -5,6 +5,14 @@ interface BaseEntity {
   isDemo?: boolean; // Flag to identify demo content
 }
 
+export type PovType =
+  | "First Person"
+  | "Second Person"
+  | "Third Person"
+  | "Third Person Limited"
+  | "Third Person Omniscient"
+  | "Third Person (Objective)";
+
 // Core story type
 export interface Story extends BaseEntity {
   title: string;
@@ -23,7 +31,7 @@ export interface Chapter extends BaseEntity {
   outline?: ChapterOutline;
   wordCount: number;
   povCharacter?: string;
-  povType?: "First Person" | "Third Person Limited" | "Third Person Omniscient";
+  povType?: PovType;
   notes?: ChapterNotes;
 }
 
@@ -42,7 +50,7 @@ export interface SceneBeat extends BaseEntity {
   storyId: string;
   chapterId: string;
   command: string;
-  povType?: "First Person" | "Third Person Limited" | "Third Person Omniscient";
+  povType?: PovType;
   povCharacter?: string;
   generatedContent?: string; // To store the last generated content
   accepted?: boolean; // Whether the generated content was accepted
@@ -332,7 +340,7 @@ export interface PromptParserConfig {
   chapterMatchedEntries?: Set<LorebookEntry>;
   sceneBeatMatchedEntries?: Set<LorebookEntry>;
   povCharacter?: string;
-  povType?: "First Person" | "Third Person Limited" | "Third Person Omniscient";
+  povType?: PovType;
   storyLanguage?: string;
   sceneBeatContext?: {
     useMatchedChapter: boolean;
@@ -355,7 +363,7 @@ export interface PromptContext {
   chapterMatchedEntries?: Set<LorebookEntry>;
   sceneBeatMatchedEntries?: Set<LorebookEntry>;
   povCharacter?: string;
-  povType?: "First Person" | "Third Person Limited" | "Third Person Omniscient";
+  povType?: PovType;
   storyLanguage?: string;
   sceneBeatContext?: {
     useMatchedChapter: boolean;

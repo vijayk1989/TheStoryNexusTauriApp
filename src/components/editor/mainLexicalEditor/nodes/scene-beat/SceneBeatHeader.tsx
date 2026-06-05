@@ -30,6 +30,8 @@ import { useMemo } from 'react';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { sceneBeatService } from '@/features/scenebeats/services/sceneBeatService';
 import { toast } from 'react-toastify';
+import { PovInfoPopover } from '@/features/chapters/components/PovInfoPopover';
+import { getPovShortLabel, POV_OPTIONS, povUsesCharacter } from '@/features/chapters/utils/pov';
 
 interface SceneBeatHeaderProps {
     streaming: boolean;
@@ -103,16 +105,17 @@ export function SceneBeatHeader({ streaming, onAbort, onDelete }: SceneBeatHeade
                             <User className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                             <span className="hidden sm:inline">POV: </span>
                             <span className="truncate max-w-[60px] sm:max-w-none">
-                                {povType === 'Third Person Omniscient'
-                                    ? 'Omni'
-                                    : povCharacter || 'Select'}
+                                {povCharacter || getPovShortLabel(povType)}
                             </span>
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[calc(100vw-2rem)] sm:w-80 max-w-sm">
                         <div className="grid gap-4">
                             <div className="space-y-2">
-                                <h4 className="font-medium leading-none">Point of View</h4>
+                                <div className="flex items-center gap-1">
+                                    <h4 className="font-medium leading-none">Point of View</h4>
+                                    <PovInfoPopover />
+                                </div>
                                 <p className="text-sm text-muted-foreground">
                                     Set the POV for this scene beat
                                 </p>
@@ -127,13 +130,15 @@ export function SceneBeatHeader({ streaming, onAbort, onDelete }: SceneBeatHeade
                                         <SelectValue placeholder="Select POV type" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="First Person">First Person</SelectItem>
-                                        <SelectItem value="Third Person Limited">Third Person Limited</SelectItem>
-                                        <SelectItem value="Third Person Omniscient">Third Person Omniscient</SelectItem>
+                                        {POV_OPTIONS.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                            {tempPovType !== 'Third Person Omniscient' && (
+                            {povUsesCharacter(tempPovType) && (
                                 <div className="grid gap-2">
                                     <Label htmlFor="povCharacter">POV Character</Label>
                                     <Select value={tempPovCharacter} onValueChange={(v) => set({ tempPovCharacter: v })}>

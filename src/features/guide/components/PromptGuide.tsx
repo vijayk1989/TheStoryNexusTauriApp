@@ -371,6 +371,14 @@ export default function PromptGuide() {
                                             <td className="border p-2">Summaries of all previous chapters. So if you have 3 chapters, it will be the summaries of the previous 2 chapters.</td>
                                         </tr>
                                         <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;all_previous_chapters&#125;&#125;</td>
+                                            <td className="border p-2">The full text of every chapter before the current chapter</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;previous_chapter(2)&#125;&#125;</td>
+                                            <td className="border p-2">The full text of the previous 2 chapters. Change the number to include more or fewer previous chapters.</td>
+                                        </tr>
+                                        <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;previous_words(1000)&#125;&#125;</td>
                                             <td className="border p-2">The last 1000 words before the cursor in the editor</td>
                                         </tr>

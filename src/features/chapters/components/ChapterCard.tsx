@@ -56,6 +56,8 @@ import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
 import { DownloadMenu } from "@/components/ui/DownloadMenu";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { PovInfoPopover } from "@/features/chapters/components/PovInfoPopover";
+import { POV_OPTIONS, povUsesCharacter } from "@/features/chapters/utils/pov";
 
 interface ChapterCardProps {
   chapter: Chapter;
@@ -65,7 +67,7 @@ interface ChapterCardProps {
 interface EditChapterForm {
   title: string;
   povCharacter?: string;
-  povType?: "First Person" | "Third Person Limited" | "Third Person Omniscient";
+  povType?: Chapter["povType"];
 }
 
 export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
@@ -145,9 +147,9 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
     localStorage.setItem(expandedStateKey, JSON.stringify(isExpanded));
   }, [isExpanded, expandedStateKey]);
 
-  // Reset POV character when switching to omniscient
+  // Reset POV character when switching to a narrator style without a character.
   useEffect(() => {
-    if (povType === "Third Person Omniscient") {
+    if (!povUsesCharacter(povType)) {
       form.setValue("povCharacter", undefined);
     }
   }, [povType, form]);
@@ -165,9 +167,8 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
 
   const handleEdit = async (data: EditChapterForm) => {
     try {
-      // Only include povCharacter if not omniscient
       const povCharacter =
-        data.povType !== "Third Person Omniscient"
+        povUsesCharacter(data.povType)
           ? data.povCharacter
           : undefined;
 
@@ -398,28 +399,29 @@ export function ChapterCard({ chapter, storyId }: ChapterCardProps) {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="povType">POV Type</Label>
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="povType">POV Type</Label>
+                  <PovInfoPopover />
+                </div>
                 <Select
                   defaultValue={chapter.povType || "Third Person Omniscient"}
                   onValueChange={(value) =>
-                    form.setValue("povType", value as any)
+                    form.setValue("povType", value as Chapter["povType"])
                   }
                 >
                   <SelectTrigger id="povType">
                     <SelectValue placeholder="Select POV type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="First Person">First Person</SelectItem>
-                    <SelectItem value="Third Person Limited">
-                      Third Person Limited
-                    </SelectItem>
-                    <SelectItem value="Third Person Omniscient">
-                      Third Person Omniscient
-                    </SelectItem>
+                    {POV_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              {povType && povType !== "Third Person Omniscient" && (
+              {povUsesCharacter(povType) && (
                 <div className="grid gap-2">
                   <Label htmlFor="povCharacter">POV Character</Label>
                   <Select

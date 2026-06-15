@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot, ImageIcon, Wrench, Palette } from "lucide-react";
+import { BookOpen, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot, ImageIcon, Wrench, Palette, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MainLexicalEditor } from "@/components/editor/mainLexicalEditor";
 import { ChapterOutline } from "./ChapterOutline";
@@ -11,6 +11,7 @@ import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
 import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
 import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
 import { PromptDefaultsPanel } from "@/features/prompts/components/PromptDefaultsPanel";
+import { SimpleWriteSettingsPanel } from "@/features/prompts/components/SimpleWriteSettingsPanel";
 import { BrainstormPanel } from "@/features/brainstorm/components/BrainstormPanel";
 import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
 import { AgentsManager } from "@/features/agents/components/AgentsManager";
@@ -39,7 +40,7 @@ import { ImageGalleryPanel } from "@/features/images/components/ImageGalleryPane
 import { MiscSettingsPanel } from "@/features/settings/components/MiscSettingsPanel";
 import { ThemeSettingsPanel } from "@/features/theme/components/ThemeSettingsPanel";
 
-type ToolPanelType = "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "brainstorm" | "imageGallery" | "themeSettings" | "miscSettings" | null;
+type ToolPanelType = "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "simpleWriteSettings" | "brainstorm" | "imageGallery" | "themeSettings" | "miscSettings" | null;
 
 interface StoryEditorProps {
     onSiteDataChanged?: (preferredStoryId?: string | null) => Promise<void> | void;
@@ -203,6 +204,16 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
             </Button>
 
             <Button
+                variant={openPanel === "simpleWriteSettings" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("simpleWriteSettings")}
+            >
+                <Pencil className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Simple Write</span>
+            </Button>
+
+            <Button
                 variant={openPanel === "aiSettings" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
@@ -239,7 +250,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                 onClick={() => handleOpenPanel("miscSettings")}
             >
                 <Wrench className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Misc Settings</span>
+                <span className="truncate">Backup & Delete</span>
             </Button>
         </>
     );
@@ -313,6 +324,10 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                             <Settings2 className="h-4 w-4 mr-2" />
                             Prompt Defaults
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("simpleWriteSettings")}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Simple Write
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenPanel("aiSettings")}>
                             <Settings className="h-4 w-4 mr-2" />
                             AI Settings
@@ -327,7 +342,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenPanel("miscSettings")}>
                             <Wrench className="h-4 w-4 mr-2" />
-                            Misc Settings
+                            Backup & Delete
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -513,6 +528,21 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                 </SheetContent>
             </Sheet>
 
+            {/* Simple Write Settings Sheet */}
+            <Sheet open={openPanel === "simpleWriteSettings"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[500px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Simple Write</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <SimpleWriteSettingsPanel />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
             {/* Brainstorm Sheet */}
             <Sheet open={openPanel === "brainstorm"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
@@ -547,14 +577,14 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                 </SheetContent>
             </Sheet>
 
-            {/* Misc Settings Sheet */}
+            {/* Backup & Delete Sheet */}
             <Sheet open={openPanel === "miscSettings"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
                     side="right"
                     className="h-[100vh] w-full md:min-w-[560px] md:w-auto"
                 >
                     <SheetHeader>
-                        <SheetTitle>Misc Settings</SheetTitle>
+                        <SheetTitle>Backup & Delete</SheetTitle>
                     </SheetHeader>
                     <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
                         <MiscSettingsPanel onSiteDataChanged={onSiteDataChanged} />

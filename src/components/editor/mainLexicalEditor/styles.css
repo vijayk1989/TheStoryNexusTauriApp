@@ -23,8 +23,19 @@
 }
 
 .sn-main-editor {
+    position: relative;
+    --sn-main-editor-placeholder-top: 78px;
     overflow: visible;
     background: hsl(var(--background));
+}
+
+.sn-main-editor-streaming .sn-main-editor-toolbar,
+.sn-main-editor-streaming .sn-main-editor-scroller {
+    pointer-events: none;
+}
+
+.sn-main-editor-streaming .sn-main-editor-toolbar {
+    opacity: 0.62;
 }
 
 .sn-main-editor-toolbar {
@@ -201,7 +212,8 @@
     pointer-events: none;
     position: absolute;
     left: 28px;
-    top: 12px;
+    top: var(--sn-main-editor-placeholder-top);
+    z-index: 1;
     color: hsl(var(--muted-foreground) / 0.62);
     font-size: 17px;
     line-height: 1.78;
@@ -370,7 +382,7 @@
 
     .sn-main-editor-placeholder {
         left: 16px;
-        top: 8px;
+        top: 72px;
     }
 }
 

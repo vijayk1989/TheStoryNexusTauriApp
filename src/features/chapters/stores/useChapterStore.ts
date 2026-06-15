@@ -35,6 +35,7 @@ interface ChapterState {
     setLastEditedChapterId: (storyId: string, chapterId: string) => void;
     getLastEditedChapterId: (storyId: string) => string | null;
     updateChapterOrders: (updates: Array<{ id: string, order: number }>) => Promise<void>;
+    resetChapterState: () => void;
 }
 
 export const useChapterStore = create<ChapterState>((set, get) => ({
@@ -539,5 +540,16 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
             });
             throw error;
         }
+    },
+
+    resetChapterState: () => {
+        set({
+            chapters: [],
+            currentChapter: null,
+            loading: false,
+            error: null,
+            summariesSoFar: '',
+            lastEditedChapterIds: {},
+        });
     },
 }));

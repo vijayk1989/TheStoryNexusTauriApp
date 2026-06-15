@@ -82,6 +82,7 @@ import { siteBackupService } from "@/services/siteBackupService";
 import type { AllowedModel, Chapter, PovType, Prompt, PromptParserConfig, Story } from "@/types/story";
 import { cn } from "@/lib/utils";
 import {
+    clearLastEditorTarget,
     readLastEditorTarget,
     saveLastEditorTarget,
 } from "@/features/editor/utils/lastEditorTarget";
@@ -128,6 +129,7 @@ export default function EditorWorkspace() {
         setCurrentChapter,
         getLastEditedChapterId,
         setLastEditedChapterId,
+        resetChapterState,
     } = useChapterStore();
     const { currentStoryId, currentChapterId, setCurrentStoryId, setCurrentChapterId } = useStoryContext();
     const { loadEntries, buildTagMap, entries } = useLorebookStore();
@@ -150,6 +152,14 @@ export default function EditorWorkspace() {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+    const clearEditorSelection = useCallback(() => {
+        setCurrentStoryId(null);
+        setCurrentChapterId(null);
+        setCurrentStory(null);
+        resetChapterState();
+        clearLastEditorTarget();
+    }, [resetChapterState, setCurrentChapterId, setCurrentStory, setCurrentStoryId]);
 
     const activateStory = useCallback(async (storyId: string, preferredChapterId?: string | null) => {
         setCurrentStoryId(storyId);
@@ -202,9 +212,7 @@ export default function EditorWorkspace() {
             if (cancelled) return;
 
             if (allStories.length === 0) {
-                setCurrentStoryId(null);
-                setCurrentChapterId(null);
-                setCurrentChapter(null);
+                clearEditorSelection();
                 setIsReady(true);
                 return;
             }
@@ -238,7 +246,7 @@ export default function EditorWorkspace() {
         return () => {
             cancelled = true;
         };
-    }, [activateStory, fetchPrompts, fetchStories, setCurrentChapter, setCurrentChapterId, setCurrentStoryId]);
+    }, [activateStory, clearEditorSelection, fetchPrompts, fetchStories]);
 
     const handleStorySelect = async (storyId: string) => {
         await activateStory(storyId);
@@ -295,9 +303,7 @@ export default function EditorWorkspace() {
         if (remainingStories.length > 0) {
             await activateStory(remainingStories[0].id);
         } else {
-            setCurrentStoryId(null);
-            setCurrentChapterId(null);
-            setCurrentChapter(null);
+            clearEditorSelection();
         }
     };
 
@@ -483,10 +489,7 @@ export default function EditorWorkspace() {
             return;
         }
 
-        setCurrentStoryId(null);
-        setCurrentChapterId(null);
-        setCurrentChapter(null);
-        setCurrentStory(null);
+        clearEditorSelection();
     };
 
     const handleDragEnd = async (event: DragEndEvent) => {

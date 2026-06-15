@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
@@ -24,6 +25,7 @@ import { SlashCommandPlugin } from "./plugins/SlashCommandPlugin";
 import { EditorE2EBridge } from "./testing/EditorE2EBridge";
 import { WordCountPlugin } from "./plugins/WordCountPlugin";
 import { StoryToolbarPlugin } from "./toolbar/StoryToolbarPlugin";
+import { SimpleWriteButton } from "./SimpleWriteButton";
 
 type MainLexicalEditorProps = {
     maximizeButton?: ReactNode;
@@ -34,6 +36,7 @@ export function MainLexicalEditor({ maximizeButton }: MainLexicalEditorProps) {
     const { currentChapter, getChapter } = useChapterStore();
     const { status } = useEditorSaveStatusStore();
     const [wordCount, setWordCount] = useState(0);
+    const [isSimpleWriting, setIsSimpleWriting] = useState(false);
     const [floatingAnchorElem, setFloatingAnchorElem] = useState<HTMLElement | null>(null);
 
     const onScrollerRef = useCallback((elem: HTMLDivElement | null) => {
@@ -57,24 +60,26 @@ export function MainLexicalEditor({ maximizeButton }: MainLexicalEditorProps) {
     }
 
     return (
-        <div className="sn-main-editor-shell">
-            <div className="sn-main-editor-header">
-                <div className="min-w-0 flex-1">
-                    <div className="truncate font-heading text-lg font-semibold text-primary">
-                        {currentChapter.title}
+        <LexicalComposer initialConfig={mainLexicalEditorConfig}>
+            <div className="sn-main-editor-shell">
+                <div className="sn-main-editor-header">
+                    <div className="min-w-0 flex-1">
+                        <div className="truncate font-heading text-lg font-semibold text-primary">
+                            {currentChapter.title}
+                        </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <div className="sn-main-editor-header-word-count">
+                            {wordCount} {wordCount === 1 ? "word" : "words"}
+                        </div>
+                        <SimpleWriteButton onStreamingChange={setIsSimpleWriting} />
+                        <SaveStatusIndicator status={status} />
+                        {maximizeButton}
                     </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                    <div className="sn-main-editor-header-word-count">
-                        {wordCount} {wordCount === 1 ? "word" : "words"}
-                    </div>
-                    <SaveStatusIndicator status={status} />
-                    {maximizeButton}
-                </div>
-            </div>
 
-            <LexicalComposer initialConfig={mainLexicalEditorConfig}>
-                <div className="sn-main-editor">
+                <div className={cn("sn-main-editor", isSimpleWriting && "sn-main-editor-streaming")}>
+                    <EditorInteractivityGuard disabled={isSimpleWriting} />
                     <StoryToolbarPlugin />
                     <ChapterContentPlugin />
                     <RichTextPlugin
@@ -104,9 +109,26 @@ export function MainLexicalEditor({ maximizeButton }: MainLexicalEditorProps) {
                     <AutoFocusPlugin />
                     <WordCountPlugin onChange={setWordCount} />
                 </div>
-            </LexicalComposer>
-        </div>
+            </div>
+        </LexicalComposer>
     );
+}
+
+function EditorInteractivityGuard({ disabled }: { disabled: boolean }) {
+    const [editor] = useLexicalComposerContext();
+
+    useEffect(() => {
+        if (!disabled) return;
+
+        const wasEditable = editor.isEditable();
+        editor.setEditable(false);
+
+        return () => {
+            editor.setEditable(wasEditable);
+        };
+    }, [disabled, editor]);
+
+    return null;
 }
 
 function SaveStatusIndicator({ status }: { status: EditorSaveStatus }) {

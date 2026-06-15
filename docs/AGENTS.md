@@ -65,13 +65,11 @@ System agents and pipelines are seeded by `agentSeeder.ts` when presets load. Cu
 
 | Pipeline | Shape |
 | --- | --- |
-| Quality Prose with Lore Check | Summarizer when long, prose writer, lore judge. |
-| Quality Prose with Revision | Summarizer when long, prose writer, lore judge, conditional revision. |
-| Polished Output | Prose writer, style editor. |
-| Full Quality Pipeline | Summarizer when long, prose writer, lore judge, continuity checker, conditional revision. |
 | Quick Draft | Prose writer only. |
-| Dialogue Polish | Prose writer, dialogue specialist. |
-| Push Prompt Self-Correction | Summarizer when long, prose writer, refusal checker, conditional corrective rewrite. |
+| Polished Draft | Prose writer, style editor. |
+| Checked Polished Draft | Summarizer when long, prose writer, lore judge, continuity checker, style editor. |
+
+System pipelines are intentionally simple and always end with a prose-producing agent. Custom pipelines may end with a judge, checker, or utility agent when the user wants a non-prose result, but the pipeline editor warns before saving that shape.
 
 ## Step Options
 

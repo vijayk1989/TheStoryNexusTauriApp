@@ -71,6 +71,40 @@ const systemPrompts: Partial<Prompt>[] = [
         min_p: 0.0
     },
     {
+        id: "continue-writing-system",
+        name: "Continue Writing",
+        promptType: "continue_writing",
+        description: "Continue the chapter from the cursor using recent prose and matched lorebook context",
+        messages: [
+            {
+                role: "system",
+                content: "You are an expert fiction writer continuing an in-progress chapter. Write only polished prose, with no headings, notes, analysis, preamble, or explanation. Continue naturally from the provided text at the cursor position. Match the existing tense, POV, voice, pacing, and style. Use {{story_language}} spelling and grammar conventions. Keep continuity with the provided lorebook details. Do not summarize, do not skip ahead, and do not end with a tidy resolution unless the prior text clearly demands it. Avoid generic AI phrasing, overtly flowery language, and em dash punctuation.\n\nMatched lorebook context:\n{{lorebook_chapter_matched_entries}}"
+            },
+            {
+                role: "user",
+                content: "Recent prose before the cursor:\n{{previous_words(1000)}}"
+            },
+            {
+                role: "user",
+                content: "Continue writing in {{pov}} for around 300 words. Start exactly where the recent prose leaves off and output only the new prose."
+            }
+        ],
+        allowedModels: [
+            {
+                id: "local",
+                name: "local",
+                provider: "local" as AIProvider
+            }
+        ],
+        isSystem: true,
+        temperature: 1.0,
+        maxTokens: 1024,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
+        min_p: 0.0
+    },
+    {
         id: "selection-expand-system",
         name: "Expand",
         promptType: "selection_specific",

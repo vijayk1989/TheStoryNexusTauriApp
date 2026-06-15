@@ -185,6 +185,9 @@ export interface AISettings extends BaseEntity {
   enablePromptDefaults?: boolean;
   defaultSceneBeatPromptId?: string;
   defaultSceneBeatModelId?: string;
+  defaultContinueWritingPromptId?: string;
+  defaultContinueWritingModelId?: string;
+  simpleWriteUseCustomPrompt?: boolean;
   defaultBrainstormPromptId?: string;
   defaultBrainstormModelId?: string;
   defaultAgentModelId?: string;

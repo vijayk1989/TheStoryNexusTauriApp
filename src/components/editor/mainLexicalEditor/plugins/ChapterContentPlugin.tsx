@@ -12,6 +12,7 @@ import { useStoryContext } from "@/features/stories/context/StoryContext";
 
 import { SCENE_BEAT_SNAPSHOT_TAG } from "../nodes/SceneBeatNode";
 import { normalizeMainLexicalEditorState } from "../serialization/emptyEditorState";
+import { SIMPLE_WRITE_STREAM_TAG } from "../simpleWrite";
 
 export const MAIN_EDITOR_CHAPTER_LOAD_TAG = "main-editor-chapter-load";
 const HISTORY_MERGE_TAG = "history-merge";
@@ -115,6 +116,10 @@ export function ChapterContentPlugin() {
         }) => {
             if (tags.has(MAIN_EDITOR_CHAPTER_LOAD_TAG) || tags.has(HISTORY_MERGE_TAG)) {
                 setStatus("saved");
+                return;
+            }
+
+            if (tags.has(SIMPLE_WRITE_STREAM_TAG)) {
                 return;
             }
 

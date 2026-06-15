@@ -683,7 +683,10 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
             setStreamingMessageId(null);
             
             // Use the final output from the pipeline
-            const finalContent = pipelineResult.proseOutput || pipelineResult.finalOutput || fullResponse;
+            const finalContent = pipelineResult.displayOutput ||
+              pipelineResult.proseOutput ||
+              pipelineResult.finalOutput ||
+              fullResponse;
             
             // Update the chat with the final message
             await updateChat(chatId, {

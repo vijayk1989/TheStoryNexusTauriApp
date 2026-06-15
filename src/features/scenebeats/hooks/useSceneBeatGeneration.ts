@@ -389,15 +389,23 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                 onToken: (token) => store.getState().appendStreamedText(token),
                 onComplete: (pipelineResult) => {
                     console.log('[Agentic] Pipeline complete:', pipelineResult);
-                    store.setState({ streamComplete: true, showAgenticProgress: false });
+                    const output = pipelineResult.displayOutput ||
+                        pipelineResult.proseOutput ||
+                        pipelineResult.finalOutput ||
+                        store.getState().streamedText;
+                    store.setState({
+                        streamedText: output,
+                        streamComplete: true,
+                        showAgenticProgress: false,
+                    });
                     updateNodeSnapshot({
-                        generatedContent: store.getState().streamedText,
+                        generatedContent: output,
                         accepted: false,
                     });
 
                     if (s.sceneBeatId) {
                         sceneBeatService.updateSceneBeat(s.sceneBeatId, {
-                            generatedContent: store.getState().streamedText,
+                            generatedContent: output,
                             accepted: false,
                         }).catch((err: unknown) => console.error('Error saving agentic content:', err));
                     }

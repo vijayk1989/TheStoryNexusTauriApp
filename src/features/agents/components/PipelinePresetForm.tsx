@@ -12,9 +12,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Plus, Trash2, GripVertical, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Plus, Trash2, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
 import { useAgentsStore } from '../stores/useAgentsStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
+import { isProseAgentRole } from '@/features/agents/utils/agentRoles';
 import type { PipelinePreset, PipelineStep, AgentPreset, AgentRole } from '@/types/story';
 import { toast } from 'react-toastify';
 
@@ -127,6 +128,11 @@ export function PipelinePresetForm({ pipeline, onSave, onCancel }: PipelinePrese
     const getAgent = (agentId: string): AgentPreset | undefined => {
         return agentPresets.find((a) => a.id === agentId);
     };
+
+    const orderedSteps = [...steps].sort((a, b) => a.order - b.order);
+    const finalStep = orderedSteps[orderedSteps.length - 1];
+    const finalAgent = finalStep ? getAgent(finalStep.agentPresetId) : undefined;
+    const finalOutputIsNonProse = Boolean(finalAgent && !isProseAgentRole(finalAgent.role));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -531,6 +537,17 @@ export function PipelinePresetForm({ pipeline, onSave, onCancel }: PipelinePrese
                         <li>• <strong>With Revision:</strong> Summarizer → Prose Writer (stream) → Lore Judge → Prose Writer (condition: Lore Judge found issues, revision: on, stream)</li>
                         <li>• <strong>Polished:</strong> Prose Writer → Style Editor (stream)</li>
                     </ul>
+                </div>
+            )}
+
+            {finalOutputIsNonProse && (
+                <div className="rounded-md border border-amber-500/35 bg-amber-500/10 p-3 text-sm">
+                    <div className="flex gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                        <p className="leading-6">
+                            This pipeline ends with {finalAgent?.name}, so Agentic Mode may show a non-prose response such as a check result or notes. End with a prose writer, style editor, dialogue specialist, or expander when you want generated story text.
+                        </p>
+                    </div>
                 </div>
             )}
 

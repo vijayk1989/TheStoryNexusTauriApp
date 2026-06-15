@@ -192,6 +192,9 @@ function createApi(
                 enablePromptDefaults: true,
                 defaultSceneBeatPromptId: "scene-beat-system",
                 defaultSceneBeatModelId: localModel.id,
+                defaultContinueWritingPromptId: "continue-writing-system",
+                defaultContinueWritingModelId: localModel.id,
+                simpleWriteUseCustomPrompt: false,
             };
 
             await db.transaction("rw", [db.aiSettings, db.prompts], async () => {
@@ -207,6 +210,14 @@ function createApi(
                     }],
                 });
                 await db.prompts.update("scene-beat-system", {
+                    maxTokens: 160,
+                    allowedModels: [{
+                        id: "local",
+                        name: "local",
+                        provider: "local",
+                    }],
+                });
+                await db.prompts.update("continue-writing-system", {
                     maxTokens: 160,
                     allowedModels: [{
                         id: "local",

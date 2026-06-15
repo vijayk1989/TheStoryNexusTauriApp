@@ -319,7 +319,7 @@ Response format:
 ];
 
 // System pipeline presets
-const SYSTEM_PIPELINE_PRESETS: {
+const LEGACY_SYSTEM_PIPELINE_PRESETS: {
     name: string;
     description: string;
     agentRoles: { 
@@ -411,6 +411,48 @@ const SYSTEM_PIPELINE_PRESETS: {
     },
 ];
 
+export const SYSTEM_PIPELINE_PRESETS: {
+    name: string;
+    description: string;
+    agentRoles: {
+        role: AgentRole;
+        condition?: string;
+        streamOutput?: boolean;
+        isRevision?: boolean;
+        maxIterations?: number;
+        retryFromStep?: number;
+        pushPrompt?: string;
+        validationKeywords?: string[];
+    }[];
+}[] = [
+    {
+        name: 'Quick Draft',
+        description: 'Direct prose generation without validation. Fastest option.',
+        agentRoles: [
+            { role: 'prose_writer', streamOutput: true },
+        ],
+    },
+    {
+        name: 'Polished Draft',
+        description: 'Writes prose, then polishes style and flow. Final output is prose.',
+        agentRoles: [
+            { role: 'prose_writer' },
+            { role: 'style_editor', streamOutput: true },
+        ],
+    },
+    {
+        name: 'Checked Polished Draft',
+        description: 'Writes prose, checks lore and continuity, then returns a polished prose pass.',
+        agentRoles: [
+            { role: 'summarizer', condition: 'wordCount > 3000' },
+            { role: 'prose_writer' },
+            { role: 'lore_judge' },
+            { role: 'continuity_checker' },
+            { role: 'style_editor', streamOutput: true },
+        ],
+    },
+];
+
 // Simple lock to prevent concurrent seeding
 let seedingInProgress = false;
 
@@ -440,6 +482,17 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
             .filter(p => p.isSystem === true)
             .toArray();
         const existingPipelineMap = new Map(existingPipelines.map(p => [p.name, p]));
+        const activeSystemPipelineNames = new Set(SYSTEM_PIPELINE_PRESETS.map(pipeline => pipeline.name));
+        let obsoletePipelinesRemoved = 0;
+
+        for (const pipeline of existingPipelines) {
+            if (!activeSystemPipelineNames.has(pipeline.name)) {
+                await db.pipelinePresets.delete(pipeline.id);
+                existingPipelineMap.delete(pipeline.name);
+                obsoletePipelinesRemoved++;
+                console.log(`[AgentSeeder] Removed obsolete system pipeline: ${pipeline.name}`);
+            }
+        }
 
         // Create agent lookup by role (for existing agents)
         const existingAgentsByRole = existingAgents.reduce((acc, agent) => {
@@ -535,10 +588,10 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
             }
         }
 
-        if (pipelinesCreated === 0 && pipelinesUpdated === 0) {
+        if (pipelinesCreated === 0 && pipelinesUpdated === 0 && obsoletePipelinesRemoved === 0) {
             console.log('[AgentSeeder] No pipeline changes required.');
         } else {
-            console.log(`[AgentSeeder] Seeding complete! Created: ${pipelinesCreated}, Updated: ${pipelinesUpdated}`);
+            console.log(`[AgentSeeder] Seeding complete! Created: ${pipelinesCreated}, Updated: ${pipelinesUpdated}, Removed obsolete: ${obsoletePipelinesRemoved}`);
         }
     } finally {
         seedingInProgress = false;

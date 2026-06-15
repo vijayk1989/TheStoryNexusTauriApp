@@ -37,7 +37,7 @@ The root route opens the editor workspace directly.
 
 - **Left rail**: story selector, story actions, import/export, chapter list, chapter ordering, chapter summary, and chapter actions.
 - **Main editor**: the writing surface, editor toolbar, chapter title, save status, and inline scene beats.
-- **Right tool rail**: matched lore tags, outline, POV, timeline extraction, notes, drafts, brainstorm, lorebook, agents, prompts, prompt defaults, AI settings, theme settings, Misc Settings, and guide.
+- **Right tool rail**: matched lore tags, outline, POV, timeline extraction, notes, drafts, brainstorm, lorebook, agents, prompts, prompt defaults, AI settings, theme settings, Backup & Delete, and guide.
 - **Slide-out sheets**: most supporting tools open from the right so the chapter remains the center of the app.
 
 On mobile, the story/chapter rail becomes a left sheet and editor tools move into a floating menu.
@@ -169,7 +169,7 @@ Imported prompts are validated, assigned fresh IDs, and created as editable non-
 
 ## Site Backup
 
-Site Backup lives in the editor's Misc Settings sheet. It exports stories, chapters, lorebook entries, scene beats, drafts, brainstorm chats, notes, user prompts, user agents, user pipelines, and pipeline execution history.
+Site Backup lives in the editor's Backup & Delete sheet. It exports stories, chapters, lorebook entries, scene beats, drafts, brainstorm chats, notes, user prompts, user agents, user pipelines, and pipeline execution history.
 
 Site Backup intentionally does not include API keys, AI provider settings, generated images, or uploaded images. Importing a backup creates new content with fresh IDs and does not overwrite existing data. Images can be downloaded separately from the Image Gallery.
 

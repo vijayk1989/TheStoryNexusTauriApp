@@ -50,6 +50,7 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
 
     const captureCursorContext = useCallback(() => {
         let previousWords = "";
+        let afterWords = "";
         let hasCursor = false;
         let hasExpandedSelection = false;
 
@@ -65,9 +66,10 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
             hasCursor = true;
             savedSelectionRef.current = selection.clone();
             previousWords = collectTextBeforeSelection(selection);
+            afterWords = collectTextAfterSelection(selection);
         });
 
-        return { previousWords, hasCursor, hasExpandedSelection };
+        return { previousWords, afterWords, hasCursor, hasExpandedSelection };
     }, [editor]);
 
     const insertTokenAtSavedSelection = useCallback((token: string) => {
@@ -115,7 +117,7 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
             return;
         }
 
-        const { previousWords, hasCursor, hasExpandedSelection } = captureCursorContext();
+        const { previousWords, afterWords, hasCursor, hasExpandedSelection } = captureCursorContext();
         if (hasExpandedSelection) {
             toast.error("Place the cursor where Simple Write should continue.");
             return;
@@ -138,6 +140,7 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
             const settings = useAIStore.getState().settings;
             const prompts = usePromptStore.getState().prompts;
             const prompt = resolveContinueWritingPrompt(prompts, settings?.simpleWriteUseCustomPrompt, settings?.defaultContinueWritingPromptId);
+            const includeAfterWords = Boolean(settings?.simpleWriteUseCustomPrompt || settings?.simpleWriteIncludeAfterCursor);
 
             if (!prompt) {
                 throw new Error("No Continue Writing prompt is available.");
@@ -149,6 +152,7 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
                 storyId: currentStoryId,
                 chapterId: currentChapterId,
                 previousWords,
+                afterWords: includeAfterWords ? afterWords : undefined,
                 chapterMatchedEntries: new Set(
                     chapterMatchedEntries ? Array.from(chapterMatchedEntries.values()) : []
                 ),
@@ -299,6 +303,43 @@ function collectTextBeforeSelection(selection: RangeSelection): string {
         }
 
         return false;
+    };
+
+    traverse($getRoot());
+    return textParts.join("");
+}
+
+function collectTextAfterSelection(selection: RangeSelection): string {
+    const anchorNode = selection.anchor.getNode();
+    const anchorOffset = selection.anchor.offset;
+    const textParts: string[] = [];
+    let reachedAnchor = false;
+
+    const traverse = (node: LexicalNode): void => {
+        if ($isSceneBeatNode(node)) return;
+
+        if (node.is(anchorNode)) {
+            if ($isTextNode(node)) {
+                textParts.push(node.getTextContent().substring(anchorOffset));
+            } else if ($isElementNode(node)) {
+                for (const child of node.getChildren().slice(anchorOffset)) {
+                    collectNodeText(child, textParts);
+                }
+            }
+            reachedAnchor = true;
+            return;
+        }
+
+        if (reachedAnchor) {
+            collectNodeText(node, textParts);
+            return;
+        }
+
+        if ($isElementNode(node)) {
+            for (const child of node.getChildren()) {
+                traverse(child);
+            }
+        }
     };
 
     traverse($getRoot());

@@ -1,12 +1,19 @@
-import { AIModel, AIProvider, AISettings, PromptMessage } from '@/types/story';
+import { AIModel, AIProvider, AISettings, LocalAIRuntime, PromptMessage } from '@/types/story';
 import { db } from '../database';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
+import {
+    DEFAULT_LOCAL_RUNTIME,
+    getLocalApiUrl,
+    getLocalModelsUrl,
+    getLocalRuntime,
+    getLocalRuntimePreset,
+    normalizeLocalModels,
+} from './localRuntime';
 
 export class AIService {
     private static instance: AIService;
     private settings: AISettings | null = null;
-    private readonly LOCAL_API_URL = 'http://localhost:1234/v1';
     private openRouter: OpenAI | null = null;
     private nanoGPT: OpenAI | null = null;
     private openAI: OpenAI | null = null;
@@ -63,7 +70,9 @@ export class AIService {
         const settings: AISettings = {
             id: crypto.randomUUID(),
             createdAt: new Date(),
-            localApiUrl: 'http://localhost:1234/v1',
+            localRuntime: DEFAULT_LOCAL_RUNTIME,
+            localApiUrl: getLocalRuntimePreset(DEFAULT_LOCAL_RUNTIME).apiUrl,
+            localModelsUrl: getLocalRuntimePreset(DEFAULT_LOCAL_RUNTIME).modelsUrl,
             availableModels: localModels,
         };
         await db.aiSettings.add(settings);
@@ -72,28 +81,23 @@ export class AIService {
 
     private async fetchLocalModels(): Promise<AIModel[]> {
         try {
-            // Always use the URL from settings if available, otherwise fall back to default
-            const apiUrl = this.settings?.localApiUrl || this.LOCAL_API_URL;
-            console.log(`[AIService] Fetching local models from: ${apiUrl}`);
+            const runtime = getLocalRuntime(this.settings);
+            const modelsUrl = getLocalModelsUrl(this.settings);
+            console.log(`[AIService] Fetching local models for ${runtime} from: ${modelsUrl}`);
 
-            const response = await fetch(`${apiUrl}/models`);
+            const response = await fetch(modelsUrl);
             if (!response.ok) {
                 console.error(`[AIService] Failed to fetch local models: ${response.status} ${response.statusText}`);
                 throw new Error('Failed to fetch local models');
             }
 
             const result = await response.json();
-            console.log(`[AIService] Received ${result.data.length} local models from API`);
-
-            const models = result.data.map((model: { id: string, object: string, owned_by: string }) => ({
-                id: `local/${model.id}`,
-                name: model.id, // We could prettify this name if needed
-                provider: 'local' as AIProvider,
-                contextLength: 32768, // Default value since not provided by API
-                enabled: true
-            }));
+            const models = normalizeLocalModels(result, runtime);
 
             console.log(`[AIService] Mapped ${models.length} local models`);
+            if (models.length === 0) {
+                throw new Error('No local models returned');
+            }
             return models;
         } catch (error) {
             console.warn('[AIService] Failed to fetch local models:', error);
@@ -211,7 +215,7 @@ export class AIService {
 
             switch (provider) {
                 case 'local':
-                    console.log(`[AIService] Fetching local models from: ${this.settings.localApiUrl || this.LOCAL_API_URL}`);
+                    console.log(`[AIService] Fetching local models from: ${getLocalModelsUrl(this.settings)}`);
                     models = await this.fetchLocalModels();
                     break;
                 case 'openai':
@@ -461,7 +465,8 @@ export class AIService {
 
         this.abortController = new AbortController();
 
-        return fetch(`${this.settings.localApiUrl}/chat/completions`, {
+        const localApiUrl = getLocalApiUrl(this.settings);
+        return fetch(`${localApiUrl}/chat/completions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -472,9 +477,22 @@ export class AIService {
     }
 
     private resolveLocalModelId(modelId?: string): string {
-        const configuredModelId = modelId && modelId !== 'local'
-            ? modelId
-            : this.settings?.availableModels.find(model => model.provider === 'local')?.id;
+        const runtime = getLocalRuntime(this.settings);
+        const runtimeModelId = this.settings?.localModelIdByRuntime?.[runtime];
+        const localModels = this.settings?.availableModels.filter(model => model.provider === 'local') || [];
+        const requestedModelId = modelId && modelId !== 'local'
+            ? `local/${modelId.replace(/^local\//, '')}`
+            : undefined;
+        const requestedModel = requestedModelId
+            ? localModels.find(model => model.id === requestedModelId)
+            : undefined;
+        const savedRuntimeModelId = runtimeModelId
+            ? `local/${runtimeModelId.replace(/^local\//, '')}`
+            : undefined;
+        const savedRuntimeModel = savedRuntimeModelId
+            ? localModels.find(model => model.id === savedRuntimeModelId)
+            : undefined;
+        const configuredModelId = requestedModel?.id || savedRuntimeModel?.id || localModels[0]?.id;
 
         return (configuredModelId || 'local/llama-3.2-3b-instruct').replace(/^local\//, '');
     }
@@ -492,19 +510,75 @@ export class AIService {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let buffer = '';
+        let completed = false;
+
+        const complete = () => {
+            if (!completed) {
+                completed = true;
+                onComplete();
+            }
+        };
+
+        const processLine = (line: string): boolean => {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) return false;
+
+            const data = trimmed.substring(6).trim();
+            if (data === '[DONE]') {
+                complete();
+                return true;
+            }
+
+            try {
+                const json = JSON.parse(data);
+                if (json.tool_status) {
+                    onStatus?.(json.tool_status);
+                    return true;
+                }
+
+                const toolCalls = json.choices?.[0]?.delta?.tool_calls;
+                if (toolCalls?.length) {
+                    onStatus?.('searching_web');
+                    return true;
+                }
+
+                const choice = json.choices?.[0];
+                const text = choice?.delta?.content ||
+                    choice?.delta?.reasoning_content ||
+                    choice?.message?.content ||
+                    choice?.text ||
+                    '';
+                if (text) {
+                    onToken(text);
+                }
+            } catch {
+                // Ignore malformed event payloads. Partial lines are buffered before this point.
+            }
+
+            return true;
+        };
 
         try {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
-                    onComplete();
+                    buffer += decoder.decode();
+                    if (buffer.trim()) {
+                        processLine(buffer);
+                    }
+                    complete();
                     break;
                 }
 
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split(/\r?\n/);
+                buffer = lines.pop() ?? '';
 
                 for (const line of lines) {
+                    if (processLine(line)) {
+                        continue;
+                    }
                     if (line.startsWith('data: ')) {
                         const data = line.substring(6);
                         if (data === '[DONE]') {
@@ -538,7 +612,7 @@ export class AIService {
         } catch (error) {
             if ((error as Error).name === 'AbortError') {
                 console.log('Stream reading aborted.');
-                onComplete(); // Treat abort as completion of the stream from the client's perspective
+                complete(); // Treat abort as completion of the stream from the client's perspective
             } else {
                 onError(error as Error);
             }
@@ -1001,18 +1075,58 @@ export class AIService {
     }
 
     getLocalApiUrl(): string {
-        return this.settings?.localApiUrl || this.LOCAL_API_URL;
+        return getLocalApiUrl(this.settings);
     }
 
     async updateLocalApiUrl(url: string): Promise<void> {
         if (!this.settings) {
             throw new Error('Settings not initialized');
         }
-        await db.aiSettings.update(this.settings.id, { localApiUrl: url });
+        const localModelsUrl = getLocalModelsUrl({
+            ...this.settings,
+            localApiUrl: url,
+            localModelsUrl: undefined,
+        });
+        await db.aiSettings.update(this.settings.id, { localApiUrl: url, localModelsUrl });
         this.settings.localApiUrl = url;
+        this.settings.localModelsUrl = localModelsUrl;
 
         // Re-fetch local models as the URL has changed
         await this.fetchAvailableModels('local');
+    }
+
+    getLocalRuntime(): LocalAIRuntime {
+        return getLocalRuntime(this.settings);
+    }
+
+    getLocalModelsUrl(): string {
+        return getLocalModelsUrl(this.settings);
+    }
+
+    async updateLocalRuntime(runtime: LocalAIRuntime): Promise<void> {
+        if (!this.settings) {
+            throw new Error('Settings not initialized');
+        }
+
+        const preset = getLocalRuntimePreset(runtime);
+        const update: Partial<AISettings> = {
+            localRuntime: runtime,
+            localApiUrl: preset.apiUrl,
+            localModelsUrl: preset.modelsUrl,
+        };
+
+        await db.aiSettings.update(this.settings.id, update);
+        Object.assign(this.settings, update);
+        await this.fetchAvailableModels('local');
+    }
+
+    async updateLocalModelsUrl(url: string): Promise<void> {
+        if (!this.settings) {
+            throw new Error('Settings not initialized');
+        }
+
+        await db.aiSettings.update(this.settings.id, { localModelsUrl: url });
+        this.settings.localModelsUrl = url;
     }
 
     async updateOpenAICompatibleUrl(url: string): Promise<void> {

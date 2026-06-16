@@ -49,13 +49,13 @@ interface StoryEditorProps {
 export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
     const [openPanel, setOpenPanel] = useState<ToolPanelType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
-    const [isTimelineDialogOpen, setIsTimelineDialogOpen] = useState(false);
+    const [isExtractDialogOpen, setIsExtractDialogOpen] = useState(false);
     const { currentChapterId, currentStoryId } = useStoryContext();
     const isMobile = useIsMobile();
 
-    const handleExtractTimeline = () => {
+    const handleExtract = () => {
         if (!currentStoryId || !currentChapterId) return;
-        setIsTimelineDialogOpen(true);
+        setIsExtractDialogOpen(true);
     };
 
     const handleOpenPanel = (panel: ToolPanelType) => {
@@ -97,18 +97,18 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                 onClick={() => handleOpenPanel("chapterPOV")}
             >
                 <User className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Edit Chapter POV</span>
+                <span className="truncate">Edit POV</span>
             </Button>
 
             <Button
                 variant="outline"
                 size="sm"
                 className="justify-start w-full"
-                onClick={handleExtractTimeline}
+                onClick={handleExtract}
                 disabled={!currentChapterId}
             >
                 <Clock className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Extract Timeline</span>
+                <span className="truncate">Extract</span>
             </Button>
 
             <Button
@@ -290,7 +290,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenPanel("chapterPOV")}>
                             <User className="h-4 w-4 mr-2" />
-                            Edit Chapter POV
+                            Edit POV
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenPanel("chapterNotes")}>
                             <StickyNote className="h-4 w-4 mr-2" />
@@ -594,8 +594,8 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
 
             {currentStoryId && currentChapterId && (
                 <TimelineExtractionDialog 
-                    isOpen={isTimelineDialogOpen}
-                    onClose={() => setIsTimelineDialogOpen(false)}
+                    isOpen={isExtractDialogOpen}
+                    onClose={() => setIsExtractDialogOpen(false)}
                     storyId={currentStoryId}
                     chapterId={currentChapterId}
                 />

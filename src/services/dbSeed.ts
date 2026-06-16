@@ -40,6 +40,7 @@ export class DatabaseSeeder {
         console.log("Database already contains system prompts. Skipping prompt seeding.");
       }
 
+      await this.syncContinueWritingSystemPrompt();
       await this.disableSystemPromptAdvancedSampling();
       await this.seedExampleStory(forceReseed);
 
@@ -126,6 +127,24 @@ export class DatabaseSeeder {
         } as Prompt);
       }
     }
+  }
+
+  private async syncContinueWritingSystemPrompt(): Promise<void> {
+    const promptData = systemPrompts.find((prompt) => prompt.id === "continue-writing-system");
+    if (!promptData?.id) return;
+
+    const existing = await db.prompts.get(promptData.id);
+    if (!existing?.isSystem) return;
+
+    const existingMessages = JSON.stringify(existing.messages ?? []);
+    if (existingMessages.includes("{{after_words")) return;
+
+    console.log("Updating Continue Writing system prompt with after-cursor context support.");
+    await db.prompts.update(promptData.id, {
+      ...promptData,
+      createdAt: existing.createdAt,
+      isSystem: true,
+    });
   }
 
   private async disableSystemPromptAdvancedSampling(): Promise<void> {

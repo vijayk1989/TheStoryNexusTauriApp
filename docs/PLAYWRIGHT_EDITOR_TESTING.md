@@ -45,9 +45,9 @@ This keeps the fragile caret cases testable without relying only on DOM snapshot
 
 ## Next Phase
 
-Phase 2 adds a separate local-LLM project for LM Studio.
+Phase 2 adds a separate local-LLM project for local OpenAI-compatible runtimes such as LM Studio, Ollama, and llama.cpp.
 
-Before running it, start LM Studio's local server and load a model. The default health check is:
+Before running it, start the local server and load a model. The default runtime is LM Studio, with this health check:
 
 ```text
 http://localhost:1234/api/v1/models
@@ -69,12 +69,22 @@ $env:LOCAL_LLM_API_URL='http://localhost:1234/v1'
 npm.cmd run test:e2e:llm
 ```
 
-The `setup-local-llm` Playwright project repeats the LM Studio `/models` check before any LLM spec runs. This protects direct Playwright invocations as well as the npm script.
+Ollama example:
 
-The health parser supports both response shapes LM Studio may expose:
+```powershell
+$env:LOCAL_LLM_RUNTIME='Ollama'
+$env:LOCAL_LLM_HEALTH_URL='http://localhost:11434/api/tags'
+$env:LOCAL_LLM_API_URL='http://localhost:11434/v1'
+npm.cmd run test:e2e:llm
+```
+
+The `setup-local-llm` Playwright project repeats the configured local health check before any LLM spec runs. This protects direct Playwright invocations as well as the npm script.
+
+The health parser supports these response shapes:
 
 - native LM Studio: `{ "models": [...] }`, preferring LLM entries with `loaded_instances`
 - OpenAI-compatible: `{ "data": [...] }`
+- Ollama: `{ "models": [{ "name": "model-name" }] }`
 
 By default, health checks use LM Studio's native models endpoint (`/api/v1/models`), while generation uses the OpenAI-compatible base URL (`/v1`) because the app calls `/chat/completions` under that base.
 

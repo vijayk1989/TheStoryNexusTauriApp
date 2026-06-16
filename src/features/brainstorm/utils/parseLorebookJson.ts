@@ -14,6 +14,12 @@ export function parseLorebookJson(message: string): ParseResult {
     try {
       const parsed = JSON.parse(text);
       if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.lorebookEntries)) {
+        return parsed.lorebookEntries;
+      }
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.entries)) {
+        return parsed.entries;
+      }
       return [parsed];
     } catch (err) {
       return null;

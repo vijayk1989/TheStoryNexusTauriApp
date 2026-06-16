@@ -149,6 +149,7 @@ export default function AdvancedGuide() {
                                     <li><span className="font-mono text-foreground">{"{{scenebeat_context}}"}</span> inserts selected SceneBeat lore context.</li>
                                     <li><span className="font-mono text-foreground">{"{{brainstorm_context}}"}</span> inserts selected Brainstorm context.</li>
                                     <li><span className="font-mono text-foreground">{"{{previous_words(500)}}"}</span> inserts the last 500 words of context.</li>
+                                    <li><span className="font-mono text-foreground">{"{{after_words(500)}}"}</span> inserts the next 500 words after the cursor when available.</li>
                                     <li><span className="font-mono text-foreground">{"{{chapter_data(2)}}"}</span> inserts chapter 2 plain text.</li>
                                 </ul>
                             </div>

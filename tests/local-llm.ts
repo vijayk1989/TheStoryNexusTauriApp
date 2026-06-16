@@ -6,6 +6,7 @@ export type LocalLlmModel = {
 };
 
 const DEFAULT_HEALTH_URL = "http://localhost:1234/api/v1/models";
+const DEFAULT_RUNTIME_LABEL = "LM Studio";
 const PAID_PROVIDER_HOSTS = [
   "api.openai.com",
   "openrouter.ai",
@@ -18,6 +19,10 @@ export function getLocalLlmHealthUrl(): string {
   return process.env.LOCAL_LLM_HEALTH_URL || DEFAULT_HEALTH_URL;
 }
 
+export function getLocalLlmRuntimeLabel(): string {
+  return process.env.LOCAL_LLM_RUNTIME || DEFAULT_RUNTIME_LABEL;
+}
+
 export function getLocalLlmApiUrl(): string {
   return process.env.LOCAL_LLM_API_URL || "http://localhost:1234/v1";
 }
@@ -26,16 +31,17 @@ export async function fetchLocalLlmModel(): Promise<LocalLlmModel> {
   const healthUrl = getLocalLlmHealthUrl();
   const response = await fetchWithTimeout(healthUrl, 5_000);
 
-  expect(response.ok, `LM Studio health check failed: ${response.status} ${response.statusText}`).toBe(true);
+  const runtimeLabel = getLocalLlmRuntimeLabel();
+  expect(response.ok, `${runtimeLabel} health check failed: ${response.status} ${response.statusText}`).toBe(true);
 
   const data = await response.json();
   const models = extractModels(data);
 
-  expect(models.length, `LM Studio returned no models from ${healthUrl}`).toBeGreaterThan(0);
+  expect(models.length, `${runtimeLabel} returned no models from ${healthUrl}`).toBeGreaterThan(0);
 
   const model = models[0];
   const id = String(model.id || "");
-  expect(id, "LM Studio model entry did not include an id or name").not.toBe("");
+  expect(id, `${runtimeLabel} model entry did not include an id or name`).not.toBe("");
 
   return {
     id,
@@ -71,8 +77,9 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
   try {
     return await fetch(url, { signal: controller.signal });
   } catch (error) {
+    const runtimeLabel = getLocalLlmRuntimeLabel();
     throw new Error(
-      `LM Studio is not reachable at ${url}. Start LM Studio's local server and load a model before running local LLM E2E tests. ${String(error)}`
+      `${runtimeLabel} is not reachable at ${url}. Start the local server and load a model before running local LLM E2E tests. ${String(error)}`
     );
   } finally {
     clearTimeout(timeoutId);
@@ -88,6 +95,15 @@ function safeHostname(url: string): string | null {
 }
 
 function extractModels(data: any): LocalLlmModel[] {
+  if (Array.isArray(data?.models) && data.models.some((model: any) => model?.name && !model?.type)) {
+    return data.models
+      .map((model: any) => ({
+        id: String(model.name || model.model || ""),
+        name: String(model.name || model.model || ""),
+      }))
+      .filter((model: LocalLlmModel) => model.id);
+  }
+
   if (Array.isArray(data?.models)) {
     const loadedLlmModels = data.models
       .filter((model: any) => model?.type === "llm")

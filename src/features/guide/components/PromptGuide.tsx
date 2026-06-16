@@ -383,6 +383,10 @@ export default function PromptGuide() {
                                             <td className="border p-2">The last 1000 words before the cursor in the editor</td>
                                         </tr>
                                         <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;after_words(500)&#125;&#125;</td>
+                                            <td className="border p-2">The next 500 words after the cursor in the editor, when that context is available</td>
+                                        </tr>
+                                        <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;pov&#125;&#125;</td>
                                             <td className="border p-2">The current point of view character and type</td>
                                         </tr>

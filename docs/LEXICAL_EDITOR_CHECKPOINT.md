@@ -14,17 +14,17 @@ This checkpoint records the current state after the clean editor migration and t
 
 ## Important Editor Paths
 
-| Area | Current path |
-| --- | --- |
-| Editor shell | `src/components/editor/mainLexicalEditor/MainLexicalEditor.tsx` |
-| Editor config and nodes | `src/components/editor/mainLexicalEditor/editorConfig.ts` |
-| Load/save plugin | `src/components/editor/mainLexicalEditor/plugins/ChapterContentPlugin.tsx` |
-| Toolbar | `src/components/editor/mainLexicalEditor/toolbar/StoryToolbarPlugin.tsx` |
-| Slash commands | `src/components/editor/mainLexicalEditor/plugins/SlashCommandPlugin.tsx` |
-| SceneBeat node | `src/components/editor/mainLexicalEditor/nodes/SceneBeatNode.tsx` |
-| SceneBeat block UI | `src/components/editor/mainLexicalEditor/nodes/scene-beat/` |
-| Lorebook highlights | `src/components/editor/mainLexicalEditor/plugins/LorebookHighlightPlugin.tsx` |
-| Serialization helpers | `src/components/editor/mainLexicalEditor/serialization/` |
+| Area                    | Current path                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| Editor shell            | `src/components/editor/mainLexicalEditor/MainLexicalEditor.tsx`               |
+| Editor config and nodes | `src/components/editor/mainLexicalEditor/editorConfig.ts`                     |
+| Load/save plugin        | `src/components/editor/mainLexicalEditor/plugins/ChapterContentPlugin.tsx`    |
+| Toolbar                 | `src/components/editor/mainLexicalEditor/toolbar/StoryToolbarPlugin.tsx`      |
+| Slash commands          | `src/components/editor/mainLexicalEditor/plugins/SlashCommandPlugin.tsx`      |
+| SceneBeat node          | `src/components/editor/mainLexicalEditor/nodes/SceneBeatNode.tsx`             |
+| SceneBeat block UI      | `src/components/editor/mainLexicalEditor/nodes/scene-beat/`                   |
+| Lorebook highlights     | `src/components/editor/mainLexicalEditor/plugins/LorebookHighlightPlugin.tsx` |
+| Serialization helpers   | `src/components/editor/mainLexicalEditor/serialization/`                      |
 
 ## Recent Fixes
 
@@ -32,7 +32,7 @@ This checkpoint records the current state after the clean editor migration and t
 - Matched tags were removed from the right rail because SceneBeat owns that display now.
 - The top toolbar is sticky.
 - The inert Save button was removed from the toolbar; autosave status remains.
-- Chapter POV editing was renamed to Edit Chapter POV and moved to a sheet.
+- Chapter POV editing was renamed to Edit POV and moved to a sheet.
 - Prompt model picker scrollbars were cleaned up, and mouse wheel scrolling was fixed in the prompt model list.
 - Prompt selector and multi-model chips received contrast/readability fixes.
 - Seeded Iron Salt content now splits Markdown paragraphs correctly with Windows line endings.

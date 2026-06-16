@@ -78,7 +78,7 @@ const systemPrompts: Partial<Prompt>[] = [
         messages: [
             {
                 role: "system",
-                content: "You are an expert fiction writer continuing an in-progress chapter. Write only polished prose, with no headings, notes, analysis, preamble, or explanation. Continue naturally from the provided text at the cursor position. Match the existing tense, POV, voice, pacing, and style. Use {{story_language}} spelling and grammar conventions. Keep continuity with the provided lorebook details. Do not summarize, do not skip ahead, and do not end with a tidy resolution unless the prior text clearly demands it. Avoid generic AI phrasing, overtly flowery language, and em dash punctuation.\n\nMatched lorebook context:\n{{lorebook_chapter_matched_entries}}"
+                content: "You are an expert fiction writer continuing an in-progress chapter. Write only polished prose, with no headings, notes, analysis, preamble, or explanation. Continue naturally from the provided text at the cursor position. Match the existing tense, POV, voice, pacing, and style. Use {{story_language}} spelling and grammar conventions. Keep continuity with the provided lorebook details. Do not summarize, do not skip ahead, and do not end with a tidy resolution unless the prior text clearly demands it. Avoid generic AI phrasing, overtly flowery language, and em dash punctuation.\n\nIf fixed prose after the cursor is provided, treat it as already-written downstream text. Write new prose that can lead into it naturally, but do not rewrite, quote, repeat, summarize, or continue past that downstream text.\n\nMatched lorebook context:\n{{lorebook_chapter_matched_entries}}"
             },
             {
                 role: "user",
@@ -86,7 +86,11 @@ const systemPrompts: Partial<Prompt>[] = [
             },
             {
                 role: "user",
-                content: "Continue writing in {{pov}} for around 300 words. Start exactly where the recent prose leaves off and output only the new prose."
+                content: "Fixed prose after the cursor, if any:\n{{after_words(500)}}"
+            },
+            {
+                role: "user",
+                content: "Continue writing in {{pov}} for around 300 words. Start exactly where the recent prose leaves off and output only the new prose to insert at the cursor."
             }
         ],
         allowedModels: [
@@ -262,6 +266,92 @@ If no significant events occur, return an empty array [].`
         ],
         isSystem: true,
         temperature: 0.3,
+        maxTokens: 2048,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
+        min_p: 0.0
+    },
+    {
+        id: "lorebook-data-extractor-system",
+        name: "Extract Lorebook Data",
+        promptType: "other",
+        description: "Extract reusable lorebook entries from chapter content as JSON",
+        messages: [
+            {
+                role: "system",
+                content: `You are an expert fiction continuity archivist.
+Read the provided chapter content and extract only durable story facts that should become lorebook entries.
+Prioritize named characters, locations, items, factions, important events, rules of the setting, mysteries, and recurring motifs.
+Do not create duplicate or trivial entries. Do not invent facts not present in the text.
+
+Return your response strictly as one JSON object with a "lorebookEntries" array. Do not include markdown code blocks or any other text.
+Each entry MUST include:
+- "name": A concise canonical entry name
+- "description": A factual summary useful for future writing continuity
+- "category": One of "character", "location", "item", "event", "note", "synopsis", "starting scenario", or "timeline"
+- "tags": An array of useful lookup aliases
+
+Optional:
+- "metadata": An object for importance, status, relationships, or customFields
+
+If there is no useful lorebook data, return {"lorebookEntries":[]}.`
+            },
+            {
+                role: "user",
+                content: `Chapter Content:\n\n{{chapter_content}}`
+            }
+        ],
+        allowedModels: [
+            {
+                id: "local",
+                name: "local",
+                provider: "local" as AIProvider
+            }
+        ],
+        isSystem: true,
+        temperature: 0.2,
+        maxTokens: 4096,
+        top_p: 0,
+        top_k: 0,
+        repetition_penalty: 0,
+        min_p: 0.0
+    },
+    {
+        id: "style-extractor-system",
+        name: "Extract Style",
+        promptType: "other",
+        description: "Extract a reusable prose style note from chapter content",
+        messages: [
+            {
+                role: "system",
+                content: `You are an expert fiction style analyst.
+Read the provided chapter content and extract a concise reusable style guide for continuing this story.
+Focus on voice, POV distance, tense, sentence rhythm, paragraph shape, dialogue style, sensory emphasis, pacing, diction, punctuation habits, and things to avoid.
+Do not summarize plot except where it explains style. Do not invent authorial intent.
+
+Return your response strictly as one JSON object with a "lorebookEntries" array containing one entry. Do not include markdown code blocks or any other text.
+The entry MUST use:
+- "name": "Prose Style Guide"
+- "category": "note"
+- "tags": ["style", "voice"]
+- "description": A compact style guide written as practical instructions for future drafting
+- "metadata": { "type": "style_guide" }`
+            },
+            {
+                role: "user",
+                content: `Chapter Content:\n\n{{chapter_content}}`
+            }
+        ],
+        allowedModels: [
+            {
+                id: "local",
+                name: "local",
+                provider: "local" as AIProvider
+            }
+        ],
+        isSystem: true,
+        temperature: 0.2,
         maxTokens: 2048,
         top_p: 0,
         top_k: 0,

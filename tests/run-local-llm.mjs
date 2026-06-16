@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
 const healthUrl = process.env.LOCAL_LLM_HEALTH_URL || "http://localhost:1234/api/v1/models";
+const runtimeLabel = process.env.LOCAL_LLM_RUNTIME || "LM Studio";
 
 await assertLocalLlmReady(healthUrl);
 
@@ -45,16 +46,16 @@ async function assertLocalLlmReady(url) {
     const models = extractModels(data);
 
     if (models.length === 0) {
-      console.error(`[local-llm] LM Studio is reachable, but ${url} returned no loaded models.`);
-      console.error("[local-llm] Load a model in LM Studio before running npm.cmd run test:e2e:llm.");
+      console.error(`[local-llm] ${runtimeLabel} is reachable, but ${url} returned no loaded models.`);
+      console.error(`[local-llm] Load a model in ${runtimeLabel} before running npm.cmd run test:e2e:llm.`);
       process.exit(1);
     }
 
     const model = models[0];
     console.log(`[local-llm] Preflight OK: ${model.id || model.name || "model loaded"}`);
   } catch (error) {
-    console.error(`[local-llm] LM Studio is not reachable at ${url}.`);
-    console.error("[local-llm] Start LM Studio's local server and load a model before running local LLM tests.");
+    console.error(`[local-llm] ${runtimeLabel} is not reachable at ${url}.`);
+    console.error(`[local-llm] Start ${runtimeLabel}'s local server and load a model before running local LLM tests.`);
     console.error(`[local-llm] ${String(error)}`);
     process.exit(1);
   } finally {
@@ -63,6 +64,15 @@ async function assertLocalLlmReady(url) {
 }
 
 function extractModels(data) {
+  if (Array.isArray(data?.models) && data.models.some((model) => model?.name && !model?.type)) {
+    return data.models
+      .map((model) => ({
+        id: String(model.name || model.model || ""),
+        name: String(model.name || model.model || ""),
+      }))
+      .filter((model) => model.id);
+  }
+
   if (Array.isArray(data?.models)) {
     const loadedLlmModels = data.models
       .filter((model) => model?.type === "llm")

@@ -22,6 +22,7 @@ export class PromptParser {
             'lorebook_data': this.resolveMatchedEntriesChapter.bind(this),
             'summaries': this.resolveChapterSummaries.bind(this),
             'previous_words': this.resolvePreviousWords.bind(this),
+            'after_words': this.resolveAfterWords.bind(this),
             'previous_chapter': this.resolvePreviousChapters.bind(this),
             'all_previous_chapters': this.resolveAllPreviousChapters.bind(this),
             'pov': this.resolvePoV.bind(this),
@@ -109,6 +110,10 @@ export class PromptParser {
             const [fullMatch, func, args] = match;
             if (func === 'previous_words') {
                 const resolved = await this.resolvePreviousWords(context, args.trim());
+                parsedContent = parsedContent.replace(fullMatch, resolved);
+            }
+            if (func === 'after_words') {
+                const resolved = await this.resolveAfterWords(context, args.trim());
                 parsedContent = parsedContent.replace(fullMatch, resolved);
             }
             if (func === 'chapter_data') {
@@ -420,6 +425,21 @@ export class PromptParser {
         }
 
         return result;
+    }
+
+    private async resolveAfterWords(context: PromptContext, count: string = '1000'): Promise<string> {
+        const requestedWordCount = parseInt(count, 10) || 1000;
+
+        if (!context.afterWords?.trim()) {
+            return 'No after-cursor text was provided.';
+        }
+
+        const newlineToken = 'Â§NEWLINEÂ§';
+        const textWithTokens = context.afterWords.replace(/\n/g, newlineToken);
+        const words = textWithTokens.split(/\s+/).filter(Boolean);
+        const selectedWords = words.slice(0, requestedWordCount);
+
+        return selectedWords.join(' ').replace(new RegExp(newlineToken, 'g'), '\n');
     }
 
     private async resolvePoV(context: PromptContext): Promise<string> {

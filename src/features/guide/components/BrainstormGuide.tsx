@@ -1,4 +1,4 @@
-import { Bot, MessageSquarePlus, PanelRightOpen, Sparkles } from "lucide-react";
+import { Bot, FileJson, MessageSquarePlus, PanelRightOpen, Sparkles } from "lucide-react";
 
 export default function BrainstormGuide() {
     return (
@@ -41,6 +41,16 @@ export default function BrainstormGuide() {
                     </h3>
                     <p className="text-muted-foreground">
                         Brainstorm can include chapter summaries, chapter content, lorebook entries, full story context, and web search. Normal mode uses brainstorm prompts and models. Prompt Defaults can preselect your preferred brainstorm prompt and model.
+                    </p>
+                </section>
+
+                <section className="space-y-3">
+                    <h3 className="flex items-center gap-2 text-xl font-semibold">
+                        <FileJson className="h-5 w-5 text-primary" />
+                        Structured Output
+                    </h3>
+                    <p className="text-muted-foreground">
+                        Use the Output selector when you want Brainstorm to return lorebook entries, a chapter outline, story decisions, or open questions in a format the app can save.
                     </p>
                 </section>
 

@@ -24,7 +24,7 @@ export function TimelineView({ entries }: TimelineViewProps) {
             <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground border-2 border-dashed rounded-lg">
                 <Clock className="w-12 h-12 mb-4 opacity-50" />
                 <p>No timeline events yet.</p>
-                <p className="text-sm">Use the "Extract Timeline" button in the chapter editor to generate events.</p>
+                <p className="text-sm">Use the "Extract" button in the chapter editor to generate events.</p>
             </div>
         );
     }

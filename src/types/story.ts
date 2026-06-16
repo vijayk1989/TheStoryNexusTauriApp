@@ -91,12 +91,20 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  brainstormOutputMode?: BrainstormOutputMode;
   // Optional edit metadata
   originalContent?: string; // the original content before the first edit
   editedAt?: string; // ISO timestamp when last edited
   editedBy?: string; // who edited it (e.g., 'user')
   edited?: boolean; // convenience flag
 }
+
+export type BrainstormOutputMode =
+  | "normal"
+  | "lorebook_entries"
+  | "chapter_outline"
+  | "story_decisions"
+  | "open_questions";
 
 // Prompt related types
 export interface PromptMessage {
@@ -158,6 +166,12 @@ export type AIProvider =
   | "nanogpt"
   | "google";
 
+export type LocalAIRuntime =
+  | "lm_studio"
+  | "ollama"
+  | "llama_cpp"
+  | "custom_openai";
+
 export interface AIModel {
   id: string;
   name: string;
@@ -178,7 +192,10 @@ export interface AISettings extends BaseEntity {
   openaiCompatibleModelsRoute?: string; // Custom route for fetching models (e.g., '/v1/models' or '/api/models')
   availableModels: AIModel[];
   lastModelsFetch?: Date;
+  localRuntime?: LocalAIRuntime;
   localApiUrl?: string;
+  localModelsUrl?: string;
+  localModelIdByRuntime?: Partial<Record<LocalAIRuntime, string>>;
   favoriteModelIds?: string[]; // User's favorited model IDs
   
   // Prompt Defaults
@@ -188,6 +205,7 @@ export interface AISettings extends BaseEntity {
   defaultContinueWritingPromptId?: string;
   defaultContinueWritingModelId?: string;
   simpleWriteUseCustomPrompt?: boolean;
+  simpleWriteIncludeAfterCursor?: boolean;
   defaultBrainstormPromptId?: string;
   defaultBrainstormModelId?: string;
   defaultAgentModelId?: string;
@@ -338,6 +356,7 @@ export interface PromptParserConfig {
   scenebeat?: string;
   cursorPosition?: number;
   previousWords?: string;
+  afterWords?: string;
   matchedEntries?: Set<LorebookEntry>;
   additionalContext?: Record<string, any>;
   chapterMatchedEntries?: Set<LorebookEntry>;
@@ -359,6 +378,7 @@ export interface PromptContext {
   scenebeat?: string;
   cursorPosition?: number;
   previousWords?: string;
+  afterWords?: string;
   matchedEntries?: Set<LorebookEntry>;
   chapters?: Chapter[];
   currentChapter?: Chapter;

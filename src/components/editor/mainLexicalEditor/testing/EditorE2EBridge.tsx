@@ -195,6 +195,7 @@ function createApi(
                 defaultContinueWritingPromptId: "continue-writing-system",
                 defaultContinueWritingModelId: localModel.id,
                 simpleWriteUseCustomPrompt: false,
+                simpleWriteIncludeAfterCursor: false,
             };
 
             await db.transaction("rw", [db.aiSettings, db.prompts], async () => {

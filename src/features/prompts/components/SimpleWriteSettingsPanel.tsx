@@ -16,6 +16,7 @@ export function SimpleWriteSettingsPanel() {
     const { settings, initialize, updatePromptDefaults } = useAIStore();
     const { prompts, fetchPrompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
     const [useCustomPrompt, setUseCustomPrompt] = useState(false);
+    const [includeAfterCursor, setIncludeAfterCursor] = useState(false);
     const [selectedPrompt, setSelectedPrompt] = useState<Prompt | undefined>(undefined);
     const [selectedModel, setSelectedModel] = useState<AllowedModel | undefined>(undefined);
     const [isSaving, setIsSaving] = useState(false);
@@ -41,6 +42,7 @@ export function SimpleWriteSettingsPanel() {
             : suppliedPrompt || savedPrompt || prompts.find((prompt) => prompt.promptType === "continue_writing");
 
         setUseCustomPrompt(nextUseCustomPrompt);
+        setIncludeAfterCursor(!!settings.simpleWriteIncludeAfterCursor);
         setSelectedPrompt(nextPrompt);
         setSelectedModel(
             resolveSavedDefaultModel(settings, settings.defaultContinueWritingModelId) ||
@@ -61,6 +63,7 @@ export function SimpleWriteSettingsPanel() {
         try {
             await updatePromptDefaults({
                 simpleWriteUseCustomPrompt: useCustomPrompt,
+                simpleWriteIncludeAfterCursor: includeAfterCursor,
                 defaultContinueWritingPromptId: promptToSave.id,
                 defaultContinueWritingModelId: selectedModel.id,
             });
@@ -101,9 +104,23 @@ export function SimpleWriteSettingsPanel() {
             </div>
 
             {!useCustomPrompt && (
-                <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                    <div className="font-medium">{suppliedPrompt?.name || "Continue Writing"}</div>
-                    <div className="text-xs text-muted-foreground">Supplied Simple Write prompt</div>
+                <div className="space-y-4 rounded-md border bg-muted/30 px-3 py-3 text-sm">
+                    <div>
+                        <div className="font-medium">{suppliedPrompt?.name || "Continue Writing"}</div>
+                        <div className="text-xs text-muted-foreground">Supplied Simple Write prompt</div>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 border-t pt-3">
+                        <div className="space-y-0.5">
+                            <Label className="text-sm font-medium">Include Words After Cursor</Label>
+                            <p className="text-xs text-muted-foreground">
+                                Give Simple Write nearby downstream prose so inserted text can bridge into it.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={includeAfterCursor}
+                            onCheckedChange={setIncludeAfterCursor}
+                        />
+                    </div>
                 </div>
             )}
 

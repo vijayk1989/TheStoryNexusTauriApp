@@ -22,7 +22,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </StoryProvider>
-        <ToastContainer />
+        <ToastContainer position="bottom-right" autoClose={1000} />
       </BrowserRouter>
     </ThemeProvider>
   </React.StrictMode>

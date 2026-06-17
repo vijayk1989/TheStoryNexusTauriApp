@@ -20,7 +20,6 @@ export default function AISettingsPage() {
     const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState('');
     const [openaiCompatibleModelsRoute, setOpenaiCompatibleModelsRoute] = useState('');
     const [googleKey, setGoogleKey] = useState('');
-    const [tavilyKey, setTavilyKey] = useState('');
     const [localRuntime, setLocalRuntime] = useState<LocalAIRuntime>('lm_studio');
     const [localApiUrl, setLocalApiUrl] = useState('http://localhost:1234/v1');
     const [localModelsUrl, setLocalModelsUrl] = useState('http://localhost:1234/v1/models');
@@ -50,7 +49,6 @@ export default function AISettingsPage() {
             const openaiCompatibleUrl = aiService.getOpenAICompatibleUrl();
             const openaiCompatibleModelsRoute = aiService.getOpenAICompatibleModelsRoute();
             const googleKey = aiService.getGoogleKey();
-            const tavilyKey = aiService.getTavilyKey();
             const localRuntime = aiService.getLocalRuntime();
             const localApiUrl = aiService.getLocalApiUrl();
             const localModelsUrl = aiService.getLocalModelsUrl();
@@ -63,7 +61,6 @@ export default function AISettingsPage() {
             if (openaiCompatibleUrl) setOpenaiCompatibleUrl(openaiCompatibleUrl);
             if (openaiCompatibleModelsRoute) setOpenaiCompatibleModelsRoute(openaiCompatibleModelsRoute);
             if (googleKey) setGoogleKey(googleKey);
-            if (tavilyKey) setTavilyKey(tavilyKey);
             setLocalRuntime(localRuntime);
             if (localApiUrl) setLocalApiUrl(localApiUrl);
             if (localModelsUrl) setLocalModelsUrl(localModelsUrl);
@@ -129,21 +126,6 @@ export default function AISettingsPage() {
             toast.success(`${provider === 'openai' ? 'OpenAI' : provider === 'openrouter' ? 'OpenRouter' : provider === 'nanogpt' ? 'NanoGPT' : provider === 'openai_compatible' ? 'OpenAI-compatible' : 'Local'} models updated successfully`);
         } catch (error) {
             toast.error(`Failed to update ${provider} models`);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleTavilyKeyUpdate = async (key: string) => {
-        if (!key.trim()) return;
-
-        setIsLoading(true);
-        try {
-            await aiService.updateTavilyKey(key);
-            toast.success('Tavily API key updated successfully');
-        } catch (error) {
-            console.error('Error updating Tavily key:', error);
-            toast.error('Failed to update Tavily API key');
         } finally {
             setIsLoading(false);
         }
@@ -755,35 +737,6 @@ export default function AISettingsPage() {
                             </CardContent>
                         </Card>
 
-                    {/* Web Search (Tavily) Section */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Web Search (Tavily)</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="tavily-key">Tavily API Key</Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="tavily-key"
-                                        type="password"
-                                        placeholder="Enter your Tavily API key"
-                                        value={tavilyKey}
-                                        onChange={(e) => setTavilyKey(e.target.value)}
-                                    />
-                                    <Button
-                                        onClick={() => handleTavilyKeyUpdate(tavilyKey)}
-                                        disabled={isLoading || !tavilyKey.trim()}
-                                    >
-                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-                                    </Button>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Enables AI agents to search the web for up-to-date information.
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
             </div>
         </div>

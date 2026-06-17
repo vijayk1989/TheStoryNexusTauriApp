@@ -62,7 +62,7 @@ export function SceneBeatMatchedPanel() {
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
                         <h3 className="font-medium text-sm md:text-base">Matched Entries</h3>
                         <div className="text-xs text-muted-foreground">
-                            Entries that match tags in your content
+                            Entries that match aliases in your content
                         </div>
                     </div>
 

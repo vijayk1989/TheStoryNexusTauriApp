@@ -290,7 +290,8 @@ Each entry MUST include:
 - "name": A concise canonical entry name
 - "description": A factual summary useful for future writing continuity
 - "category": One of "character", "location", "item", "event", "note", "synopsis", "starting scenario", or "timeline"
-- "tags": An array of useful lookup aliases
+- "aliases": An array of names or phrases used to recognize this entry in prose
+- "tags": An array of descriptive labels for organization, not lookup aliases
 
 Optional:
 - "metadata": An object for importance, status, relationships, or customFields
@@ -334,6 +335,7 @@ Return your response strictly as one JSON object with a "lorebookEntries" array 
 The entry MUST use:
 - "name": "Prose Style Guide"
 - "category": "note"
+- "aliases": []
 - "tags": ["style", "voice"]
 - "description": A compact style guide written as practical instructions for future drafting
 - "metadata": { "type": "style_guide" }`

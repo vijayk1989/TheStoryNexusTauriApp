@@ -1,6 +1,6 @@
 /**
  * SceneBeat header bar — collapse toggle, title, stop button, POV popover,
- * matched tags button, and delete button.
+ * matched aliases button, and delete button.
  */
 import {
     ChevronRight,
@@ -169,7 +169,7 @@ export function SceneBeatHeader({ streaming, onAbort, onDelete }: SceneBeatHeade
                     </PopoverContent>
                 </Popover>
 
-                {/* Matched Tags button */}
+                {/* Matched Aliases button */}
                 <Button
                     variant="ghost"
                     size="sm"
@@ -177,8 +177,8 @@ export function SceneBeatHeader({ streaming, onAbort, onDelete }: SceneBeatHeade
                     onClick={() => set({ showMatchedEntries: !showMatchedEntries })}
                 >
                     <Eye className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-                    <span className="hidden sm:inline">Matched Tags</span>
-                    <span className="sm:hidden">Tags</span>
+                    <span className="hidden sm:inline">Matched Aliases</span>
+                    <span className="sm:hidden">Aliases</span>
                 </Button>
 
                 {/* Delete button */}

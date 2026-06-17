@@ -132,7 +132,7 @@ export default function EditorWorkspace() {
         resetChapterState,
     } = useChapterStore();
     const { currentStoryId, currentChapterId, setCurrentStoryId, setCurrentChapterId } = useStoryContext();
-    const { loadEntries, buildTagMap, entries } = useLorebookStore();
+    const { loadEntries, buildAliasMap, entries } = useLorebookStore();
     const { generateWithPrompt, processStreamedResponse } = useAIStore();
     const { prompts, fetchPrompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
 
@@ -166,7 +166,7 @@ export default function EditorWorkspace() {
         await Promise.all([
             getStory(storyId),
             fetchChapters(storyId),
-            loadEntries(storyId).then(() => buildTagMap()),
+            loadEntries(storyId).then(() => buildAliasMap()),
         ]);
 
         const storyChapters = await db.chapters
@@ -190,7 +190,7 @@ export default function EditorWorkspace() {
             setCurrentChapter(null);
         }
     }, [
-        buildTagMap,
+        buildAliasMap,
         fetchChapters,
         getChapter,
         getLastEditedChapterId,

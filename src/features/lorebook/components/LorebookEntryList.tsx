@@ -41,6 +41,7 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
         const searchMatch = !searchTerm || [
             entry.name,
             entry.description,
+            ...(entry.aliases || []),
             ...(entry.tags || [])
         ].some(field =>
             field?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -178,11 +179,20 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                                 )}
                             </div>
                             <div className="flex flex-wrap gap-1 mb-2">
-                                {entry.tags && entry.tags.map((tag, index) => (
+                                {entry.aliases && entry.aliases.map((alias, index) => (
                                     <Badge
                                         key={index}
                                         variant="secondary"
                                         className="bg-primary/10 text-xs px-2 py-0.5"
+                                    >
+                                        {alias}
+                                    </Badge>
+                                ))}
+                                {entry.tags && entry.tags.map((tag, index) => (
+                                    <Badge
+                                        key={`tag-${index}`}
+                                        variant="outline"
+                                        className="text-xs px-2 py-0.5"
                                     >
                                         {tag}
                                     </Badge>

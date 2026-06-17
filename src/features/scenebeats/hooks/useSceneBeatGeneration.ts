@@ -46,7 +46,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
     const [editor] = useLexicalComposerContext();
     const { generateWithPrompt, generateWithParsedMessages, processStreamedResponse, abortGeneration } = useAIStore();
     const { prompts, fetchPrompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
-    const { tagMap, chapterMatchedEntries } = useLorebookStore();
+    const { aliasMap, chapterMatchedEntries } = useLorebookStore();
 
     // External generation hooks
     const agenticHook = useAgenticGeneration();
@@ -521,7 +521,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         promptsError,
 
         // Tag map for effects
-        tagMap,
+        aliasMap,
         chapterMatchedEntries,
 
         // External hooks' reactive state

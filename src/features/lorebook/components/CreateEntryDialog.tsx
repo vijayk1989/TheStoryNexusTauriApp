@@ -59,7 +59,7 @@ export function CreateEntryDialog({
   storyId,
   entry,
 }: CreateEntryDialogProps) {
-  const { createEntry, updateEntryAndRebuildTags } = useLorebookStore();
+  const { createEntry, updateEntryAndRebuildAliases } = useLorebookStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
@@ -68,6 +68,7 @@ export function CreateEntryDialog({
     name: "",
     description: "",
     category: "character" as const,
+    aliases: [],
     tags: [],
     isDisabled: false,
     metadata: {
@@ -85,6 +86,7 @@ export function CreateEntryDialog({
           name: entry.name,
           description: entry.description,
           category: entry.category,
+          aliases: entry.aliases,
           tags: entry.tags,
           isDisabled: entry.isDisabled,
           metadata: entry.metadata,
@@ -92,13 +94,21 @@ export function CreateEntryDialog({
       : initialFormState
   );
 
+  const [aliasInput, setAliasInput] = useState(entry?.aliases?.join(", ") ?? "");
   const [tagInput, setTagInput] = useState(entry?.tags?.join(", ") ?? "");
 
   const resetForm = () => {
     setFormData(initialFormState);
+    setAliasInput("");
     setTagInput("");
     setAdvancedOpen(false);
   };
+
+  const parseCommaList = (value: string) =>
+    value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -106,18 +116,17 @@ export function CreateEntryDialog({
     setIsSubmitting(true);
 
     try {
-      const processedTags = tagInput
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean);
+      const processedAliases = parseCommaList(aliasInput);
+      const processedTags = parseCommaList(tagInput);
 
       const dataToSubmit = {
         ...formData,
+        aliases: processedAliases,
         tags: processedTags,
       };
 
       if (entry) {
-        await updateEntryAndRebuildTags(entry.id, dataToSubmit);
+        await updateEntryAndRebuildAliases(entry.id, dataToSubmit);
         toast.success("Entry updated successfully");
       } else {
         await createEntry({
@@ -205,29 +214,54 @@ export function CreateEntryDialog({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="aliases">Aliases</Label>
+            <div className="space-y-2">
+              <Input
+                id="aliases"
+                value={aliasInput}
+                onChange={(e) => setAliasInput(e.target.value)}
+                placeholder="Harry Potter, The Boy Who Lived, Quidditch Player"
+              />
+              <p className="text-sm text-muted-foreground">
+                Enter lookup names and phrases separated by commas. The entry name is also matched automatically.
+              </p>
+            </div>
+          </div>
+
+          {aliasInput && (
+            <div className="flex flex-wrap gap-2">
+              {aliasInput.split(",").map(
+                (alias, index) =>
+                  alias.trim() && (
+                    <Badge key={index} variant="secondary" className="group">
+                      {alias.trim()}
+                    </Badge>
+                  )
+              )}
+            </div>
+          )}
+
+          <div className="space-y-2">
             <Label htmlFor="tags">Tags</Label>
             <div className="space-y-2">
               <Input
                 id="tags"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                placeholder="Harry Potter, The Boy Who Lived, Quidditch Player"
+                placeholder="brave, skilled, royalty"
               />
               <p className="text-sm text-muted-foreground">
-                Enter tags separated by commas. The entry name is automatically
-                used as a tag. You can use spaces and special characters in
-                tags.
+                Enter descriptive labels separated by commas for organization and filtering.
               </p>
             </div>
           </div>
 
-          {/* Show current tags preview */}
           {tagInput && (
             <div className="flex flex-wrap gap-2">
               {tagInput.split(",").map(
                 (tag, index) =>
                   tag.trim() && (
-                    <Badge key={index} variant="secondary" className="group">
+                    <Badge key={index} variant="outline" className="group">
                       {tag.trim()}
                     </Badge>
                   )

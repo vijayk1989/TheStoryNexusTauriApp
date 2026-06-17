@@ -73,12 +73,12 @@ export default function LorebookGuide() {
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Tag className="h-5 w-5 text-primary" />
-                                        Tag-Based System
+                                        Alias-Based Matching
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-2">
                                     <p>
-                                        The Lorebook uses a tag-based system to connect your writing with your Lorebook entries. When you write text that contains tags matching your Lorebook entries, those entries are automatically identified and can be used to provide context to the AI.
+                                        The Lorebook uses aliases to connect your writing with your Lorebook entries. When you write text that contains aliases matching your Lorebook entries, those entries are automatically identified and can be used to provide context to the AI.
                                     </p>
                                     <p className="text-sm text-muted-foreground">
                                         For example, if you have a character named "Harry Potter" and you mention "Harry" in your text, the system will recognize and match this entry.
@@ -227,7 +227,7 @@ export default function LorebookGuide() {
                                     <li>
                                         <strong>Name:</strong> The name of your entry (e.g., "Harry Potter")
                                         <p className="text-sm text-muted-foreground ml-6">
-                                            This will automatically be used as a tag for matching in your text
+                                            This will automatically be used as an alias for matching in your text
                                         </p>
                                     </li>
                                     <li>
@@ -243,9 +243,15 @@ export default function LorebookGuide() {
                                         </p>
                                     </li>
                                     <li>
-                                        <strong>Tags:</strong> Add additional tags for this entry
+                                        <strong>Aliases:</strong> Add additional lookup names and phrases for this entry
                                         <p className="text-sm text-muted-foreground ml-6">
-                                            Enter tags separated by commas (e.g., "The Boy Who Lived, Gryffindor, Wizard")
+                                            Enter aliases separated by commas (e.g., "The Boy Who Lived, Gryffindor Seeker")
+                                        </p>
+                                    </li>
+                                    <li>
+                                        <strong>Tags:</strong> Add descriptive labels for organization
+                                        <p className="text-sm text-muted-foreground ml-6">
+                                            Enter labels separated by commas (e.g., "wizard, student, brave")
                                         </p>
                                     </li>
                                     <li>
@@ -337,7 +343,7 @@ export default function LorebookGuide() {
                                         <h5 className="font-medium">Search and Sort</h5>
                                     </div>
                                     <p className="text-sm">
-                                        Use the search bar to find specific entries by name, description, or tags.
+                                        Use the search bar to find specific entries by name, description, aliases, or tags.
                                     </p>
                                     <p className="text-sm mt-2">
                                         Sort your entries by:
@@ -412,7 +418,7 @@ export default function LorebookGuide() {
                                     <li>Regularly review and update your Lorebook entries as your story evolves</li>
                                     <li>Use consistent naming conventions for related entries</li>
                                     <li>Keep descriptions concise but informative</li>
-                                    <li>Use tags strategically to ensure proper matching</li>
+                                    <li>Use aliases strategically to ensure proper matching</li>
                                     <li>Disable entries temporarily rather than deleting them if you're unsure</li>
                                 </ul>
                             </AlertDescription>
@@ -428,21 +434,21 @@ export default function LorebookGuide() {
                         </p>
 
                         <div className="space-y-4">
-                            <h4 className="text-lg font-medium">Automatic Tag Matching</h4>
+                            <h4 className="text-lg font-medium">Automatic Alias Matching</h4>
                             <p>
-                                As you write, The Story Nexus automatically scans your text for matches with your Lorebook entries' tags.
+                                As you write, The Story Nexus automatically scans your text for matches with your Lorebook entries' aliases.
                             </p>
                             <div className="bg-muted p-4 rounded-md">
-                                <h5 className="font-medium mb-2">How Tag Matching Works:</h5>
+                                <h5 className="font-medium mb-2">How Alias Matching Works:</h5>
                                 <ol className="list-decimal list-inside space-y-2 ml-4">
                                     <li>
-                                        Each Lorebook entry has tags (including its name)
+                                        Each Lorebook entry has aliases, and its name is also matched automatically
                                         <p className="text-sm text-muted-foreground ml-6">
-                                            Example: A character named "Harry Potter" might have tags like "Harry Potter", "The Boy Who Lived", "Gryffindor Seeker"
+                                            Example: A character named "Harry Potter" might have aliases like "Harry Potter", "The Boy Who Lived", "Gryffindor Seeker"
                                         </p>
                                     </li>
                                     <li>
-                                        When you write text that contains any of these tags, the system identifies a match
+                                        When you write text that contains any of these aliases, the system identifies a match
                                         <p className="text-sm text-muted-foreground ml-6">
                                             Example: Writing "Harry walked into the room" would match the "Harry Potter" entry
                                         </p>
@@ -450,7 +456,7 @@ export default function LorebookGuide() {
                                     <li>
                                         Matched entries are collected and can be viewed from the editor tool rail
                                         <p className="text-sm text-muted-foreground ml-6">
-                                            Click on "Matched Tags" in the editor to see which Lorebook entries have been matched in your current chapter
+                                            Click on "Matched Aliases" in the editor to see which Lorebook entries have been matched in your current chapter
                                         </p>
                                     </li>
                                 </ol>
@@ -501,7 +507,7 @@ export default function LorebookGuide() {
                             </p>
                             <ol className="list-decimal list-inside space-y-2 ml-4">
                                 <li>
-                                    In the chapter editor, click on "Matched Tags" in the right tool rail
+                                    In the chapter editor, click on "Matched Aliases" in the right tool rail
                                     <p className="text-sm text-muted-foreground ml-6">
                                         This opens a panel showing all Lorebook entries that match text in your current chapter
                                     </p>
@@ -519,9 +525,9 @@ export default function LorebookGuide() {
                             <h3 className="text-xl font-semibold mb-4">Advanced Lorebook Strategies</h3>
                             <div className="space-y-4">
                                 <div>
-                                    <h4 className="font-medium">Strategic Tagging</h4>
+                                    <h4 className="font-medium">Strategic Aliasing</h4>
                                     <p className="text-sm">
-                                        Create tags that are likely to appear naturally in your writing. Include variations, nicknames, and common references.
+                                        Create aliases that are likely to appear naturally in your writing. Include variations, nicknames, and common references.
                                     </p>
                                 </div>
 

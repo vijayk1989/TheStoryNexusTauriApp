@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BookOpen, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot, ImageIcon, Wrench, Palette, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MainLexicalEditor } from "@/components/editor/mainLexicalEditor";
@@ -39,6 +39,7 @@ import { TimelineExtractionDialog } from "@/features/chapters/components/Timelin
 import { ImageGalleryPanel } from "@/features/images/components/ImageGalleryPanel";
 import { MiscSettingsPanel } from "@/features/settings/components/MiscSettingsPanel";
 import { ThemeSettingsPanel } from "@/features/theme/components/ThemeSettingsPanel";
+import { addOpenPromptsPanelListener } from "@/features/prompts/utils/openPromptsPanel";
 
 type ToolPanelType = "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "simpleWriteSettings" | "brainstorm" | "imageGallery" | "themeSettings" | "miscSettings" | null;
 
@@ -49,9 +50,28 @@ interface StoryEditorProps {
 export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
     const [openPanel, setOpenPanel] = useState<ToolPanelType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
+    const [isBrainstormExpanded, setIsBrainstormExpanded] = useState(false);
     const [isExtractDialogOpen, setIsExtractDialogOpen] = useState(false);
+    const editorRootRef = useRef<HTMLDivElement | null>(null);
+    const openPromptsTimeoutRef = useRef<number | undefined>(undefined);
     const { currentChapterId, currentStoryId } = useStoryContext();
     const isMobile = useIsMobile();
+
+    const openPromptsPanelFromCurrentPanel = useCallback(() => {
+        if (!editorRootRef.current?.getClientRects().length) return;
+
+        window.clearTimeout(openPromptsTimeoutRef.current);
+        setOpenPanel(null);
+        openPromptsTimeoutRef.current = window.setTimeout(() => setOpenPanel("prompts"), 100);
+    }, []);
+
+    useEffect(() => {
+        const removeListener = addOpenPromptsPanelListener(openPromptsPanelFromCurrentPanel);
+        return () => {
+            window.clearTimeout(openPromptsTimeoutRef.current);
+            removeListener();
+        };
+    }, [openPromptsPanelFromCurrentPanel]);
 
     const handleExtract = () => {
         if (!currentStoryId || !currentChapterId) return;
@@ -72,6 +92,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
             size="icon"
             onClick={toggleMaximize}
             title={isMaximized ? "Minimize Editor" : "Maximize Editor"}
+            className="hidden md:inline-flex"
         >
             {isMaximized ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </Button>
@@ -256,7 +277,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
     );
 
     return (
-        <div className="flex min-h-screen bg-background">
+        <div ref={editorRootRef} className="flex min-h-screen bg-background">
             {/* Main Editor Area */}
             <div className={`flex-1 flex justify-center min-w-0 ${isMaximized ? '' : 'px-2 md:px-6'}`}>
                 <div className={`min-w-0 ${isMaximized ? 'w-full' : 'max-w-[1200px] w-full'}`}>
@@ -547,14 +568,35 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
             <Sheet open={openPanel === "brainstorm"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
                     side="right"
-                    className="h-[100vh] w-full md:min-w-[600px] lg:min-w-[800px] md:w-auto p-0"
+                    className={isBrainstormExpanded
+                        ? "h-[100vh] w-screen max-w-none sm:max-w-none p-0"
+                        : "h-[100vh] w-full max-w-none sm:max-w-none p-0 md:w-[600px] lg:w-[800px]"
+                    }
                 >
                     <div className="h-full flex flex-col pt-6">
-                        <SheetHeader className="px-4 pb-2 border-b flex-shrink-0 text-left">
+                        <SheetHeader className="flex-row items-center justify-between space-y-0 px-4 pb-2 pr-12 border-b flex-shrink-0 text-left">
                             <SheetTitle>Brainstorm</SheetTitle>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setIsBrainstormExpanded((expanded) => !expanded)}
+                                title={isBrainstormExpanded ? "Collapse Brainstorm" : "Expand Brainstorm"}
+                                className="hidden md:inline-flex"
+                            >
+                                {isBrainstormExpanded ? (
+                                    <Minimize className="h-4 w-4" />
+                                ) : (
+                                    <Maximize className="h-4 w-4" />
+                                )}
+                            </Button>
                         </SheetHeader>
                         <div className="flex-1 overflow-hidden">
-                            {currentStoryId ? <BrainstormPanel storyId={currentStoryId} /> : null}
+                            {currentStoryId ? (
+                                <BrainstormPanel
+                                    storyId={currentStoryId}
+                                    onConfigurePrompts={openPromptsPanelFromCurrentPanel}
+                                />
+                            ) : null}
                         </div>
                     </div>
                 </SheetContent>

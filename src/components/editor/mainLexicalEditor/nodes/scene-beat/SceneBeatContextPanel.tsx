@@ -1,5 +1,5 @@
 /**
- * SceneBeat context toggles panel — matched chapter/scene-beat tags,
+ * SceneBeat context toggles panel — matched chapter/scene-beat aliases,
  * custom context selection, lorebook item picker + badges.
  */
 import { useState } from 'react';
@@ -79,10 +79,10 @@ export function SceneBeatContextPanel() {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                     <div className="space-y-4 mb-4">
-                        {/* Matched Chapter Tags Toggle with All Lorebook switch */}
+                        {/* Matched Chapter Aliases Toggle with All Lorebook switch */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                                <div className="font-medium text-sm">Matched Chapter Tags</div>
+                                <div className="font-medium text-sm">Matched Chapter Aliases</div>
                                 <div className="text-xs text-muted-foreground">
                                     Include entries matched from the entire chapter
                                 </div>
@@ -104,10 +104,10 @@ export function SceneBeatContextPanel() {
                             </div>
                         </div>
 
-                        {/* Matched Scene Beat Tags Toggle */}
+                        {/* Matched Scene Beat Aliases Toggle */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
-                                <div className="font-medium text-sm">Matched Scene Beat Tags</div>
+                                <div className="font-medium text-sm">Matched Scene Beat Aliases</div>
                                 <div className="text-xs text-muted-foreground">
                                     Include entries matched from this scene beat
                                 </div>

@@ -233,8 +233,14 @@ function LorebookItem({
             {/* Expanded: Details */}
             {isExpanded && (
                 <div className="px-3 pb-3 pt-0 border-t-0 pl-8">
-                     {entry.tags && entry.tags.length > 0 && (
+                     {entry.aliases && entry.aliases.length > 0 && (
                         <div className="bg-muted/50 rounded p-2 mb-2 text-xs">
+                             <span className="font-semibold text-muted-foreground">Aliases: </span>
+                             <span className="text-muted-foreground">{entry.aliases.join(', ')}</span>
+                        </div>
+                    )}
+                     {entry.tags && entry.tags.length > 0 && (
+                        <div className="bg-muted/30 rounded p-2 mb-2 text-xs">
                              <span className="font-semibold text-muted-foreground">Tags: </span>
                              <span className="text-muted-foreground">{entry.tags.join(', ')}</span>
                         </div>

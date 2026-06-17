@@ -10,7 +10,7 @@ import type { LorebookEntry } from "@/types/story";
 export function LorebookHighlightPlugin(): null {
     const [editor] = useLexicalComposerContext();
     const {
-        tagMap,
+        aliasMap,
         setChapterMatchedEntries,
         setEditorContent,
     } = useLorebookStore();
@@ -24,8 +24,8 @@ export function LorebookHighlightPlugin(): null {
                 const normalizedContent = content.toLowerCase();
                 const matchedEntries = new Map<string, LorebookEntry>();
 
-                Object.entries(tagMap).forEach(([tag, entry]) => {
-                    if (tag.trim() && normalizedContent.includes(tag.toLowerCase())) {
+                Object.entries(aliasMap).forEach(([alias, entry]) => {
+                    if (alias.trim() && normalizedContent.includes(alias.toLowerCase())) {
                         matchedEntries.set(entry.id, entry);
                     }
                 });
@@ -44,7 +44,7 @@ export function LorebookHighlightPlugin(): null {
             setEditorContent("");
             setChapterMatchedEntries(new Map());
         };
-    }, [editor, setChapterMatchedEntries, setEditorContent, tagMap]);
+    }, [editor, setChapterMatchedEntries, setEditorContent, aliasMap]);
 
     return null;
 }

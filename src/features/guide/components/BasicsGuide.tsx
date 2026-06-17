@@ -137,7 +137,7 @@ export default function BasicsGuide() {
                         Most story tools now open as right-side sheets from the editor. You do not need to leave the writing workspace to manage context or settings.
                     </p>
                     <div className="grid gap-3 md:grid-cols-2">
-                        <ToolItem name="Matched Tags" body="See lorebook entries matched in the current chapter." />
+                        <ToolItem name="Matched Aliases" body="See lorebook entries matched in the current chapter." />
                         <ToolItem name="Outline" body="Edit the current chapter outline." />
                         <ToolItem name="Chapter Notes" body="Keep chapter-specific notes and scratch work." />
                         <ToolItem name="Drafts" body="Review saved generated prose drafts." />

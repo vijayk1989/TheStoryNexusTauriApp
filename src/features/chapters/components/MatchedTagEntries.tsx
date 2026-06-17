@@ -51,7 +51,7 @@ export function MatchedTagEntries() {
 
     return (
         <div className="p-4 space-y-2">
-            <h3 className="text-sm font-semibold">Matched Tag Entries</h3>
+            <h3 className="text-sm font-semibold">Matched Alias Entries</h3>
             {Array.from(chapterMatchedEntries.values()).map((entry) => (
                 <Collapsible
                     key={entry.id}
@@ -79,9 +79,15 @@ export function MatchedTagEntries() {
                     </div>
                     <CollapsibleContent className="p-2 text-sm space-y-2 select-text">
                         <div className="select-text">
-                            <span className="font-semibold">Tags: </span>
-                            {entry.tags.join(', ')}
+                            <span className="font-semibold">Aliases: </span>
+                            {entry.aliases.join(', ')}
                         </div>
+                        {entry.tags.length > 0 && (
+                            <div className="select-text">
+                                <span className="font-semibold">Tags: </span>
+                                {entry.tags.join(', ')}
+                            </div>
+                        )}
                         <div className="select-text">
                             <span className="font-semibold">Description: </span>
                             {entry.description}

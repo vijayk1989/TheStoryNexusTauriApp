@@ -192,7 +192,8 @@ Relationships:
   - Leader: Commands respect from her crew through experience rather than authority
   - Mentor: Has a special bond with Science Officer Wei, whom she's grooming for command`,
             category: 'character',
-            tags: ['Captain Elena Reyes', 'Elena', 'Reyes'],
+            aliases: ['Captain Elena Reyes', 'Elena', 'Reyes'],
+            tags: [],
             metadata: {
                 type: 'Human',
                 importance: 'major',
@@ -209,7 +210,8 @@ Relationships:
   - Professional: Respects Captain Reyes as a mentor and leader
   - Complicated: Has unacknowledged feelings for Engineer Patel`,
             category: 'character',
-            tags: ['Dr. Marcus Wei', 'Marcus', 'Wei'],
+            aliases: ['Dr. Marcus Wei', 'Marcus', 'Wei'],
+            tags: [],
             metadata: {
                 type: 'Human',
                 importance: 'major',
@@ -226,7 +228,8 @@ Relationships:
   - Friendly: Aware of Wei's feelings but unsure how to address them
   - Respectful: Trusts Captain Reyes' judgment but isn't afraid to voice concerns`,
             category: 'character',
-            tags: ['Engineer Aisha Patel', 'Aisha', 'Patel'],
+            aliases: ['Engineer Aisha Patel', 'Aisha', 'Patel'],
+            tags: [],
             metadata: {
                 type: 'Human',
                 importance: 'major',
@@ -239,7 +242,8 @@ Relationships:
             name: 'The Anomaly',
             description: 'A perfectly geometric dodecahedron approximately 15 meters in diameter, embedded within Saturn\'s rings. The object appears to be made of an unknown material that absorbs all electromagnetic radiation directed at it. It emits no heat or radiation but creates localized gravitational distortions. Carbon dating suggests it\'s over 2 billion years old, predating Earth\'s formation. When approached, it seems to respond to conscious thought, creating visual hallucinations unique to each observer.',
             category: 'item',
-            tags: ['The Anomaly', 'Anomaly', 'Anomaly of Saturn\'s Rings'],
+            aliases: ['The Anomaly', 'Anomaly', 'Anomaly of Saturn\'s Rings'],
+            tags: [],
             metadata: {
                 type: 'Unknown Object',
                 importance: 'major',
@@ -252,7 +256,8 @@ Relationships:
             name: 'Hyperion Research Vessel',
             description: 'A state-of-the-art research vessel designed for deep space exploration and extended missions. The Hyperion features experimental quantum communication arrays, allowing near-instantaneous communication with Earth despite the distance. It\'s equipped with advanced sensors capable of detecting minute changes in radiation, gravitational fields, and spatial distortions. The ship\'s AI, ARIA (Advanced Research Intelligence Assistant), helps manage ship systems and analyze data. The Hyperion has living quarters for up to 12 crew members and can sustain life support for three years without resupply.',
             category: 'item',
-            tags: ['Hyperion Research Vessel', 'Hyperion', 'Hyperion Research Vessel'],
+            aliases: ['Hyperion Research Vessel', 'Hyperion', 'Hyperion Research Vessel'],
+            tags: [],
             metadata: {
                 type: 'Spacecraft',
                 importance: 'major',

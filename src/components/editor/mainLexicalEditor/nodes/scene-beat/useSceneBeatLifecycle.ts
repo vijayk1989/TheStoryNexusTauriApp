@@ -41,7 +41,7 @@ export function useSceneBeatLifecycle({
 }: UseSceneBeatLifecycleOptions) {
   const { currentStoryId, currentChapterId } = useStoryContext();
   const { currentChapter } = useChapterStore();
-  const { tagMap } = useLorebookStore();
+  const { aliasMap } = useLorebookStore();
   const settings = useAIStore((s) => s.settings);
 
   const sceneBeatId = useSBStore((s) => s.sceneBeatId);
@@ -366,20 +366,20 @@ export function useSceneBeatLifecycle({
   }, [streamComplete, streamedText, sceneBeatId, isLoaded, writeNodeSnapshot]);
 
   useEffect(() => {
-    const matchTags = () => {
+    const matchAliases = () => {
       const matched = new Map<string, LorebookEntry>();
-      Object.entries(tagMap).forEach(([tag, entry]) => {
-        if (command.toLowerCase().includes(tag.toLowerCase())) {
+      Object.entries(aliasMap).forEach(([alias, entry]) => {
+        if (command.toLowerCase().includes(alias.toLowerCase())) {
           matched.set(entry.id, entry);
         }
       });
       set({ localMatchedEntries: matched });
     };
 
-    const debounced = debounce(matchTags, 500);
+    const debounced = debounce(matchAliases, 500);
     debounced();
     return () => debounced.cancel();
-  }, [command, tagMap, set]);
+  }, [command, aliasMap, set]);
 
   useEffect(() => {
     if (!sceneBeatId || !isLoaded) return;

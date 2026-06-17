@@ -68,6 +68,7 @@ describe("brainstorm structured output", () => {
       "name": "Mara",
       "description": "A cartographer with a hidden map.",
       "category": "character",
+      "aliases": ["Mara", "the cartographer"],
       "tags": ["cartographer"]
     }
   ]
@@ -81,7 +82,35 @@ describe("brainstorm structured output", () => {
         name: "Mara",
         description: "A cartographer with a hidden map.",
         category: "character",
+        aliases: ["Mara", "the cartographer"],
         tags: ["cartographer"],
+      },
+    ]);
+  });
+
+  test("treats legacy lorebook tags as aliases", () => {
+    const parsed = parseLorebookJson(`
+\`\`\`json
+{
+  "lorebookEntries": [
+    {
+      "name": "Mara",
+      "description": "A cartographer with a hidden map.",
+      "category": "character",
+      "tags": ["the mapmaker"]
+    }
+  ]
+}
+\`\`\`
+`);
+
+    expect(parsed.error).toBeUndefined();
+    expect(parsed.entries).toEqual([
+      {
+        name: "Mara",
+        description: "A cartographer with a hidden map.",
+        category: "character",
+        aliases: ["the mapmaker"],
       },
     ]);
   });

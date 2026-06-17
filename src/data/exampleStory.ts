@@ -99,7 +99,7 @@ function categoryForLore(title: string): LorebookEntry["category"] {
   return "note";
 }
 
-function tagsForLore(title: string): string[] {
+function aliasesForLore(title: string): string[] {
   const withoutArticle = title.replace(/^The\s+/i, "");
   return Array.from(new Set([title, withoutArticle])).filter(Boolean);
 }
@@ -132,7 +132,8 @@ function parseExampleStory() {
     name: entry.title,
     description: entry.body,
     category: categoryForLore(entry.title),
-    tags: tagsForLore(entry.title),
+    aliases: aliasesForLore(entry.title),
+    tags: [],
     metadata: {
       importance: "major",
       status: "active",

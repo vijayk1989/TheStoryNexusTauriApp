@@ -10,7 +10,7 @@ export default function ChapterEditorPage() {
     const { storyId, chapterId } = useParams<{ storyId: string; chapterId: string }>();
     const { getStory, currentStory } = useStoryStore();
     const { currentChapter, getChapter } = useChapterStore();
-    const { loadEntries, buildTagMap } = useLorebookStore();
+    const { loadEntries, buildAliasMap } = useLorebookStore();
     const { setCurrentStoryId, setCurrentChapterId } = useStoryContext();
 
     useEffect(() => {
@@ -19,7 +19,7 @@ export default function ChapterEditorPage() {
             getStory(storyId);
             // Initialize lorebook data
             loadEntries(storyId).then(() => {
-                buildTagMap();
+                buildAliasMap();
             });
         }
         if (chapterId) {
@@ -30,7 +30,7 @@ export default function ChapterEditorPage() {
         return () => {
             setCurrentChapterId(null);
         };
-    }, [storyId, chapterId, getStory, getChapter, setCurrentStoryId, setCurrentChapterId, loadEntries, buildTagMap]);
+    }, [storyId, chapterId, getStory, getChapter, setCurrentStoryId, setCurrentChapterId, loadEntries, buildAliasMap]);
 
     if (!currentStory) {
         return (

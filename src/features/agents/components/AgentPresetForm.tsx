@@ -64,7 +64,7 @@ const AGENT_ROLES: { value: AgentRole; label: string; description: string }[] = 
 ];
 
 const LOREBOOK_MODE_OPTIONS: { value: LorebookMode; label: string; description: string }[] = [
-    { value: 'matched', label: 'Matched Only', description: 'Include lorebook entries matched by tags' },
+    { value: 'matched', label: 'Matched Only', description: 'Include lorebook entries matched by aliases' },
     { value: 'all', label: 'All Entries', description: 'Include all lorebook entries' },
     { value: 'custom', label: 'Custom Selection', description: 'Manually select specific entries' },
     { value: 'none', label: 'None', description: 'Do not include lorebook data' },
@@ -183,6 +183,7 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
         return lorebookEntries.filter(
             (e) => e.name.toLowerCase().includes(q) || 
                    e.category?.toLowerCase().includes(q) ||
+                   e.aliases?.some(alias => alias.toLowerCase().includes(q)) ||
                    e.tags?.some(t => t.toLowerCase().includes(q))
         );
     }, [lorebookEntries, lorebookSearch]);

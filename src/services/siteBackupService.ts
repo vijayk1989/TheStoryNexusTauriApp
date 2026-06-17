@@ -1,5 +1,6 @@
 import { db } from "@/services/database";
 import { clearLastEditorTarget } from "@/features/editor/utils/lastEditorTarget";
+import { normalizeLorebookEntry } from "@/features/lorebook/utils/lorebookEntryNormalization";
 import type {
     AgentPreset,
     AIChat,
@@ -64,7 +65,7 @@ export async function createSiteBackupPayload(): Promise<{ backup: SiteBackupFil
     const data: SiteBackupData = {
         stories: await db.stories.toArray(),
         chapters: await db.chapters.toArray(),
-        lorebookEntries: await db.lorebookEntries.toArray(),
+        lorebookEntries: (await db.lorebookEntries.toArray()).map(normalizeLorebookEntry),
         sceneBeats: await db.sceneBeats.toArray(),
         drafts: await db.drafts.toArray(),
         aiChats: await db.aiChats.toArray(),
@@ -499,6 +500,7 @@ function reviveChapter(chapter: Chapter): Chapter {
 }
 
 function reviveLorebookEntry(entry: LorebookEntry, lorebookIdMap: Map<string, string>): LorebookEntry {
+    const normalizedEntry = normalizeLorebookEntry(entry);
     const relationships = entry.metadata?.relationships?.map((relationship) => ({
         ...relationship,
         targetId: lorebookIdMap.get(relationship.targetId) || relationship.targetId,
@@ -506,14 +508,14 @@ function reviveLorebookEntry(entry: LorebookEntry, lorebookIdMap: Map<string, st
     const participantIds = entry.metadata?.participantIds?.map((id) => lorebookIdMap.get(id) || id);
 
     return {
-        ...entry,
-        createdAt: reviveDate(entry.createdAt),
-        metadata: entry.metadata
+        ...normalizedEntry,
+        createdAt: reviveDate(normalizedEntry.createdAt),
+        metadata: normalizedEntry.metadata
             ? {
-                ...entry.metadata,
+                ...normalizedEntry.metadata,
                 relationships,
                 participantIds,
             }
-            : entry.metadata,
+            : normalizedEntry.metadata,
     };
 }

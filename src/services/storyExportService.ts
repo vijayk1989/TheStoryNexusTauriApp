@@ -1,6 +1,7 @@
 import { db } from './database';
 import type { Story, Chapter, LorebookEntry, SceneBeat, AIChat, MediaAsset, ImageGenerationRecord } from '@/types/story';
 import { toast } from 'react-toastify';
+import { normalizeLorebookEntry } from '@/features/lorebook/utils/lorebookEntryNormalization';
 
 interface StoryExport {
     version: string;
@@ -28,7 +29,8 @@ export const storyExportService = {
             }
 
             const chapters = await db.chapters.where('storyId').equals(storyId).toArray();
-            const lorebookEntries = await db.lorebookEntries.where('storyId').equals(storyId).toArray();
+            const lorebookEntries = (await db.lorebookEntries.where('storyId').equals(storyId).toArray())
+                .map(normalizeLorebookEntry);
             const sceneBeats = await db.sceneBeats.where('storyId').equals(storyId).toArray();
             const aiChats = await db.aiChats.where('storyId').equals(storyId).toArray();
             const mediaAssets = await db.mediaAssets.where('storyId').equals(storyId).toArray();
@@ -124,7 +126,7 @@ export const storyExportService = {
                         idMap.set(entry.id, newEntryId);
 
                         await db.lorebookEntries.add({
-                            ...entry,
+                            ...normalizeLorebookEntry(entry),
                             id: newEntryId,
                             storyId: newStoryId,
                             createdAt: new Date()

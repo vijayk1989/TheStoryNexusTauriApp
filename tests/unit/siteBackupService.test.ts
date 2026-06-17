@@ -39,6 +39,11 @@ describe("siteBackupService", () => {
   test("imports as new content, remaps references, and preserves AI settings on delete", async () => {
     await seedBackupGraph();
     const { backup } = await createSiteBackupPayload();
+    backup.data.lorebookEntries = backup.data.lorebookEntries.map((entry) => {
+      const legacyEntry = { ...entry, tags: entry.aliases } as any;
+      delete legacyEntry.aliases;
+      return legacyEntry;
+    });
 
     await siteBackupService.deleteAllUserContent();
 
@@ -69,6 +74,8 @@ describe("siteBackupService", () => {
     expect(importedStory?.id).not.toBe("unit-story");
     expect(importedChapter?.storyId).toBe(importedStoryId);
     expect(importedLore?.metadata?.relationships?.[0]?.targetId).not.toBe("unit-related-lore");
+    expect(importedLore?.aliases).toEqual(["unit-lore"]);
+    expect(importedLore?.tags).toEqual([]);
     expect(importedPipeline?.steps[0]?.agentPresetId).toBe(importedAgent?.id);
     expect(importedAgent?.id).not.toBe("unit-agent");
     expect(importedExecution?.pipelinePresetId).toBe(importedPipeline?.id);
@@ -161,7 +168,8 @@ async function seedBackupGraph(): Promise<void> {
           name: "Unit Lore",
           description: "Lore entry",
           category: "character",
-          tags: ["unit-lore"],
+          aliases: ["unit-lore"],
+          tags: [],
           metadata: {
             relationships: [{ targetId: "unit-related-lore", type: "knows" }],
           },
@@ -173,7 +181,8 @@ async function seedBackupGraph(): Promise<void> {
           name: "Unit Related Lore",
           description: "Related lore entry",
           category: "character",
-          tags: ["unit-related-lore"],
+          aliases: ["unit-related-lore"],
+          tags: [],
         },
       ]);
       await db.sceneBeats.add({

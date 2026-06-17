@@ -330,7 +330,9 @@ export interface LorebookEntry extends BaseEntity {
     | "synopsis"
     | "starting scenario"
     | "timeline";
-  // Tags are stored as an array of strings, can contain spaces and special characters
+  // Aliases are lookup phrases used for lore matching in chapters and SceneBeats.
+  aliases: string[];
+  // Tags are descriptive labels for filtering and organization.
   tags: string[];
   metadata?: {
     type?: string;

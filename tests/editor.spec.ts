@@ -123,6 +123,45 @@ test.describe("main Lexical editor", () => {
     expect(lastPrevious).not.toContain("Chapter 1: Chapter One");
     expect(lastPrevious).toContain("Chapter 2: Chapter Two");
   });
+
+  test("expands and collapses the Brainstorm sheet", async ({ page }) => {
+    await page.getByRole("button", { name: "Brainstorm" }).click();
+
+    const dialog = page.locator('[role="dialog"]');
+    await expect(dialog).toBeVisible();
+
+    const collapsedWidth = await getElementWidth(page, '[role="dialog"]');
+    const viewportWidth = page.viewportSize()?.width || 0;
+
+    await page.locator('[role="dialog"]').evaluate((dialog) => {
+      const wideContent = document.createElement("div");
+      wideContent.setAttribute("data-testid", "forced-wide-brainstorm-content");
+      wideContent.style.width = "2200px";
+      wideContent.style.height = "1px";
+      dialog.appendChild(wideContent);
+    });
+    await expect.poll(() => getElementWidth(page, '[role="dialog"]')).toBeLessThanOrEqual(collapsedWidth + 8);
+
+    await page.locator('button[title="Expand Brainstorm"]').click();
+    await expect(page.locator('button[title="Collapse Brainstorm"]')).toBeVisible();
+    await expect.poll(() => getElementWidth(page, '[role="dialog"]')).toBeGreaterThan(viewportWidth - 8);
+
+    await page.locator('button[title="Collapse Brainstorm"]').click();
+    await expect(page.locator('button[title="Expand Brainstorm"]')).toBeVisible();
+    await expect.poll(() => getElementWidth(page, '[role="dialog"]')).toBeLessThan(collapsedWidth + 8);
+  });
+
+  test("opens the Prompts sheet from the Brainstorm prompt selector", async ({ page }) => {
+    await page.getByRole("button", { name: "Brainstorm" }).click();
+    await expect(page.locator('[role="dialog"]').getByRole("heading", { name: "Brainstorm" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Start New Brainstorm" }).click();
+    await expect(page.getByTestId("prompt-select-brainstorm-trigger")).toBeVisible();
+    await page.getByTestId("prompt-select-brainstorm-trigger").click();
+    await page.getByTestId("prompt-select-configure-prompts").click();
+
+    await expect(page.locator('[role="dialog"]').getByRole("heading", { name: "Prompts" })).toBeVisible();
+  });
 });
 
 async function openEditor(page: Page) {
@@ -145,6 +184,10 @@ async function getEditorSnapshot(page: Page): Promise<EditorSnapshot> {
     }
     return api.getEditorSnapshot();
   });
+}
+
+async function getElementWidth(page: Page, selector: string): Promise<number> {
+  return page.locator(selector).evaluate((element) => element.getBoundingClientRect().width);
 }
 
 async function waitForEditorSnapshot(

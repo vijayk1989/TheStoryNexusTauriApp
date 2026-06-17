@@ -18,7 +18,7 @@ export default function LorebookPage() {
         entries,
         isLoading,
         error,
-        buildTagMap,
+        buildAliasMap,
         exportEntries,
         importEntries
     } = useLorebookStore();
@@ -28,10 +28,10 @@ export default function LorebookPage() {
     useEffect(() => {
         if (storyId) {
             loadEntries(storyId).then(() => {
-                buildTagMap();
+                buildAliasMap();
             });
         }
-    }, [storyId, loadEntries, buildTagMap]);
+    }, [storyId, loadEntries, buildAliasMap]);
 
     // Calculate category counts from the current entries
     const categoryCounts = entries.reduce((acc, entry) => {
@@ -68,7 +68,7 @@ export default function LorebookPage() {
                 await importEntries(content, storyId);
                 // Reload entries after import
                 await loadEntries(storyId);
-                buildTagMap();
+                buildAliasMap();
                 toast.success("Lorebook entries imported successfully");
             } catch (error) {
                 console.error("Import failed:", error);

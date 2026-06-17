@@ -393,6 +393,7 @@ async function saveLorebookEntries(storyId: string, output: string): Promise<num
             name: entry.name!,
             description: entry.description || "",
             category: normalizeLorebookCategory(entry.category),
+            aliases: entry.aliases || [],
             tags: entry.tags || [],
             metadata: entry.metadata,
             isDisabled: entry.isDisabled,
@@ -416,6 +417,7 @@ async function saveStyleEntry(storyId: string, chapterId: string, output: string
         name: chapter ? `Style - Chapter ${chapter.order}: ${chapter.title}` : "Extracted Style",
         description: output.trim(),
         category: "note",
+        aliases: [],
         tags: ["style", "voice"],
         metadata: {
             type: "style_guide",

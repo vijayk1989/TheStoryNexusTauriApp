@@ -55,7 +55,7 @@ export const processTimelineJSON = async (
                     const normalizedName = name.toLowerCase().trim();
                     const character = allCharacters.find(c => 
                         c.name.toLowerCase() === normalizedName || 
-                        c.tags.some(t => t.toLowerCase() === normalizedName)
+                        c.aliases.some(alias => alias.toLowerCase() === normalizedName)
                     );
                     
                     if (character) {
@@ -70,7 +70,8 @@ export const processTimelineJSON = async (
                 name: event.name,
                 description: event.description,
                 category: "timeline",
-                tags: [], // Keep tags empty to avoid editor autocomplete pollution
+                aliases: [],
+                tags: [],
                 metadata: {
                     chapterOrder: chapter.order,
                     participantIds: participantIds

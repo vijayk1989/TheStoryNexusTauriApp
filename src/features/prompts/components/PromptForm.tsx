@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { usePromptStore } from '../store/promptStore';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
-import type { Prompt, PromptMessage, AIModel, AllowedModel } from '@/types/story';
-import { Plus, ArrowUp, ArrowDown, Trash2, X, Star, Layers } from 'lucide-react';
+import { aiService } from '@/services/ai/AIService';
+import type { Prompt, PromptMessage, AIModel, AllowedModel, AIProvider } from '@/types/story';
+import { Plus, ArrowUp, ArrowDown, Trash2, X, Star, Layers, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -68,6 +69,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const [multiModelEnabled, setMultiModelEnabled] = useState(prompt?.multiModelEnabled || false);
     const [parallelModels, setParallelModels] = useState<AllowedModel[]>(prompt?.parallelModels || []);
     const [parallelModelSearch, setParallelModelSearch] = useState('');
+    const [isRefreshingAllModels, setIsRefreshingAllModels] = useState(false);
 
     const {
         initialize,
@@ -104,6 +106,87 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         } catch (error) {
             console.error('Error loading AI models:', error);
             toast.error('Failed to load AI models');
+        }
+    };
+
+    const getConfiguredRemoteProviders = (): AIProvider[] => {
+        const providers: AIProvider[] = [];
+
+        if (aiService.getOpenAIKey()) providers.push('openai');
+        if (aiService.getOpenRouterKey()) providers.push('openrouter');
+        if (aiService.getNanoGPTKey()) providers.push('nanogpt');
+        if (aiService.getGoogleKey()) providers.push('google');
+        if (aiService.getOpenAICompatibleKey() && aiService.getOpenAICompatibleUrl()) {
+            providers.push('openai_compatible');
+        }
+
+        return providers;
+    };
+
+    const formatProviderName = (provider: AIProvider) => {
+        switch (provider) {
+            case 'openai':
+                return 'OpenAI';
+            case 'openrouter':
+                return 'OpenRouter';
+            case 'nanogpt':
+                return 'NanoGPT';
+            case 'google':
+                return 'Google AI';
+            case 'openai_compatible':
+                return 'OpenAI-compatible';
+            case 'local':
+                return 'Local';
+            default:
+                return provider;
+        }
+    };
+
+    const handleRefreshAllModels = async () => {
+        setIsRefreshingAllModels(true);
+        try {
+            if (!isInitialized) {
+                await initialize();
+            }
+
+            // Sync service settings from IndexedDB before checking configured keys.
+            await getAvailableModels(undefined, false);
+
+            const providers = getConfiguredRemoteProviders();
+            if (providers.length === 0) {
+                toast.info('No configured remote AI providers found');
+                return;
+            }
+
+            const results = await Promise.allSettled(
+                providers.map(async (provider) => {
+                    const models = await getAvailableModels(provider, true);
+                    return { provider, count: models.length };
+                })
+            );
+
+            const refreshedModels = await getAvailableModels(undefined, false);
+            setAvailableModels(refreshedModels);
+
+            const succeeded = results
+                .filter((result): result is PromiseFulfilledResult<{ provider: AIProvider; count: number }> => result.status === 'fulfilled')
+                .map((result) => result.value);
+            const failed = results
+                .map((result, index) => result.status === 'rejected' ? providers[index] : null)
+                .filter((provider): provider is AIProvider => provider !== null);
+
+            if (failed.length === 0) {
+                toast.success(`Refreshed ${succeeded.length} provider${succeeded.length === 1 ? '' : 's'}`);
+            } else if (succeeded.length > 0) {
+                toast.warning(`Refreshed ${succeeded.length} provider${succeeded.length === 1 ? '' : 's'}; failed: ${failed.map(formatProviderName).join(', ')}`);
+            } else {
+                toast.error(`Failed to refresh: ${failed.map(formatProviderName).join(', ')}`);
+            }
+        } catch (error) {
+            console.error('Failed to refresh all models:', error);
+            toast.error(error instanceof Error ? error.message : 'Failed to refresh models');
+        } finally {
+            setIsRefreshingAllModels(false);
         }
     };
 
@@ -439,17 +522,29 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             </div>}
 
             {!isImagePrompt && <div className="border-t border-input pt-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="font-medium">Available Models</h3>
-                    <div className="flex items-center gap-2">
-                        <Label htmlFor="show-provider" className="text-sm font-normal cursor-pointer">
-                            Show provider labels
-                        </Label>
-                        <Switch
-                            id="show-provider"
-                            checked={showProviderLabels}
-                            onCheckedChange={setShowProviderLabels}
-                        />
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRefreshAllModels}
+                            disabled={isRefreshingAllModels || isAILoading}
+                        >
+                            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshingAllModels ? 'animate-spin' : ''}`} />
+                            Refresh all
+                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="show-provider" className="text-sm font-normal cursor-pointer">
+                                Show provider labels
+                            </Label>
+                            <Switch
+                                id="show-provider"
+                                checked={showProviderLabels}
+                                onCheckedChange={setShowProviderLabels}
+                            />
+                        </div>
                     </div>
                 </div>
 

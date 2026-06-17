@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit, Bot, Activity, Download, RefreshCw, Globe, Save } from "lucide-react";
+import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit, Bot, Activity, Download, RefreshCw, Globe, Save, Pencil } from "lucide-react";
 import { aiService } from "@/services/ai/AIService";
 import { executeTavilySearch } from "@/services/ai/tools";
 import {
@@ -12,10 +12,17 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PromptSelectMenu } from "@/components/ui/prompt-select-menu";
 import { PromptPreviewDialog } from "@/components/ui/prompt-preview-dialog";
+import { PromptForm } from "@/features/prompts/components/PromptForm";
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
 import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
@@ -60,9 +67,10 @@ import {
 
 interface ChatInterfaceProps {
   storyId: string;
+  onConfigurePrompts?: () => void;
 }
 
-export default function ChatInterface({ storyId }: ChatInterfaceProps) {
+export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInterfaceProps) {
   // State for chat
   const [input, setInput] = useState(
     useBrainstormStore.getState().draftMessage
@@ -88,6 +96,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
 
   // State for prompt preview
   const [showPreview, setShowPreview] = useState(false);
+  const [showEditPromptDialog, setShowEditPromptDialog] = useState(false);
   const [previewMessages, setPreviewMessages] = useState<
     PromptMessage[] | undefined
   >(undefined);
@@ -107,8 +116,8 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   const [showAgenticProgress, setShowAgenticProgress] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
-  // Web search state
-  const [enableWebSearch, setEnableWebSearch] = useState(false);
+  // Web search is temporarily disabled while the integration is repaired.
+  const enableWebSearch = false;
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [structuredOutputMode, setStructuredOutputMode] = useState<BrainstormOutputMode>("normal");
 
@@ -428,7 +437,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
   };
 
   // One-click lorebook template insertion
-  const LOREBOOK_TEMPLATE = `Please produce exactly one JSON object (or an array of objects) inside a \`\`\`json\ncode block only. Do NOT include any surrounding explanation or commentary. Each object should include at least a \"name\" field (string). Optional fields: \"description\" (string), \"tags\" (array of strings), \"category\" (one of [\"character\",\"location\",\"item\",\"event\",\"note\",\"synopsis\",\"starting scenario\",\"timeline\"]), \"metadata\" (object), and \"isDisabled\" (boolean).\n\nExample:\n{\n  \"name\": \"Elandra, Crowned Hunter\",\n  \"description\": \"A skilled tracker and ruler of the northern woodlands.\",\n  \"tags\": [\"ranger\", \"royalty\"],\n  \"category\": \"character\",\n  \"metadata\": { \"importance\": \"major\", \"status\": \"active\" }\n}\n\nReturn only the JSON inside the fenced code block.`;
+  const LOREBOOK_TEMPLATE = `Please produce exactly one JSON object (or an array of objects) inside a \`\`\`json\ncode block only. Do NOT include any surrounding explanation or commentary. Each object should include at least a \"name\" field (string). Optional fields: \"description\" (string), \"aliases\" (array of lookup names and phrases), \"tags\" (array of descriptive labels), \"category\" (one of [\"character\",\"location\",\"item\",\"event\",\"note\",\"synopsis\",\"starting scenario\",\"timeline\"]), \"metadata\" (object), and \"isDisabled\" (boolean).\n\nExample:\n{\n  \"name\": \"Elandra, Crowned Hunter\",\n  \"description\": \"A skilled tracker and ruler of the northern woodlands.\",\n  \"aliases\": [\"Elandra\", \"Crowned Hunter\"],\n  \"tags\": [\"ranger\", \"royalty\"],\n  \"category\": \"character\",\n  \"metadata\": { \"importance\": \"major\", \"status\": \"active\" }\n}\n\nAliases are lookup names or phrases used to match this entry in prose. Tags are descriptive labels for organization.\n\nReturn only the JSON inside the fenced code block.`;
 
   const insertLorebookTemplate = () => {
     // Append the template to existing input rather than replacing it
@@ -797,6 +806,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         await useLorebookStore.getState().createEntry({
           ...item,
           storyId,
+          aliases: item.aliases || [],
           tags: item.tags || [],
           description: item.description || '',
           category: (item.category as any) || 'note',
@@ -1606,9 +1616,9 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
       <div className="border-t p-4">
         <div className="flex flex-col gap-2">
           {/* Agentic mode toggle and pipeline selector */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 mb-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="flex items-center gap-2 min-h-9">
                 <Bot className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Agentic Mode</span>
                 <Switch
@@ -1617,21 +1627,11 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                   className="data-[state=checked]:bg-primary"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Web Search</span>
-                <Switch
-                  checked={enableWebSearch}
-                  onCheckedChange={setEnableWebSearch}
-                  className="data-[state=checked]:bg-primary"
-                  disabled={agenticMode}
-                />
-              </div>
               <Select
                 value={structuredOutputMode}
                 onValueChange={(value) => setStructuredOutputMode(value as BrainstormOutputMode)}
               >
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Output" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1650,7 +1650,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                     setSelectedPipeline(pipeline || null);
                   }}
                 >
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-full sm:w-48">
                     <SelectValue placeholder="Select pipeline" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1668,7 +1668,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDiagnostics(!showDiagnostics)}
-                className={cn(showDiagnostics && "bg-muted")}
+                className={cn("w-full sm:w-auto", showDiagnostics && "bg-muted")}
               >
                 <Activity className="h-4 w-4 mr-1" />
                 Diagnostics
@@ -1740,20 +1740,24 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
               }}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-start">
             {!agenticMode && (
-              <PromptSelectMenu
-                isLoading={promptsLoading}
-                error={promptsError}
-                prompts={prompts}
-                promptType="brainstorm"
-                selectedPrompt={selectedPrompt}
-                selectedModel={selectedModel}
-                onSelect={handlePromptSelect}
-              />
+              <div className="min-w-0 sm:w-44">
+                <PromptSelectMenu
+                  isLoading={promptsLoading}
+                  error={promptsError}
+                  prompts={prompts}
+                  promptType="brainstorm"
+                  selectedPrompt={selectedPrompt}
+                  selectedModel={selectedModel}
+                  onSelect={handlePromptSelect}
+                  onConfigurePrompts={onConfigurePrompts}
+                  className="w-full"
+                />
+              </div>
             )}
             {/* Small Select dropdown to insert helper templates */}
-            <div className="ml-2">
+            <div className="min-w-0 sm:w-44">
               <Select
                 onValueChange={(value) => {
                   try {
@@ -1785,7 +1789,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                 }}
                 value=""
               >
-                <SelectTrigger className="w-44" data-template-select="true">
+                <SelectTrigger className="w-full" data-template-select="true">
                   <SelectValue placeholder="Insert..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -1841,12 +1845,25 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                   variant="outline"
                   size="sm"
                   onClick={handlePreviewPrompt}
+                  className="w-full sm:w-auto"
                 >
-                  Preview Prompt
+                  <span className="hidden sm:inline">Preview Prompt</span>
+                  <span className="sm:hidden">Preview</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditPromptDialog(true)}
+                  title="Edit this prompt"
+                  className="w-full sm:w-auto"
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Edit Prompt</span>
+                  <span className="sm:hidden">Edit</span>
                 </Button>
               </>
             )}
-            <div className="flex gap-2">
+            <div className="flex gap-2 sm:ml-auto">
               {isGenerating || isAgenticGenerating ? (
                 <Button
                   variant="destructive"
@@ -1858,7 +1875,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                       abortGeneration();
                     }
                   }}
-                  className="mb-[3px]"
+                  className="w-full mb-[3px] sm:w-auto"
                 >
                   <Square className="h-4 w-4 mr-2" />
                   Stop
@@ -1877,7 +1894,7 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
                       handleSubmit(e);
                     }
                   }}
-                  className="mb-[3px]"
+                  className="w-full mb-[3px] sm:w-auto"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -1895,6 +1912,34 @@ export default function ChatInterface({ storyId }: ChatInterfaceProps) {
         isLoading={previewLoading}
         error={previewError}
       />
+      <Dialog open={showEditPromptDialog} onOpenChange={setShowEditPromptDialog}>
+        <DialogContent
+          className="sm:max-w-[800px] max-h-[85vh] overflow-y-auto"
+          onPointerDownCapture={(event) => event.stopPropagation()}
+          onPointerUpCapture={(event) => event.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle>Edit Prompt: {selectedPrompt?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedPrompt && (
+            <PromptForm
+              prompt={selectedPrompt}
+              onSave={async () => {
+                setShowEditPromptDialog(false);
+                await fetchPrompts();
+                const updatedPrompt = usePromptStore.getState().prompts.find(
+                  (prompt) => prompt.id === selectedPrompt.id
+                );
+                if (updatedPrompt) {
+                  setSelectedPrompt(updatedPrompt);
+                }
+                toast.success("Prompt updated");
+              }}
+              onCancel={() => setShowEditPromptDialog(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
       {/* Create Entry Dialog used when extracting a single parsed entry */}
       <CreateEntryDialog
         open={createDialogOpen}

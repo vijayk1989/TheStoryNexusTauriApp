@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import { db } from '@/services/database';
 import type { LorebookEntry } from '@/types/story';
+import { normalizeLorebookEntry, normalizeLorebookEntries } from '../utils/lorebookEntryNormalization';
 
 interface LorebookState {
     entries: LorebookEntry[];
     isLoading: boolean;
     error: string | null;
-    tagMap: Record<string, LorebookEntry>;
-    buildTagMap: () => void;
+    aliasMap: Record<string, LorebookEntry>;
+    buildAliasMap: () => void;
     editorContent: string;
     setEditorContent: (content: string) => void;
     matchedEntries: Map<string, LorebookEntry>;
@@ -20,9 +21,10 @@ interface LorebookState {
     createEntry: (entry: Omit<LorebookEntry, 'id' | 'createdAt'>) => Promise<void>;
     updateEntry: (id: string, data: Partial<LorebookEntry>) => Promise<void>;
     deleteEntry: (id: string) => Promise<void>;
-    updateEntryAndRebuildTags: (id: string, data: Partial<LorebookEntry>) => Promise<void>;
+    updateEntryAndRebuildAliases: (id: string, data: Partial<LorebookEntry>) => Promise<void>;
 
     // Queries
+    getEntriesByAlias: (alias: string) => LorebookEntry[];
     getEntriesByTag: (tag: string) => LorebookEntry[];
     getEntriesByCategory: (category: LorebookEntry['category']) => LorebookEntry[];
     getFilteredEntries: (includeDisabled?: boolean) => LorebookEntry[];
@@ -53,52 +55,45 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
     entries: [],
     isLoading: false,
     error: null,
-    tagMap: {},
+    aliasMap: {},
     editorContent: '',
     matchedEntries: new Map(),
     chapterMatchedEntries: new Map(),
 
-    buildTagMap: () => {
+    buildAliasMap: () => {
         const { entries } = get();
-        const newTagMap: Record<string, LorebookEntry> = {};
+        const newAliasMap: Record<string, LorebookEntry> = {};
 
         entries.forEach(entry => {
-            // Skip disabled entries when building the tag map
             if (entry.isDisabled) return;
 
-            // Add the entry name as a tag (normalized to lowercase for case-insensitive matching)
             const normalizedName = entry.name.toLowerCase().trim();
-            newTagMap[normalizedName] = entry;
+            newAliasMap[normalizedName] = entry;
 
-            // Process the explicit tags
-            entry.tags.forEach(tag => {
-                // Add the full tag
-                const normalizedTag = tag.toLowerCase().trim();
-                newTagMap[normalizedTag] = entry;
+            entry.aliases.forEach(alias => {
+                const normalizedAlias = alias.toLowerCase().trim();
+                newAliasMap[normalizedAlias] = entry;
 
-                // If this tag is a single word, we're done
-                if (!normalizedTag.includes(' ')) {
+                if (!normalizedAlias.includes(' ')) {
                     return;
                 }
 
-                // For multi-word tags, add individual words only if they're also standalone tags
-                const words = normalizedTag.split(' ');
+                const words = normalizedAlias.split(' ');
                 words.forEach(word => {
-                    // Only add individual words if they exist as standalone tags
-                    if (entry.tags.some(t => t.toLowerCase() === word)) {
-                        newTagMap[word] = entry;
+                    if (entry.aliases.some(aliasValue => aliasValue.toLowerCase() === word)) {
+                        newAliasMap[word] = entry;
                     }
                 });
             });
         });
 
-        set({ tagMap: newTagMap });
+        set({ aliasMap: newAliasMap });
     },
 
     loadEntries: async (storyId: string) => {
         set({ isLoading: true, error: null });
         try {
-            const entries = await db.getLorebookEntriesByStory(storyId);
+            const entries = normalizeLorebookEntries(await db.getLorebookEntriesByStory(storyId));
             set({ entries, isLoading: false });
         } catch (error) {
             set({ error: (error as Error).message, isLoading: false });
@@ -109,7 +104,7 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         try {
             const id = crypto.randomUUID();
             const newEntry: LorebookEntry = {
-                ...entryData,
+                ...normalizeLorebookEntry(entryData),
                 id,
                 createdAt: new Date(),
                 isDisabled: false, // Set isDisabled to false by default
@@ -117,7 +112,7 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
 
             await db.lorebookEntries.add(newEntry);
             set(state => ({ entries: [...state.entries, newEntry] }));
-            get().buildTagMap();
+            get().buildAliasMap();
         } catch (error) {
             set({ error: (error as Error).message });
             throw error;
@@ -126,13 +121,25 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
 
     updateEntry: async (id, data) => {
         try {
-            await db.lorebookEntries.update(id, data);
-            set(state => ({
-                entries: state.entries.map(entry =>
-                    entry.id === id ? { ...entry, ...data } : entry
-                ),
-            }));
-            get().buildTagMap();
+            const existingEntry = get().entries.find(entry => entry.id === id) || await db.lorebookEntries.get(id);
+            if (existingEntry) {
+                const normalizedEntry = normalizeLorebookEntry({ ...existingEntry, ...data }) as LorebookEntry;
+                await db.lorebookEntries.put(normalizedEntry);
+                set(state => ({
+                    entries: state.entries.map(entry =>
+                        entry.id === id ? normalizeLorebookEntry({ ...entry, ...normalizedEntry }) : entry
+                    ),
+                }));
+            } else {
+                const normalizedEntry = normalizeLorebookEntry(data);
+                await db.lorebookEntries.update(id, normalizedEntry);
+                set(state => ({
+                    entries: state.entries.map(entry =>
+                        entry.id === id ? normalizeLorebookEntry({ ...entry, ...normalizedEntry }) : entry
+                    ),
+                }));
+            }
+            get().buildAliasMap();
         } catch (error) {
             set({ error: (error as Error).message });
             throw error;
@@ -145,11 +152,19 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
             set(state => ({
                 entries: state.entries.filter(entry => entry.id !== id),
             }));
-            get().buildTagMap();
+            get().buildAliasMap();
         } catch (error) {
             set({ error: (error as Error).message });
             throw error;
         }
+    },
+
+    getEntriesByAlias: (alias: string) => {
+        const { entries } = get();
+        return entries.filter(entry =>
+            !entry.isDisabled &&
+            entry.aliases.some(entryAlias => entryAlias.toLowerCase() === alias.toLowerCase())
+        );
     },
 
     getEntriesByTag: (tag: string) => {
@@ -179,16 +194,27 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
     },
 
     // New combined action
-    updateEntryAndRebuildTags: async (id, data) => {
+    updateEntryAndRebuildAliases: async (id, data) => {
         try {
-            await db.lorebookEntries.update(id, data);
-            set(state => ({
-                entries: state.entries.map(entry =>
-                    entry.id === id ? { ...entry, ...data } : entry
-                ),
-            }));
-            // Rebuild tags after updating entry
-            get().buildTagMap();
+            const existingEntry = get().entries.find(entry => entry.id === id) || await db.lorebookEntries.get(id);
+            if (existingEntry) {
+                const normalizedEntry = normalizeLorebookEntry({ ...existingEntry, ...data }) as LorebookEntry;
+                await db.lorebookEntries.put(normalizedEntry);
+                set(state => ({
+                    entries: state.entries.map(entry =>
+                        entry.id === id ? normalizeLorebookEntry({ ...entry, ...normalizedEntry }) : entry
+                    ),
+                }));
+            } else {
+                const normalizedEntry = normalizeLorebookEntry(data);
+                await db.lorebookEntries.update(id, normalizedEntry);
+                set(state => ({
+                    entries: state.entries.map(entry =>
+                        entry.id === id ? normalizeLorebookEntry({ ...entry, ...normalizedEntry }) : entry
+                    ),
+                }));
+            }
+            get().buildAliasMap();
         } catch (error) {
             set({ error: (error as Error).message });
             throw error;
@@ -322,7 +348,7 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
     // Export lorebook entries
     exportEntries: (storyId: string) => {
         const { entries } = get();
-        const storyEntries = entries.filter(entry => entry.storyId === storyId);
+        const storyEntries = entries.filter(entry => entry.storyId === storyId).map(normalizeLorebookEntry);
 
         // Create a JSON file
         const dataStr = JSON.stringify({
@@ -358,7 +384,7 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
 
                 // Create a new entry with the target storyId
                 const newEntry: LorebookEntry = {
-                    ...entry,
+                    ...normalizeLorebookEntry(entry),
                     id: newId,
                     storyId: targetStoryId,
                     createdAt: new Date()
@@ -371,8 +397,7 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
             // Reload entries after import
             await get().loadEntries(targetStoryId);
 
-            // Rebuild tag map
-            get().buildTagMap();
+            get().buildAliasMap();
 
         } catch (error) {
             console.error("Import failed:", error);

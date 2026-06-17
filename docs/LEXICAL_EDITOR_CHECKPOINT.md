@@ -28,8 +28,8 @@ This checkpoint records the current state after the clean editor migration and t
 
 ## Recent Fixes
 
-- SceneBeat matched tags now show inline in the SceneBeat node without opening a duplicate dialog.
-- Matched tags were removed from the right rail because SceneBeat owns that display now.
+- SceneBeat matched aliases now show inline in the SceneBeat node without opening a duplicate dialog.
+- Matched aliases were removed from the right rail because SceneBeat owns that display now.
 - The top toolbar is sticky.
 - The inert Save button was removed from the toolbar; autosave status remains.
 - Chapter POV editing was renamed to Edit POV and moved to a sheet.

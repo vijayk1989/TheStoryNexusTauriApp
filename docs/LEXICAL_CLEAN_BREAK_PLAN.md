@@ -290,8 +290,8 @@ Bring over the current lorebook tag highlighting/matching only after the editor 
 Keep it intentionally thin because you already want to rework it later:
 
 - detect current story/chapter context
-- highlight matched tags
-- preserve current matched tags side-panel behavior if needed
+- highlight matched aliases
+- preserve current matched aliases side-panel behavior if needed
 
 ### Phase 7: Swap Editor Entry Point
 

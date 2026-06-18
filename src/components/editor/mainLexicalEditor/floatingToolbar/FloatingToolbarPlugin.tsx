@@ -33,6 +33,7 @@ import {
     Italic,
     Loader2,
     MessageSquare,
+    Square,
     Underline,
     Wand2,
 } from "lucide-react";
@@ -303,6 +304,16 @@ function TextFormatFloatingToolbar({
                                 <div className="flex items-center gap-2">
                                     <Loader2 className="h-3 w-3 animate-spin" />
                                     <span>Generating...</span>
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={ai.handleAbortGeneration}
+                                        className="h-7 gap-1 px-2"
+                                        title="Stop generation"
+                                    >
+                                        <Square className="h-3 w-3" />
+                                        <span>Stop</span>
+                                    </Button>
                                 </div>
                             )}
                         </div>

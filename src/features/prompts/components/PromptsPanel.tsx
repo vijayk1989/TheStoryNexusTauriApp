@@ -51,8 +51,8 @@ export function PromptsPanel() {
         return acc;
     }, {});
 
-    const toggleGroup = (type: string) => {
-        setOpenGroups(prev => ({ ...prev, [type]: !prev[type] }));
+    const setGroupOpen = (type: string, open: boolean) => {
+        setOpenGroups(prev => ({ ...prev, [type]: open }));
     };
 
     const handleSave = () => {
@@ -107,16 +107,19 @@ export function PromptsPanel() {
             )}
 
             {/* Grouped Prompt List */}
-            {Object.entries(grouped).map(([type, typePrompts]) => (
+            {Object.entries(grouped).map(([type, typePrompts]) => {
+                const isOpen = openGroups[type] ?? typePrompts.length <= 3;
+
+                return (
                 <Collapsible
                     key={type}
-                    open={openGroups[type] !== false} // default open
-                    onOpenChange={() => toggleGroup(type)}
+                    open={isOpen}
+                    onOpenChange={(open) => setGroupOpen(type, open)}
                 >
                     <CollapsibleTrigger className="flex items-center gap-2 w-full text-left py-1.5 px-2 rounded-md hover:bg-muted/50 transition-colors">
                         <ChevronRight className={cn(
                             "h-3.5 w-3.5 transition-transform flex-shrink-0",
-                            openGroups[type] !== false && "rotate-90"
+                            isOpen && "rotate-90"
                         )} />
                         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             {PROMPT_TYPE_LABELS[type] || type}
@@ -142,7 +145,8 @@ export function PromptsPanel() {
                         ))}
                     </CollapsibleContent>
                 </Collapsible>
-            ))}
+                );
+            })}
 
             {prompts.length === 0 && !showNewForm && (
                 <div className="text-center py-8 text-muted-foreground text-sm">

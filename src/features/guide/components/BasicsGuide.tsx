@@ -2,16 +2,13 @@ import type React from "react";
 import {
     Bot,
     BookOpen,
-    CheckCircle2,
     FilePlus,
     PanelRightOpen,
     PenLine,
     Save,
-    ScrollText,
     Settings,
     Sparkles,
 } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function BasicsGuide() {
     return (
@@ -97,39 +94,46 @@ export default function BasicsGuide() {
 
                 <GuideStep
                     number="5"
-                    icon={<ScrollText className="h-5 w-5 text-primary" />}
-                    title="Set Prompt Defaults"
+                    icon={<Sparkles className="h-5 w-5 text-primary" />}
+                    title="Generate Prose"
                 >
-                    <p>
-                        Open <strong>Prompt Defaults</strong> from the right tool rail. Defaults let Scene Beats, Brainstorm, and new Agents start with useful prompt and model selections.
-                    </p>
-                    <Alert>
-                        <CheckCircle2 className="h-4 w-4" />
-                        <AlertTitle>Recommended</AlertTitle>
-                        <AlertDescription>
-                            Enable defaults once your models are configured. The app will prefer OpenRouter Gemma when available and fall back to a local model when needed.
-                        </AlertDescription>
-                    </Alert>
+                    <div className="space-y-5">
+                        <div className="space-y-3">
+                            <h4 className="font-medium">Scene Beats</h4>
+                            <p>
+                                Scene Beats are inline instructions for AI prose generation. Insert one in the editor, describe what should happen, choose a prompt/model or agentic pipeline, and generate.
+                            </p>
+                            <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
+                                <li>Add a Scene Beat in the editor.</li>
+                                <li>Write a specific instruction, such as a character reaction, conflict beat, or transition.</li>
+                                <li>Choose normal generation, multi-model comparison, or Agentic Mode.</li>
+                                <li>Accept the generated prose when it fits, or reject and revise the instruction.</li>
+                            </ol>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <div className="h-px flex-1 bg-border" />
+                            Or
+                            <div className="h-px flex-1 bg-border" />
+                        </div>
+
+                        <div className="space-y-3">
+                            <h4 className="font-medium">Simple Write</h4>
+                            <p>
+                                Simple Write continues from the cursor without adding an inline instruction block. Use it when the next sentence or paragraph is already clear and you want to keep drafting.
+                            </p>
+                            <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
+                                <li>Place the cursor where new prose should appear.</li>
+                                <li>Click <strong>Write</strong> in the editor toolbar.</li>
+                                <li>Let the text stream into the chapter, or click <strong>Stop</strong> to keep what has already appeared.</li>
+                                <li>Open Simple Write from the tool rail to change its prompt, model, or after-cursor context behavior.</li>
+                            </ol>
+                        </div>
+                    </div>
                 </GuideStep>
 
                 <GuideStep
                     number="6"
-                    icon={<Sparkles className="h-5 w-5 text-primary" />}
-                    title="Generate With Scene Beats"
-                >
-                    <p>
-                        Scene Beats are inline instructions for AI prose generation. Insert one in the editor, describe what should happen, choose a prompt/model or agentic pipeline, and generate.
-                    </p>
-                    <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
-                        <li>Add a Scene Beat in the editor.</li>
-                        <li>Write a specific instruction, such as a character reaction, conflict beat, or transition.</li>
-                        <li>Choose normal generation, multi-model comparison, or Agentic Mode.</li>
-                        <li>Accept the generated prose when it fits, or reject and revise the instruction.</li>
-                    </ol>
-                </GuideStep>
-
-                <GuideStep
-                    number="7"
                     icon={<PanelRightOpen className="h-5 w-5 text-primary" />}
                     title="Use The Right Tool Rail"
                 >

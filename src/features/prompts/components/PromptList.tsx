@@ -25,6 +25,17 @@ const getPromptTypeLabel = (type: Prompt['promptType']) => {
     return labels[type];
 };
 
+// Define order for prompt types to display
+const promptTypeOrder: Prompt['promptType'][] = [
+    'scene_beat',
+    'image_gen',
+    'continue_writing',
+    'selection_specific',
+    'gen_summary',
+    'brainstorm',
+    'other'
+];
+
 export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }: PromptsListProps) {
     const { prompts, fetchPrompts, deletePrompt, clonePrompt, isLoading, error } = usePromptStore();
     // Track which groups are expanded (default all expanded)
@@ -37,21 +48,15 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
         });
     }, [fetchPrompts]);
 
-    // Initialize all groups as expanded when prompts are loaded
-    useEffect(() => {
-        if (prompts.length > 0) {
-            const initialExpandState: Record<string, boolean> = {};
-            promptTypeOrder.forEach(type => {
-                initialExpandState[type] = true;
-            });
-            setExpandedGroups(initialExpandState);
-        }
-    }, [prompts.length]);
+    const getDefaultExpanded = (promptType: Prompt['promptType']) => {
+        const count = prompts.filter(prompt => prompt.promptType === promptType).length;
+        return count <= 3;
+    };
 
-    const toggleGroup = (promptType: string) => {
+    const toggleGroup = (promptType: Prompt['promptType']) => {
         setExpandedGroups(prev => ({
             ...prev,
-            [promptType]: !prev[promptType]
+            [promptType]: !(prev[promptType] ?? getDefaultExpanded(promptType))
         }));
     };
 
@@ -111,24 +116,13 @@ export function PromptsList({ onPromptSelect, selectedPromptId, onPromptDelete }
         return acc;
     }, {} as Record<Prompt['promptType'], Prompt[]>);
 
-    // Define order for prompt types to display
-    const promptTypeOrder: Prompt['promptType'][] = [
-        'scene_beat',
-        'image_gen',
-        'continue_writing',
-        'selection_specific',
-        'gen_summary',
-        'brainstorm',
-        'other'
-    ];
-
     return (
         <div className="h-full overflow-auto">
             {promptTypeOrder.map(promptType => {
                 const promptsInGroup = groupedPrompts[promptType] || [];
                 if (promptsInGroup.length === 0) return null;
 
-                const isExpanded = expandedGroups[promptType] ?? true;
+                const isExpanded = expandedGroups[promptType] ?? promptsInGroup.length <= 3;
 
                 return (
                     <div key={promptType} className="mb-2">

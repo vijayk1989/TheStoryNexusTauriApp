@@ -11,6 +11,7 @@ import {
     ChevronDown,
     ChevronUp,
     Loader2,
+    Square,
     Wand2,
     X,
 } from "lucide-react";
@@ -130,6 +131,18 @@ export function CustomRewritePanel({ ai, onClose }: CustomRewritePanelProps): JS
                             </>
                         )}
                     </Button>
+                    {ai.isGenerating && (
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={ai.handleAbortGeneration}
+                            className="flex items-center justify-center gap-1"
+                            title="Stop generation"
+                        >
+                            <Square className="h-3 w-3" />
+                            <span>Stop</span>
+                        </Button>
+                    )}
                 </div>
             )}
 

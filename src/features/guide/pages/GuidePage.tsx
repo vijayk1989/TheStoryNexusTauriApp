@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import BasicsGuide from "../components/BasicsGuide";
-import AdvancedGuide from "../components/AdvancedGuide";
 import LorebookGuide from "../components/LorebookGuide";
 import PromptGuide from "../components/PromptGuide";
 import BrainstormGuide from "../components/BrainstormGuide";
-import AgenticGuide from "../components/AgenticGuide";
+import SimpleWriteGuide from "../components/SimpleWriteGuide";
+import AgenticGuideTabs from "../components/AgenticGuideTabs";
 
 export default function GuidePage() {
     const [activeTab, setActiveTab] = useState("basics");
@@ -38,7 +38,7 @@ export default function GuidePage() {
                         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
                             <TabsList className="inline-flex w-max md:grid md:grid-cols-6 md:w-full mb-6 md:mb-8">
                                 <TabsTrigger value="basics" className="whitespace-nowrap">Basics</TabsTrigger>
-                                <TabsTrigger value="advanced" className="whitespace-nowrap">Advanced</TabsTrigger>
+                                <TabsTrigger value="simple-write" className="whitespace-nowrap">Simple Write</TabsTrigger>
                                 <TabsTrigger value="lorebook" className="whitespace-nowrap">Lorebook</TabsTrigger>
                                 <TabsTrigger value="prompts" className="whitespace-nowrap">Prompts</TabsTrigger>
                                 <TabsTrigger value="agentic" className="whitespace-nowrap">Agentic AI</TabsTrigger>
@@ -50,8 +50,8 @@ export default function GuidePage() {
                             <BasicsGuide />
                         </TabsContent>
 
-                        <TabsContent value="advanced" className="space-y-4">
-                            <AdvancedGuide />
+                        <TabsContent value="simple-write" className="space-y-4">
+                            <SimpleWriteGuide />
                         </TabsContent>
 
                         <TabsContent value="lorebook" className="space-y-4">
@@ -63,7 +63,7 @@ export default function GuidePage() {
                         </TabsContent>
 
                         <TabsContent value="agentic" className="space-y-4">
-                            <AgenticGuide />
+                            <AgenticGuideTabs />
                         </TabsContent>
 
                         <TabsContent value="brainstorm" className="space-y-4">

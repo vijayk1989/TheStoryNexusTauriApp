@@ -17,11 +17,11 @@ import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
 import { AgentsManager } from "@/features/agents/components/AgentsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BasicsGuide from "@/features/guide/components/BasicsGuide";
-import AdvancedGuide from "@/features/guide/components/AdvancedGuide";
 import LorebookGuide from "@/features/guide/components/LorebookGuide";
 import PromptGuide from "@/features/guide/components/PromptGuide";
 import BrainstormGuide from "@/features/guide/components/BrainstormGuide";
-import AgenticGuide from "@/features/guide/components/AgenticGuide";
+import AgenticGuideTabs from "@/features/guide/components/AgenticGuideTabs";
+import SimpleWriteGuide from "@/features/guide/components/SimpleWriteGuide";
 import {
     Sheet,
     SheetContent,
@@ -473,7 +473,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                             <div className="overflow-x-auto -mx-2 px-2">
                                 <TabsList className="inline-flex w-max mb-4">
                                     <TabsTrigger value="basics" className="text-xs">Basics</TabsTrigger>
-                                    <TabsTrigger value="advanced" className="text-xs">Advanced</TabsTrigger>
+                                    <TabsTrigger value="simple-write" className="text-xs">Simple Write</TabsTrigger>
                                     <TabsTrigger value="lorebook" className="text-xs">Lorebook</TabsTrigger>
                                     <TabsTrigger value="prompts" className="text-xs">Prompts</TabsTrigger>
                                     <TabsTrigger value="agentic" className="text-xs">Agentic</TabsTrigger>
@@ -481,10 +481,10 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                                 </TabsList>
                             </div>
                             <TabsContent value="basics"><BasicsGuide /></TabsContent>
-                            <TabsContent value="advanced"><AdvancedGuide /></TabsContent>
+                            <TabsContent value="simple-write"><SimpleWriteGuide /></TabsContent>
                             <TabsContent value="lorebook"><LorebookGuide /></TabsContent>
                             <TabsContent value="prompts"><PromptGuide /></TabsContent>
-                            <TabsContent value="agentic"><AgenticGuide /></TabsContent>
+                            <TabsContent value="agentic"><AgenticGuideTabs /></TabsContent>
                             <TabsContent value="brainstorm"><BrainstormGuide /></TabsContent>
                         </Tabs>
                     </div>

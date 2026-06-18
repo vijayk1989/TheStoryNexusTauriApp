@@ -36,7 +36,7 @@ export function useSelectionAiRewrite() {
     const [editor] = useLexicalComposerContext();
     const { currentStoryId, currentChapterId } = useStoryContext();
     const { prompts, fetchPrompts, isLoading, error } = usePromptStore();
-    const { generateWithPrompt, processStreamedResponse } = useAIStore();
+    const { generateWithPrompt, processStreamedResponse, abortGeneration } = useAIStore();
     const { currentStory } = useStoryStore();
     const { currentChapter } = useChapterStore();
     const { entries } = useLorebookStore();
@@ -401,6 +401,10 @@ export function useSelectionAiRewrite() {
         }
     }, [buildConfig, customInstruction, customSelectedPrompt, savedSelectionText, showInlinePreview]);
 
+    const handleAbortGeneration = useCallback(() => {
+        abortGeneration();
+    }, [abortGeneration]);
+
     // ── accept / reject ───────────────────────────────────────
 
     const handleAcceptRewrite = useCallback(() => {
@@ -511,6 +515,7 @@ export function useSelectionAiRewrite() {
 
         // generation state
         isGenerating,
+        handleAbortGeneration,
         savedSelectionText,
         rewrittenText,
         showConfirmation,

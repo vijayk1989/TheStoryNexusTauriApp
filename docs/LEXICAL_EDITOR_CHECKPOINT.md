@@ -35,7 +35,7 @@ This checkpoint records the current state after the clean editor migration and t
 - Chapter POV editing was renamed to Edit POV and moved to a sheet.
 - Prompt model picker scrollbars were cleaned up, and mouse wheel scrolling was fixed in the prompt model list.
 - Prompt selector and multi-model chips received contrast/readability fixes.
-- Seeded Iron Salt content now splits Markdown paragraphs correctly with Windows line endings.
+- Seeded example story content now splits Markdown paragraphs correctly with Windows line endings.
 - Existing demo seed chapters are repaired on startup when their stored text still matches the seed and has the old malformed paragraph shape.
 - Backspace from an empty paragraph immediately after a SceneBeat removes the SceneBeat and preserves a visible editor selection.
 
@@ -45,7 +45,7 @@ The app was tested against the existing dev server at `http://127.0.0.1:1420/`.
 
 Verified manually/in browser:
 
-- Iron Salt no longer loads Chapter One as one enormous paragraph.
+- The seeded example story no longer loads Chapter One as one enormous paragraph.
 - Enter behavior in the repaired seeded story no longer exhibits the original giant-paragraph cursor issue.
 - The SceneBeat empty-paragraph Backspace bug was reproduced before the fix, then manually confirmed resolved afterward.
 
@@ -63,7 +63,7 @@ Browser automation for Lexical caret placement is brittle. DOM snapshots can con
 
 Recommended first tests:
 
-- Load seeded Iron Salt and assert it produces many paragraph nodes, not one giant paragraph.
+- Load the seeded example story and assert it produces many paragraph nodes, not one giant paragraph.
 - Insert SceneBeat below normal text and assert a trailing paragraph exists.
 - Backspace in an empty paragraph after SceneBeat should remove the SceneBeat and leave a valid selection.
 - Backspace before/after SceneBeat with real text should preserve expected text behavior.

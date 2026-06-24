@@ -37,7 +37,7 @@ This keeps the fragile caret cases testable without relying only on DOM snapshot
 
 `tests/editor.spec.ts` covers:
 
-- seeded Iron Salt content loads as many paragraph nodes, not one giant paragraph
+- seeded example story content loads as many paragraph nodes, not one giant paragraph
 - Enter in seeded prose keeps a valid collapsed range selection
 - SceneBeat insertion creates a trailing paragraph
 - Backspace from the empty paragraph after a SceneBeat removes the SceneBeat

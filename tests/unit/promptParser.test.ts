@@ -98,6 +98,42 @@ describe("PromptParser", () => {
     expect(result.error).toBeUndefined();
     expect(result.messages[0].content).toContain("Type: Cartographer");
   });
+
+  test("resolves a specific lorebook entry by name", async () => {
+    await addPrompt("Lore:\n{{lorebook The Towering Statue}}");
+    await db.lorebookEntries.add(lorebookEntry({
+      name: "The Towering Statue",
+      category: "location",
+      description: "A moonlit monument above the old harbor.",
+    }));
+
+    const result = await createPromptParser().parse({
+      promptId: "unit-prompt",
+      storyId: "story-1",
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.messages[0].content).toContain("LOCATION: The Towering Statue");
+    expect(result.messages[0].content).toContain("Description: A moonlit monument above the old harbor.");
+  });
+
+  test("resolves a specific lorebook entry by alias", async () => {
+    await addPrompt("Lore:\n{{lorebook sky needle}}");
+    await db.lorebookEntries.add(lorebookEntry({
+      name: "The Towering Statue",
+      category: "location",
+      aliases: ["Sky Needle"],
+      description: "A moonlit monument above the old harbor.",
+    }));
+
+    const result = await createPromptParser().parse({
+      promptId: "unit-prompt",
+      storyId: "story-1",
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.messages[0].content).toContain("LOCATION: The Towering Statue");
+  });
 });
 
 async function addPrompt(content: string): Promise<void> {

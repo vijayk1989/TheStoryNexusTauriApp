@@ -1,0 +1,1 @@
+Here's the chat history of our discussion: {{chat_history}}

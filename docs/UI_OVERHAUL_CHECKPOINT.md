@@ -129,7 +129,6 @@ Entry categories:
 - `note`
 - `synopsis`
 - `starting scenario`
-- `timeline`
 
 Each entry has a name, description, aliases, descriptive tags, optional metadata, and `isDisabled`. Disabled entries are excluded from alias maps and most context helpers.
 
@@ -139,12 +138,15 @@ Important lorebook behavior:
 - Multi-word aliases are kept as full aliases; individual words are only added if also explicitly present as standalone aliases.
 - The editor-level `LorebookHighlightPlugin` matches lorebook aliases in chapter text and stores chapter matches in `chapterMatchedEntries`.
 - Scene beats also match aliases locally against the scene beat command.
-- Prompt parsing can include matched chapter entries, scene beat entries, all entries, entries by category, character lookup, and timeline-filtered context.
-- Timeline entries with `metadata.chapterOrder` are filtered out if they are in the future relative to the current chapter.
+- Prompt parsing can include matched chapter entries, scene beat entries, all entries, entries by category, and character lookup.
 - Lorebook import/export uses JSON with `{ version, type: "lorebook", entries }`.
 - Brainstorm responses can be parsed for JSON lorebook entries and passed into `CreateEntryDialog`.
 
-The lorebook UI exists as both a full page and a compact editor sheet. The full page includes category tabs and a special timeline view. The editor panel groups entries by category and supports create, edit, delete, enable, and disable.
+The lorebook UI exists as both a full page and a compact editor sheet. The editor panel groups entries by category and supports create, edit, delete, enable, and disable.
+
+## Timeline
+
+Timeline events are story-scoped records managed separately from lorebook entries. They store chapter linkage, event order, title, summary, optional time label, optional location lorebook link, participant lorebook links, and unresolved participant names from extraction. Prompt parsing can include timeline context with future events filtered out relative to the current chapter.
 
 ## Prompts
 

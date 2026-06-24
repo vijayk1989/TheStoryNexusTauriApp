@@ -103,6 +103,6 @@ Only stream writer-like agents. Keep judge and checker steps silent so the UI do
 
 Prefer story-scoped custom agents when the prompt is specific to one project. Keep broadly useful agents global.
 
-When adding a new role, update `AgentRole`, `DEFAULT_CONTEXT_CONFIG`, `DEFAULT_AGENT_PROMPTS`, agent form labels, list labels/colors, and any seed data that should use the role.
+When adding a new role, update `AgentRole`, `DEFAULT_CONTEXT_CONFIG`, `src/data/agentDefaultPrompts.json`, the matching Markdown files under `src/data/promptMarkdown/agentPrompts`, agent form labels, list labels/colors, and any seed data that should use the role. General Prompt Manager seed metadata lives in `src/data/systemPrompts.json`; long message bodies live under `src/data/promptMarkdown/systemPrompts`.
 
 When adding a new pipeline condition, update the orchestrator condition evaluator and document the condition here.

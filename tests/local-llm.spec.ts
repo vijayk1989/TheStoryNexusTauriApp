@@ -70,7 +70,7 @@ test.describe("local LLM generation", () => {
     const firstBlock = await insertSceneBeatAtTopLevelNode(page, 0, 1);
     const firstOutput = await generateAndAcceptSceneBeat(
       firstBlock,
-      "Write 2 short sentences: Tavin hears the under-hill bell again and notices blue dust drifting from the western tunnel."
+      "Write 2 short sentences: Mara notices the tomato roots curling toward a sealed vent after the Horizon warning."
     );
 
     await expectChapterTextToContainGeneratedOutput(page, firstOutput);
@@ -78,7 +78,7 @@ test.describe("local LLM generation", () => {
     const secondBlock = await insertSceneBeatAtTopLevelNode(page, 2, 2);
     const secondOutput = await generateAndAcceptSceneBeat(
       secondBlock,
-      "Write 2 short sentences: Mira arrives with a lantern and warns Tavin that the sealed stair has opened."
+      "Write 2 short sentences: Jonas tells Mara the probe archive was locked before her father died."
     );
 
     const finalSnapshot = await expectChapterTextToContainGeneratedOutput(page, secondOutput);

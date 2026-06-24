@@ -1,6 +1,7 @@
 import { StoryDatabase, db } from '@/services/database';
 import {
     LorebookEntry,
+    TimelineEvent,
     PromptMessage,
     PromptParserConfig,
     ParsedPrompt,
@@ -19,6 +20,7 @@ export class PromptParser {
             'matched_entries_chapter': this.resolveMatchedEntriesChapter.bind(this),
             'lorebook_chapter_matched_entries': this.resolveMatchedEntriesChapter.bind(this),
             'lorebook_scenebeat_matched_entries': this.resolveLorebookSceneBeatEntries.bind(this),
+            'lorebook_update_targets': this.resolveLorebookUpdateTargets.bind(this),
             'lorebook_data': this.resolveMatchedEntriesChapter.bind(this),
             'summaries': this.resolveChapterSummaries.bind(this),
             'previous_words': this.resolvePreviousWords.bind(this),
@@ -42,7 +44,10 @@ export class PromptParser {
             'all_notes': this.resolveAllNotes.bind(this),
             'all_synopsis': this.resolveAllSynopsis.bind(this),
             'all_starting_scenarios': this.resolveAllStartingScenarios.bind(this),
-            'all_timelines': this.resolveAllTimelines.bind(this),
+            'timeline': this.resolveTimelineUpToCurrentChapter.bind(this),
+            'timeline_up_to_current_chapter': this.resolveTimelineUpToCurrentChapter.bind(this),
+            'timeline_current_chapter': this.resolveTimelineCurrentChapter.bind(this),
+            'all_timelines': this.resolveTimelineUpToCurrentChapter.bind(this),
             'chapter_outline': this.resolveChapterOutline.bind(this),
             'chapter_data': this.resolveChapterData.bind(this),
         };
@@ -227,6 +232,14 @@ export class PromptParser {
                 continue;
             }
 
+            // Handle lorebook entry queries
+            if (varName === 'lorebook' && params.length > 0) {
+                const entryName = params.join(' ');
+                const resolved = await this.resolveLorebookEntry(entryName, context);
+                result = result.replace(fullMatch, resolved);
+                continue;
+            }
+
             // Handle other variables
             if (this.variableResolvers[varName]) {
                 try {
@@ -245,17 +258,6 @@ export class PromptParser {
         return result;
     }
 
-    private filterTimelineEntries(entries: LorebookEntry[], currentChapterOrder?: number): LorebookEntry[] {
-        return entries.filter(entry => {
-            if (entry.category === 'timeline' && entry.metadata?.chapterOrder !== undefined) {
-                if (currentChapterOrder !== undefined) {
-                    return entry.metadata.chapterOrder <= currentChapterOrder;
-                }
-            }
-            return true;
-        });
-    }
-
     private async resolveLorebookSceneBeatEntries(context: PromptContext): Promise<string> {
 
         if (!context.sceneBeatMatchedEntries || context.sceneBeatMatchedEntries.size === 0) {
@@ -266,9 +268,6 @@ export class PromptParser {
         let entries = Array.from(context.sceneBeatMatchedEntries)
             .filter(entry => !entry.isDisabled);
             
-        // Filter out future timeline entries
-        entries = this.filterTimelineEntries(entries, context.currentChapter?.order);
-
         if (entries.length === 0) {
             return '';
         }
@@ -480,19 +479,40 @@ export class PromptParser {
         return matchedEntry ? this.formatLorebookEntries([matchedEntry]) : '';
     }
 
+    private async resolveLorebookEntry(nameOrAlias: string, context: PromptContext): Promise<string> {
+        const normalizedQuery = this.normalizeLorebookLookup(nameOrAlias);
+        if (!normalizedQuery) return '';
+
+        const entries = (await this.database.lorebookEntries
+            .where('storyId')
+            .equals(context.storyId)
+            .toArray())
+            .filter(entry => !entry.isDisabled);
+
+        const matchedEntry = entries.find(entry =>
+            this.normalizeLorebookLookup(entry.name) === normalizedQuery ||
+            entry.aliases.some(alias => this.normalizeLorebookLookup(alias) === normalizedQuery)
+        );
+
+        return matchedEntry ? this.formatLorebookEntries([matchedEntry]) : '';
+    }
+
+    private normalizeLorebookLookup(value: string): string {
+        return value.trim().toLowerCase();
+    }
+
     private async resolveMatchedEntriesChapter(context: PromptContext): Promise<string> {
 
-        if (!context.chapterMatchedEntries || context.chapterMatchedEntries.size === 0) {
+        const entriesFromContext = this.getLorebookEntriesFromCollection(context.chapterMatchedEntries);
+
+        if (entriesFromContext.length === 0) {
             return '';
         }
 
         // Filter out disabled entries
-        let entries = Array.from(context.chapterMatchedEntries)
+        let entries = entriesFromContext
             .filter(entry => !entry.isDisabled);
             
-        // Filter out future timeline entries
-        entries = this.filterTimelineEntries(entries, context.currentChapter?.order);
-
         if (entries.length === 0) {
             return '';
         }
@@ -505,6 +525,71 @@ export class PromptParser {
         });
 
         return this.formatLorebookEntries(entries);
+    }
+
+    private async resolveLorebookUpdateTargets(context: PromptContext): Promise<string> {
+        const targetIds = Array.isArray(context.additionalContext?.lorebookUpdateTargetIds)
+            ? new Set<string>(context.additionalContext.lorebookUpdateTargetIds.map(String))
+            : undefined;
+
+        let entries = this.getLorebookEntriesFromCollection(context.chapterMatchedEntries);
+
+        if (targetIds) {
+            const lorebookStore = useLorebookStore.getState();
+            if (lorebookStore.entries.length === 0) {
+                await lorebookStore.loadEntries(context.storyId);
+            }
+
+            const entriesById = new Map(
+                lorebookStore.entries
+                    .filter(entry => entry.storyId === context.storyId)
+                    .map(entry => [entry.id, entry])
+            );
+
+            entries = Array.from(targetIds)
+                .map(id => entriesById.get(id))
+                .filter((entry): entry is LorebookEntry => Boolean(entry));
+        }
+
+        entries = entries.filter(entry => !entry.isDisabled);
+
+        if (entries.length === 0) {
+            return 'No matched lorebook entries are available for update.';
+        }
+
+        return entries
+            .map(entry => {
+                const metadata = entry.metadata && Object.keys(entry.metadata).length > 0
+                    ? `Metadata: ${JSON.stringify(entry.metadata)}\n`
+                    : '';
+
+                return `Entry ID: ${entry.id}
+Category: ${entry.category}
+Name: ${entry.name}
+Aliases: ${entry.aliases.join(', ') || '(none)'}
+Tags: ${entry.tags.join(', ') || '(none)'}
+${metadata}Description: ${entry.description}`;
+            })
+            .join('\n\n---\n\n');
+    }
+
+    private getLorebookEntriesFromCollection(collection?: Iterable<LorebookEntry> | { values: () => Iterable<LorebookEntry> }): LorebookEntry[] {
+        if (!collection) return [];
+
+        if ('values' in collection && typeof collection.values === 'function') {
+            return Array.from(collection.values()).filter(this.isLorebookEntry);
+        }
+
+        return Array.from(collection as Iterable<LorebookEntry>).filter(this.isLorebookEntry);
+    }
+
+    private isLorebookEntry(value: unknown): value is LorebookEntry {
+        return Boolean(
+            value &&
+            typeof value === 'object' &&
+            typeof (value as LorebookEntry).id === 'string' &&
+            typeof (value as LorebookEntry).name === 'string'
+        );
     }
 
     private formatLorebookEntries(entries: LorebookEntry[]): string {
@@ -559,9 +644,6 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
             entries = entries.filter(entry => entry.category === category);
         }
         
-        // Filter out future timeline entries
-        entries = this.filterTimelineEntries(entries, context.currentChapter?.order);
-
         return this.formatLorebookEntries(entries);
     }
 
@@ -603,9 +685,6 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
             // Get all lorebook entries
             let entries = lorebookStore.getAllEntries();
             
-            // Filter out future timeline entries
-            entries = this.filterTimelineEntries(entries, context.currentChapter?.order);
-
             // Format the result
             let result = '';
 
@@ -721,9 +800,6 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
                 selectedItemIds.includes(entry.id)
             );
             
-            // Filter out future timeline entries
-            entries = this.filterTimelineEntries(entries, context.currentChapter?.order);
-            
             if (entries.length > 0) {
                 result += "Story World Information:\n";
                 result += this.formatLorebookEntries(entries);
@@ -775,15 +851,69 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
         return this.formatLorebookEntries(getAllStartingScenarios());
     }
 
-    private async resolveAllTimelines(context: PromptContext): Promise<string> {
-        const { getAllTimelines } = useLorebookStore.getState();
-        // getAllTimelines already filters out disabled entries
-        let entries = getAllTimelines();
-        
-        // Filter out future timeline entries
-        entries = this.filterTimelineEntries(entries, context.currentChapter?.order);
-        
-        return this.formatLorebookEntries(entries);
+    private async resolveTimelineUpToCurrentChapter(context: PromptContext): Promise<string> {
+        const events = await this.getTimelineEvents(context, "upToCurrentChapter");
+        return this.formatTimelineEvents(events, context);
+    }
+
+    private async resolveTimelineCurrentChapter(context: PromptContext): Promise<string> {
+        const events = await this.getTimelineEvents(context, "currentChapter");
+        return this.formatTimelineEvents(events, context);
+    }
+
+    private async getTimelineEvents(
+        context: PromptContext,
+        mode: "upToCurrentChapter" | "currentChapter"
+    ): Promise<TimelineEvent[]> {
+        let events = await this.database.timelineEvents
+            .where("storyId")
+            .equals(context.storyId)
+            .toArray();
+
+        events = events.filter((event) => !event.isDisabled);
+
+        if (mode === "currentChapter") {
+            if (!context.currentChapter) return [];
+            events = events.filter((event) => event.chapterId === context.currentChapter!.id);
+        } else if (context.currentChapter) {
+            events = events.filter((event) =>
+                event.chapterOrder === undefined || event.chapterOrder <= context.currentChapter!.order
+            );
+        }
+
+        return events.sort((a, b) => {
+            const chapterA = a.chapterOrder ?? Number.MAX_SAFE_INTEGER;
+            const chapterB = b.chapterOrder ?? Number.MAX_SAFE_INTEGER;
+            if (chapterA !== chapterB) return chapterA - chapterB;
+            return a.eventOrder - b.eventOrder;
+        });
+    }
+
+    private async formatTimelineEvents(events: TimelineEvent[], context: PromptContext): Promise<string> {
+        if (events.length === 0) {
+            return "No timeline events are available for this prompt.";
+        }
+
+        const lorebookEntries = await this.database.lorebookEntries
+            .where("storyId")
+            .equals(context.storyId)
+            .toArray();
+        const lorebookById = new Map(lorebookEntries.map((entry) => [entry.id, entry]));
+
+        return events.map((event) => {
+            const participants = [
+                ...event.participantIds.map((id) => lorebookById.get(id)?.name).filter(Boolean),
+                ...(event.unresolvedParticipants || []),
+            ];
+            const location = event.locationId ? lorebookById.get(event.locationId)?.name : undefined;
+            const participantLine = participants.length ? `Participants: ${participants.join(", ")}\n` : "";
+            const locationLine = location ? `Location: ${location}\n` : "";
+            const timeLine = event.timeLabel ? `Time: ${event.timeLabel}\n` : "";
+            const chapterLine = event.chapterOrder ? `Chapter ${event.chapterOrder}, Event ${event.eventOrder}` : `Event ${event.eventOrder}`;
+
+            return `${chapterLine}: ${event.title}
+${timeLine}${locationLine}${participantLine}Summary: ${event.summary}`;
+        }).join("\n\n");
     }
 
     private async resolveSceneBeatContext(context: PromptContext): Promise<string> {
@@ -844,9 +974,6 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
             }
         );
         
-        // Filter out future timeline entries
-        sortedEntries = this.filterTimelineEntries(sortedEntries, context.currentChapter?.order);
-
         // If we have no entries, return an empty string
         if (sortedEntries.length === 0) {
             return 'No lorebook entries are available for this prompt.';

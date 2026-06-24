@@ -1,5 +1,6 @@
 import { db } from '@/services/database';
 import type { AgentPreset, PipelinePreset, AgentRole, AgentContextConfig } from '@/types/story';
+import { SYSTEM_AGENT_PROMPTS } from '../constants/defaultAgentPrompts';
 
 // Default models for system agents (OpenRouter)
 const DEFAULT_MODELS = {
@@ -92,14 +93,7 @@ const SYSTEM_AGENT_PRESETS: Omit<AgentPreset, 'id' | 'createdAt'>[] = [
         description: 'Condenses story content while preserving key narrative details. Uses low-cost model.',
         role: 'summarizer',
         model: DEFAULT_MODELS.utility,
-        systemPrompt: `You are a narrative summarizer for fiction writing. Your job is to condense story content while preserving:
-- Key plot points and events in chronological order
-- Character emotions, motivations, and relationships
-- Important dialogue and its context
-- Setting details and atmosphere
-- Foreshadowing, subtext, and thematic elements
-
-Output a concise but detailed summary that captures the essence of the narrative. Aim for about 20% of the original length while keeping all critical story beats.`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.summarizer,
         temperature: 0.3,
         maxTokens: 2000,
         isSystem: true,
@@ -111,17 +105,7 @@ Output a concise but detailed summary that captures the essence of the narrative
         description: 'Main creative writing agent for generating story prose.',
         role: 'prose_writer',
         model: DEFAULT_MODELS.creative,
-        systemPrompt: `You are a skilled fiction writer. Your task is to continue the story based on the provided context and scene beat instructions.
-
-Guidelines:
-- Maintain consistent tone, style, and narrative voice
-- Show, don't tell - use sensory details and action
-- Keep characters' voices distinct and authentic
-- Balance dialogue, action, and internal reflection
-- Create smooth transitions and natural pacing
-- Honor the established world-building and lore
-
-Write engaging prose that draws readers in and advances the story naturally.`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.prose_writer,
         temperature: 0.85,
         maxTokens: 2048,
         isSystem: true,
@@ -133,23 +117,7 @@ Write engaging prose that draws readers in and advances the story naturally.`,
         description: 'Validates generated prose against lorebook data for consistency.',
         role: 'lore_judge',
         model: DEFAULT_MODELS.utility,
-        systemPrompt: `You are a lore consistency checker for fiction writing. Compare the provided prose against the established lorebook data.
-
-Check for:
-- Character names, traits, and behavior consistency
-- Location and setting accuracy
-- Timeline and chronological consistency
-- Magic system, technology, or world-building rule violations
-- Relationship dynamics matching established patterns
-- Factual contradictions with established lore
-
-Response format:
-- If everything is consistent, respond with exactly: CONSISTENT
-- If there are issues, list each one briefly:
-  ISSUE: [Brief description of the inconsistency]
-  SUGGESTION: [How to fix it]
-
-Be thorough but concise. Focus on actual contradictions, not stylistic preferences.`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.lore_judge,
         temperature: 0.2,
         maxTokens: 800,
         isSystem: true,
@@ -161,23 +129,7 @@ Be thorough but concise. Focus on actual contradictions, not stylistic preferenc
         description: 'Checks for plot holes and character consistency.',
         role: 'continuity_checker',
         model: DEFAULT_MODELS.utility,
-        systemPrompt: `You are a continuity expert for fiction writing. Check for plot holes, timeline issues, and character consistency.
-
-Review for:
-- Timeline inconsistencies (events happening out of order)
-- Character behavior that contradicts established patterns
-- Forgotten plot threads or unresolved setups
-- Physical impossibilities (character in two places at once)
-- Emotional continuity (reactions matching previous scenes)
-
-Response format:
-- If consistent, respond with exactly: CONSISTENT
-- If there are issues:
-  CONTINUITY ISSUE: [Description]
-  CONTEXT: [What was established earlier]
-  SUGGESTION: [How to resolve]
-
-Focus on narrative logic, not style preferences.`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.continuity_checker,
         temperature: 0.2,
         maxTokens: 600,
         isSystem: true,
@@ -189,17 +141,7 @@ Focus on narrative logic, not style preferences.`,
         description: 'Polishes prose for style, flow, and readability.',
         role: 'style_editor',
         model: DEFAULT_MODELS.creative,
-        systemPrompt: `You are a prose editor focused on style and flow. Polish the provided text while maintaining the author's voice.
-
-Focus on:
-- Sentence variety and rhythm
-- Word choice precision and impact
-- Paragraph flow and transitions
-- Show vs tell balance
-- Eliminating redundancy and weak phrases
-- Strengthening imagery and sensory details
-
-Preserve the original meaning, plot, and character voice. Output the improved version directly without commentary.`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.style_editor,
         temperature: 0.6,
         maxTokens: 2048,
         isSystem: true,
@@ -211,17 +153,7 @@ Preserve the original meaning, plot, and character voice. Output the improved ve
         description: 'Improves dialogue authenticity and character voice.',
         role: 'dialogue_specialist',
         model: DEFAULT_MODELS.creative,
-        systemPrompt: `You are a dialogue specialist for fiction. Improve conversations to feel more natural and authentic.
-
-Focus on:
-- Giving each character a distinct voice and speech pattern
-- Natural interruptions, pauses, and reactions
-- Subtext and what's left unsaid
-- Appropriate use of contractions and informal speech
-- Varying dialogue tags (said, asked, etc.) or eliminating them
-- Balance between dialogue and action beats
-
-Output the improved version directly. Preserve the original plot points and character relationships.`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.dialogue_specialist,
         temperature: 0.7,
         maxTokens: 2048,
         isSystem: true,
@@ -233,14 +165,7 @@ Output the improved version directly. Preserve the original plot points and char
         description: 'Generates structured story and chapter outlines.',
         role: 'outline_generator',
         model: DEFAULT_MODELS.creative,
-        systemPrompt: `You are an expert story outliner. Generate structured outlines that include:
-- Story arc with beginning, middle, and end
-- Chapter breakdowns with key scenes
-- Character arcs and development points
-- Plot threads and their resolutions
-- Pacing notes and tension points
-
-Format the outline clearly with headers and bullet points. Consider the established lore and characters when planning.`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.outline_generator,
         temperature: 0.7,
         maxTokens: 3000,
         isSystem: true,
@@ -252,16 +177,7 @@ Format the outline clearly with headers and bullet points. Consider the establis
         description: 'Analyzes text to extract writing style patterns.',
         role: 'style_extractor',
         model: DEFAULT_MODELS.utility,
-        systemPrompt: `You are a literary analyst specializing in writing style extraction. Analyze the provided text and extract:
-
-1. **Voice & Tone**: Formal/informal, serious/playful, narrative distance
-2. **Sentence Structure**: Average length, variety, use of fragments
-3. **Word Choice**: Vocabulary level, preferred verbs/adjectives, unique phrases
-4. **Dialogue Style**: Tag usage, dialect, subtext patterns
-5. **Description Patterns**: Sensory preferences, metaphor usage, pacing
-6. **POV Quirks**: Narrative intrusion, character voice bleed, tense usage
-
-Output a concise style guide that another AI could use to mimic this writing style.`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.style_extractor,
         temperature: 0.3,
         maxTokens: 2000,
         isSystem: true,
@@ -273,15 +189,7 @@ Output a concise style guide that another AI could use to mimic this writing sty
         description: 'Generates scene beat commands for prose generation.',
         role: 'scenebeat_generator',
         model: DEFAULT_MODELS.creative,
-        systemPrompt: `You are a scene planning assistant. Generate scene beat commands that guide prose generation.
-
-Each scene beat should be a brief, actionable instruction (1-3 sentences) describing:
-- The core action or event
-- Emotional beats and character reactions
-- Setting details if relevant
-- Dialogue hints if conversation is involved
-
-Format as a numbered list of scene beats. Make them specific enough to guide writing but open enough for creative interpretation.`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.scenebeat_generator,
         temperature: 0.75,
         maxTokens: 1500,
         isSystem: true,
@@ -293,23 +201,7 @@ Format as a numbered list of scene beats. Make them specific enough to guide wri
         description: 'Detects if the AI refused to generate content and flags it for retry.',
         role: 'refusal_checker',
         model: DEFAULT_MODELS.utility,
-        systemPrompt: `You are a content refusal detector. Your ONLY job is to analyze AI-generated text and determine if the AI refused to write the requested content.
-
-Common refusal patterns include:
-- "I'm sorry, I can't write..."
-- "I'm not able to generate..."
-- "I cannot create content that..."
-- "As an AI, I'm unable to..."
-- "I apologize, but I cannot..."
-- "This content goes against..."
-- "I'm not comfortable writing..."
-- Generating a meta-commentary or disclaimer instead of actual prose
-- Providing writing advice instead of the actual story content
-- Breaking character to explain limitations
-
-Response format:
-- If the text contains a refusal or avoidance: respond with exactly: REFUSAL_DETECTED: [brief description of what was refused]
-- If the text is genuine creative prose (even if imperfect): respond with exactly: CONTENT_OK`,
+        systemPrompt: SYSTEM_AGENT_PROMPTS.refusal_checker,
         temperature: 0.1,
         maxTokens: 200,
         isSystem: true,
@@ -456,6 +348,36 @@ export const SYSTEM_PIPELINE_PRESETS: {
 // Simple lock to prevent concurrent seeding
 let seedingInProgress = false;
 
+type SystemPipelineConfig = typeof SYSTEM_PIPELINE_PRESETS[number];
+
+function buildSystemPipelineSteps(
+    pipelineConfig: SystemPipelineConfig,
+    agentsByRole: Record<AgentRole, AgentPreset>
+): PipelinePreset['steps'] {
+    return pipelineConfig.agentRoles.map((stepConfig, index) => {
+        const agent = agentsByRole[stepConfig.role];
+        if (!agent) {
+            console.warn(`[AgentSeeder] No agent found for role: ${stepConfig.role} (skipping step)`);
+            return null;
+        }
+        return {
+            agentPresetId: agent.id,
+            order: index,
+            condition: stepConfig.condition,
+            streamOutput: stepConfig.streamOutput ?? false,
+            isRevision: stepConfig.isRevision ?? false,
+            maxIterations: stepConfig.maxIterations,
+            retryFromStep: stepConfig.retryFromStep,
+            pushPrompt: stepConfig.pushPrompt,
+            validationKeywords: stepConfig.validationKeywords,
+        };
+    }).filter(Boolean) as PipelinePreset['steps'];
+}
+
+function systemPipelineNeedsRepair(pipeline: PipelinePreset, validAgentIds: Set<string>): boolean {
+    return pipeline.steps.length === 0 || pipeline.steps.some((step) => !validAgentIds.has(step.agentPresetId));
+}
+
 /**
  * Seeds system agent presets and pipelines into the database.
  * Only creates them if they don't already exist (checks by name for uniqueness).
@@ -529,6 +451,7 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
         for (const agent of createdAgents) {
             allAgentsByRole[agent.role] = agent;
         }
+        const validAgentIds = new Set([...existingAgents, ...createdAgents].map((agent) => agent.id));
 
         // Create system pipeline presets (only if not already exists by name, unless force is true)
         let pipelinesCreated = 0;
@@ -537,31 +460,14 @@ export async function seedSystemAgents(force: boolean = false): Promise<void> {
         for (const pipelineConfig of SYSTEM_PIPELINE_PRESETS) {
             const existingPipeline = existingPipelineMap.get(pipelineConfig.name);
             
-            if (existingPipeline && !force) {
+            if (existingPipeline && !force && !systemPipelineNeedsRepair(existingPipeline, validAgentIds)) {
                 continue;
             }
 
-            const steps = pipelineConfig.agentRoles.map((stepConfig, index) => {
-                const agent = allAgentsByRole[stepConfig.role];
-                if (!agent) {
-                    console.warn(`[AgentSeeder] No agent found for role: ${stepConfig.role} (skipping step)`);
-                    return null;
-                }
-                return {
-                    agentPresetId: agent.id,
-                    order: index,
-                    condition: stepConfig.condition,
-                    streamOutput: stepConfig.streamOutput ?? false,
-                    isRevision: stepConfig.isRevision ?? false,
-                    maxIterations: stepConfig.maxIterations,
-                    retryFromStep: stepConfig.retryFromStep,
-                    pushPrompt: stepConfig.pushPrompt,
-                    validationKeywords: stepConfig.validationKeywords,
-                };
-            }).filter(Boolean) as PipelinePreset['steps'];
+            const steps = buildSystemPipelineSteps(pipelineConfig, allAgentsByRole);
 
             if (existingPipeline) {
-                // Force update: preserve ID but update definition
+                // Preserve ID but refresh broken/default system pipeline references.
                 const updatedPipeline: PipelinePreset = {
                     ...existingPipeline,
                     description: pipelineConfig.description,
@@ -613,14 +519,44 @@ export async function cleanupDuplicateSystemPresets(): Promise<{ agentsRemoved: 
         .toArray();
     
     const seenAgentNames = new Set<string>();
+    const agentIdsToDelete: string[] = [];
+    const duplicateAgentIdRemaps = new Map<string, string>();
     for (const agent of allSystemAgents) {
         if (seenAgentNames.has(agent.name)) {
-            await db.agentPresets.delete(agent.id);
-            agentsRemoved++;
-            console.log(`[AgentSeeder] Removed duplicate agent: ${agent.name}`);
+            const keeper = allSystemAgents.find((candidate) => candidate.name === agent.name && !agentIdsToDelete.includes(candidate.id));
+            if (keeper) {
+                duplicateAgentIdRemaps.set(agent.id, keeper.id);
+                agentIdsToDelete.push(agent.id);
+                agentsRemoved++;
+                console.log(`[AgentSeeder] Removed duplicate agent: ${agent.name}`);
+            }
         } else {
             seenAgentNames.add(agent.name);
         }
+    }
+
+    if (duplicateAgentIdRemaps.size > 0) {
+        const allPipelines = await db.pipelinePresets.toArray();
+        for (const pipeline of allPipelines) {
+            let changed = false;
+            const steps = pipeline.steps.map((step) => {
+                const remappedAgentId = duplicateAgentIdRemaps.get(step.agentPresetId);
+                if (!remappedAgentId) {
+                    return step;
+                }
+                changed = true;
+                return {
+                    ...step,
+                    agentPresetId: remappedAgentId,
+                };
+            });
+
+            if (changed) {
+                await db.pipelinePresets.update(pipeline.id, { steps });
+            }
+        }
+
+        await db.agentPresets.bulkDelete(agentIdsToDelete);
     }
 
     // Clean up duplicate pipelines

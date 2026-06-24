@@ -10,10 +10,12 @@ import { ChapterNotesEditor } from "@/features/chapters/components/ChapterNotesE
 import { DraftsPanel } from "@/features/drafts/components/DraftsPanel";
 import { AISettingsPanel } from "@/features/ai/components/AISettingsPanel";
 import { PromptsPanel } from "@/features/prompts/components/PromptsPanel";
+import { PromptsManager } from "@/features/prompts/components/PromptsManager";
 import { PromptDefaultsPanel } from "@/features/prompts/components/PromptDefaultsPanel";
 import { SimpleWriteSettingsPanel } from "@/features/prompts/components/SimpleWriteSettingsPanel";
 import { BrainstormPanel } from "@/features/brainstorm/components/BrainstormPanel";
 import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
+import { TimelinePanel } from "@/features/timeline/components/TimelinePanel";
 import { AgentsManager } from "@/features/agents/components/AgentsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BasicsGuide from "@/features/guide/components/BasicsGuide";
@@ -22,6 +24,7 @@ import PromptGuide from "@/features/guide/components/PromptGuide";
 import BrainstormGuide from "@/features/guide/components/BrainstormGuide";
 import AgenticGuideTabs from "@/features/guide/components/AgenticGuideTabs";
 import SimpleWriteGuide from "@/features/guide/components/SimpleWriteGuide";
+import TimelineGuide from "@/features/guide/components/TimelineGuide";
 import {
     Sheet,
     SheetContent,
@@ -33,6 +36,8 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TimelineExtractionDialog } from "@/features/chapters/components/TimelineExtractionDialog";
@@ -41,16 +46,25 @@ import { MiscSettingsPanel } from "@/features/settings/components/MiscSettingsPa
 import { ThemeSettingsPanel } from "@/features/theme/components/ThemeSettingsPanel";
 import { addOpenPromptsPanelListener } from "@/features/prompts/utils/openPromptsPanel";
 
-type ToolPanelType = "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "agents" | "promptDefaults" | "simpleWriteSettings" | "brainstorm" | "imageGallery" | "themeSettings" | "miscSettings" | null;
+type ToolPanelType = "chapterOutline" | "chapterPOV" | "chapterNotes" | "drafts" | "aiSettings" | "guide" | "prompts" | "lorebook" | "timeline" | "agents" | "promptDefaults" | "simpleWriteSettings" | "brainstorm" | "imageGallery" | "themeSettings" | "miscSettings" | null;
 
 interface StoryEditorProps {
     onSiteDataChanged?: (preferredStoryId?: string | null) => Promise<void> | void;
+}
+
+function ToolSectionLabel({ children }: { children: string }) {
+    return (
+        <div className="col-span-2 mt-2 first:mt-0 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            {children}
+        </div>
+    );
 }
 
 export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
     const [openPanel, setOpenPanel] = useState<ToolPanelType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
     const [isBrainstormExpanded, setIsBrainstormExpanded] = useState(false);
+    const [isPromptsExpanded, setIsPromptsExpanded] = useState(false);
     const [isExtractDialogOpen, setIsExtractDialogOpen] = useState(false);
     const editorRootRef = useRef<HTMLDivElement | null>(null);
     const openPromptsTimeoutRef = useRef<number | undefined>(undefined);
@@ -101,6 +115,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
     // Sidebar content for both desktop and mobile dropdown
     const sidebarButtons = (
         <>
+            <ToolSectionLabel>Chapter</ToolSectionLabel>
             <Button
                 variant={openPanel === "chapterOutline" ? "default" : "outline"}
                 size="sm"
@@ -122,17 +137,6 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
             </Button>
 
             <Button
-                variant="outline"
-                size="sm"
-                className="justify-start w-full"
-                onClick={handleExtract}
-                disabled={!currentChapterId}
-            >
-                <Clock className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Extract</span>
-            </Button>
-
-            <Button
                 variant={openPanel === "chapterNotes" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
@@ -140,6 +144,16 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
             >
                 <StickyNote className="h-4 w-4 mr-2 shrink-0" />
                 <span className="truncate">Chapter Notes</span>
+            </Button>
+
+            <Button
+                variant={openPanel === "drafts" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("drafts")}
+            >
+                <FileText className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Drafts</span>
             </Button>
 
             {currentChapterId && (
@@ -154,24 +168,25 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                 />
             )}
 
+            <ToolSectionLabel>Story Context</ToolSectionLabel>
             <Button
-                variant={openPanel === "drafts" ? "default" : "outline"}
+                variant={openPanel === "lorebook" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
-                onClick={() => handleOpenPanel("drafts")}
+                onClick={() => handleOpenPanel("lorebook")}
             >
-                <FileText className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Drafts</span>
+                <Book className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Lorebook</span>
             </Button>
 
             <Button
-                variant={openPanel === "brainstorm" ? "default" : "outline"}
+                variant={openPanel === "timeline" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
-                onClick={() => handleOpenPanel("brainstorm")}
+                onClick={() => handleOpenPanel("timeline")}
             >
-                <MessageSquarePlus className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Brainstorm</span>
+                <Clock className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Timeline</span>
             </Button>
 
             <Button
@@ -185,23 +200,35 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
             </Button>
 
             <Button
-                variant={openPanel === "lorebook" ? "default" : "outline"}
+                variant="outline"
                 size="sm"
                 className="justify-start w-full"
-                onClick={() => handleOpenPanel("lorebook")}
+                onClick={handleExtract}
+                disabled={!currentChapterId}
             >
-                <Book className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Lorebook</span>
+                <Clock className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Extract</span>
+            </Button>
+
+            <ToolSectionLabel>AI Tools</ToolSectionLabel>
+            <Button
+                variant={openPanel === "brainstorm" ? "default" : "outline"}
+                size="sm"
+                className="justify-start w-full"
+                onClick={() => handleOpenPanel("brainstorm")}
+            >
+                <MessageSquarePlus className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Brainstorm</span>
             </Button>
 
             <Button
-                variant={openPanel === "agents" ? "default" : "outline"}
+                variant={openPanel === "simpleWriteSettings" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
-                onClick={() => handleOpenPanel("agents")}
+                onClick={() => handleOpenPanel("simpleWriteSettings")}
             >
-                <Bot className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Agents</span>
+                <Pencil className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Simple Write</span>
             </Button>
 
             <Button
@@ -225,15 +252,16 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
             </Button>
 
             <Button
-                variant={openPanel === "simpleWriteSettings" ? "default" : "outline"}
+                variant={openPanel === "agents" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
-                onClick={() => handleOpenPanel("simpleWriteSettings")}
+                onClick={() => handleOpenPanel("agents")}
             >
-                <Pencil className="h-4 w-4 mr-2 shrink-0" />
-                <span className="truncate">Simple Write</span>
+                <Bot className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">Agents</span>
             </Button>
 
+            <ToolSectionLabel>Settings</ToolSectionLabel>
             <Button
                 variant={openPanel === "aiSettings" ? "default" : "outline"}
                 size="sm"
@@ -253,8 +281,8 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                 <Palette className="h-4 w-4 mr-2 shrink-0" />
                 <span className="truncate">Theme</span>
             </Button>
-            
-             <Button
+
+            <Button
                 variant={openPanel === "guide" ? "default" : "outline"}
                 size="sm"
                 className="justify-start w-full"
@@ -305,6 +333,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" side="top" className="w-48">
+                        <DropdownMenuLabel>Chapter</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleOpenPanel("chapterOutline")}>
                             <BookOpen className="h-4 w-4 mr-2" />
                             Outline
@@ -321,21 +350,35 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                             <FileText className="h-4 w-4 mr-2" />
                             Drafts
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenPanel("brainstorm")}>
-                            <MessageSquarePlus className="h-4 w-4 mr-2" />
-                            Brainstorm
+
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Story Context</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("lorebook")}>
+                            <Book className="h-4 w-4 mr-2" />
+                            Lorebook
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("timeline")}>
+                            <Clock className="h-4 w-4 mr-2" />
+                            Timeline
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenPanel("imageGallery")}>
                             <ImageIcon className="h-4 w-4 mr-2" />
                             Images
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenPanel("lorebook")}>
-                            <Book className="h-4 w-4 mr-2" />
-                            Lorebook
+                        <DropdownMenuItem onClick={handleExtract} disabled={!currentChapterId}>
+                            <Clock className="h-4 w-4 mr-2" />
+                            Extract
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenPanel("agents")}>
-                            <Bot className="h-4 w-4 mr-2" />
-                            Agents
+
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>AI Tools</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("brainstorm")}>
+                            <MessageSquarePlus className="h-4 w-4 mr-2" />
+                            Brainstorm
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenPanel("simpleWriteSettings")}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Simple Write
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenPanel("prompts")}>
                             <ScrollText className="h-4 w-4 mr-2" />
@@ -345,10 +388,13 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                             <Settings2 className="h-4 w-4 mr-2" />
                             Prompt Defaults
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleOpenPanel("simpleWriteSettings")}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Simple Write
+                        <DropdownMenuItem onClick={() => handleOpenPanel("agents")}>
+                            <Bot className="h-4 w-4 mr-2" />
+                            Agents
                         </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Settings</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => handleOpenPanel("aiSettings")}>
                             <Settings className="h-4 w-4 mr-2" />
                             AI Settings
@@ -414,6 +460,21 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                 </SheetContent>
             </Sheet>
 
+            {/* Timeline Sheet */}
+            <Sheet open={openPanel === "timeline"} onOpenChange={(open) => !open && setOpenPanel(null)}>
+                <SheetContent
+                    side="right"
+                    className="h-[100vh] w-full md:min-w-[680px] md:w-auto"
+                >
+                    <SheetHeader>
+                        <SheetTitle>Timeline</SheetTitle>
+                    </SheetHeader>
+                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
+                        <TimelinePanel />
+                    </div>
+                </SheetContent>
+            </Sheet>
+
             {/* Drafts Sheet */}
             <Sheet open={openPanel === "drafts"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
@@ -475,6 +536,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                                     <TabsTrigger value="basics" className="text-xs">Basics</TabsTrigger>
                                     <TabsTrigger value="simple-write" className="text-xs">Simple Write</TabsTrigger>
                                     <TabsTrigger value="lorebook" className="text-xs">Lorebook</TabsTrigger>
+                                    <TabsTrigger value="timeline" className="text-xs">Timeline</TabsTrigger>
                                     <TabsTrigger value="prompts" className="text-xs">Prompts</TabsTrigger>
                                     <TabsTrigger value="agentic" className="text-xs">Agentic</TabsTrigger>
                                     <TabsTrigger value="brainstorm" className="text-xs">Brainstorm</TabsTrigger>
@@ -483,6 +545,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                             <TabsContent value="basics"><BasicsGuide /></TabsContent>
                             <TabsContent value="simple-write"><SimpleWriteGuide /></TabsContent>
                             <TabsContent value="lorebook"><LorebookGuide /></TabsContent>
+                            <TabsContent value="timeline"><TimelineGuide /></TabsContent>
                             <TabsContent value="prompts"><PromptGuide /></TabsContent>
                             <TabsContent value="agentic"><AgenticGuideTabs /></TabsContent>
                             <TabsContent value="brainstorm"><BrainstormGuide /></TabsContent>
@@ -523,13 +586,31 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
             <Sheet open={openPanel === "prompts"} onOpenChange={(open) => !open && setOpenPanel(null)}>
                 <SheetContent
                     side="right"
-                    className="h-[100vh] w-full md:min-w-[600px] md:w-auto"
+                    className={isPromptsExpanded
+                        ? "h-[100vh] w-screen max-w-none sm:max-w-none p-0"
+                        : "h-[100vh] w-full max-w-none sm:max-w-none p-0 md:w-[600px]"
+                    }
                 >
-                    <SheetHeader>
-                        <SheetTitle>Prompts</SheetTitle>
-                    </SheetHeader>
-                    <div className="overflow-y-auto h-[calc(100vh-80px)] px-2 pt-2">
-                        <PromptsPanel />
+                    <div className="h-full flex flex-col pt-6">
+                        <SheetHeader className="flex-row items-center justify-between space-y-0 px-4 pb-2 pr-12 border-b flex-shrink-0 text-left">
+                            <SheetTitle>Prompts</SheetTitle>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setIsPromptsExpanded((expanded) => !expanded)}
+                                title={isPromptsExpanded ? "Collapse Prompts" : "Expand Prompts"}
+                                className="hidden md:inline-flex"
+                            >
+                                {isPromptsExpanded ? (
+                                    <Minimize className="h-4 w-4" />
+                                ) : (
+                                    <Maximize className="h-4 w-4" />
+                                )}
+                            </Button>
+                        </SheetHeader>
+                        <div className={isPromptsExpanded ? "flex-1 overflow-hidden" : "flex-1 overflow-y-auto px-2 pt-2"}>
+                            {isPromptsExpanded ? <PromptsManager /> : <PromptsPanel />}
+                        </div>
                     </div>
                 </SheetContent>
             </Sheet>
@@ -594,6 +675,7 @@ export function StoryEditor({ onSiteDataChanged }: StoryEditorProps) {
                             {currentStoryId ? (
                                 <BrainstormPanel
                                     storyId={currentStoryId}
+                                    currentChapterId={currentChapterId}
                                     onConfigurePrompts={openPromptsPanelFromCurrentPanel}
                                 />
                             ) : null}

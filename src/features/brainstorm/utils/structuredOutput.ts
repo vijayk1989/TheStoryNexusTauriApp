@@ -78,7 +78,7 @@ Use this exact shape:
     }
   ]
 }
-Allowed category values: "character", "location", "item", "event", "note", "synopsis", "starting scenario", "timeline".
+Allowed category values: "character", "location", "item", "event", "note", "synopsis", "starting scenario".
 Aliases are lookup names, nicknames, titles, alternate spellings, or exact phrases used to match this entry in chapters and SceneBeats.
 Tags are descriptive labels for organization, such as traits, roles, themes, or categories. Do not put aliases in tags.
 Only include entries that are specific enough to save to a lorebook.`;

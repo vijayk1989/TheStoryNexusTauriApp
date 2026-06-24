@@ -17,7 +17,8 @@ import {
     PipelineExecution,
     MediaAsset,
     MediaBlob,
-    ImageGenerationRecord
+    ImageGenerationRecord,
+    TimelineEvent
 } from '../types/story';
 
 export class StoryDatabase extends Dexie {
@@ -37,6 +38,7 @@ export class StoryDatabase extends Dexie {
     mediaAssets!: Table<MediaAsset>;
     mediaBlobs!: Table<MediaBlob>;
     imageGenerations!: Table<ImageGenerationRecord>;
+    timelineEvents!: Table<TimelineEvent>;
 
     constructor() {
         super('StoryDatabase');
@@ -133,6 +135,26 @@ export class StoryDatabase extends Dexie {
                 entry.aliases = normalized.aliases;
                 entry.tags = normalized.tags;
             });
+        });
+
+        this.version(19).stores({
+            stories: 'id, title, createdAt, language, isDemo',
+            chapters: 'id, storyId, order, createdAt, isDemo',
+            aiChats: 'id, storyId, createdAt, isDemo',
+            prompts: 'id, name, promptType, storyId, createdAt, isSystem',
+            templates: 'id, name, templateType, storyId, createdAt, isSystem',
+            aiSettings: 'id, lastModelsFetch',
+            lorebookEntries: 'id, storyId, name, category, *aliases, *tags, isDemo',
+            sceneBeats: 'id, storyId, chapterId',
+            notes: 'id, storyId, title, type, createdAt, updatedAt',
+            agentPresets: 'id, name, role, storyId, createdAt, isSystem',
+            pipelinePresets: 'id, name, storyId, createdAt, isSystem',
+            pipelineExecutions: 'id, storyId, chapterId, pipelinePresetId, createdAt, status',
+            drafts: 'id, storyId, chapterId, createdAt',
+            mediaAssets: 'id, storyId, chapterId, kind, source, storageBackend, createdAt, archivedAt',
+            mediaBlobs: 'assetId, createdAt',
+            imageGenerations: 'id, storyId, chapterId, provider, mode, status, createdAt',
+            timelineEvents: 'id, storyId, chapterId, chapterOrder, eventOrder, createdAt',
         });
 
         this.on('populate', async () => {
@@ -277,7 +299,7 @@ export class StoryDatabase extends Dexie {
      */
     async deleteStoryWithRelated(storyId: string): Promise<void> {
         return await this.transaction('rw',
-            [this.stories, this.chapters, this.lorebookEntries, this.aiChats, this.sceneBeats, this.drafts, this.mediaAssets, this.mediaBlobs, this.imageGenerations],
+            [this.stories, this.chapters, this.lorebookEntries, this.aiChats, this.sceneBeats, this.drafts, this.mediaAssets, this.mediaBlobs, this.imageGenerations, this.timelineEvents],
             async () => {
                 // Delete all related chapters
                 await this.chapters
@@ -319,6 +341,11 @@ export class StoryDatabase extends Dexie {
                     .equals(storyId)
                     .delete();
                 await this.imageGenerations
+                    .where('storyId')
+                    .equals(storyId)
+                    .delete();
+
+                await this.timelineEvents
                     .where('storyId')
                     .equals(storyId)
                     .delete();

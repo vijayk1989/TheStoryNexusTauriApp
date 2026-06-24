@@ -1,0 +1,372 @@
+[
+  {
+    "id": "scene-beat-system",
+    "name": "Scene Beat",
+    "promptType": "scene_beat",
+    "description": "Generate a scene based on a scene beat, previous context, and lorebook data",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/scene-beat-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/scene-beat-system/02-user.md"
+      },
+      {
+        "role": "assistant",
+        "contentFile": "systemPrompts/scene-beat-system/03-assistant.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/scene-beat-system/04-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 1,
+    "maxTokens": 32768,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "gen-summary-system",
+    "name": "Generate Summary",
+    "promptType": "gen_summary",
+    "description": "Create a concise summary of a chapter",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/gen-summary-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/gen-summary-system/02-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 1,
+    "maxTokens": 512,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "continue-writing-system",
+    "name": "Continue Writing",
+    "promptType": "continue_writing",
+    "description": "Continue the chapter from the cursor using recent prose and matched lorebook context",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/continue-writing-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/continue-writing-system/02-user.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/continue-writing-system/03-user.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/continue-writing-system/04-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 1,
+    "maxTokens": 1024,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "selection-expand-system",
+    "name": "Expand",
+    "promptType": "selection_specific",
+    "description": "Expand selected text with more detail",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/selection-expand-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/selection-expand-system/02-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 1,
+    "maxTokens": 512,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "selection-rewrite-system",
+    "name": "Rewrite",
+    "promptType": "selection_specific",
+    "description": "Rewrite selected text with more detail",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/selection-rewrite-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/selection-rewrite-system/02-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 1,
+    "maxTokens": 512,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "selection-shorten-system",
+    "name": "Shorten",
+    "promptType": "selection_specific",
+    "description": "Shorten selected text",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/selection-shorten-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/selection-shorten-system/02-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 1,
+    "maxTokens": 512,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "brainstorm-system",
+    "name": "Brainstorm",
+    "promptType": "brainstorm",
+    "description": "Brainstorm ideas for a story",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/brainstorm-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/brainstorm-system/02-user.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/brainstorm-system/03-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 1,
+    "maxTokens": 32768,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "timeline-extractor-system",
+    "name": "Timeline Extractor",
+    "promptType": "other",
+    "description": "Extract timeline events from chapter content as JSON",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/timeline-extractor-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/timeline-extractor-system/02-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 0.3,
+    "maxTokens": 2048,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "lorebook-data-extractor-system",
+    "name": "Extract Lorebook Data",
+    "promptType": "other",
+    "description": "Extract reusable lorebook entries from chapter content as JSON",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/lorebook-data-extractor-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/lorebook-data-extractor-system/02-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 0.2,
+    "maxTokens": 4096,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "lorebook-update-extractor-system",
+    "name": "Update Matched Lorebook",
+    "promptType": "other",
+    "description": "Propose safe updates to matched lorebook entries from chapter content",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/lorebook-update-extractor-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/lorebook-update-extractor-system/02-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 0.2,
+    "maxTokens": 4096,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "style-extractor-system",
+    "name": "Extract Style",
+    "promptType": "other",
+    "description": "Extract a reusable prose style note from chapter content",
+    "messages": [
+      {
+        "role": "system",
+        "contentFile": "systemPrompts/style-extractor-system/01-system.md"
+      },
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/style-extractor-system/02-user.md"
+      }
+    ],
+    "allowedModels": [
+      {
+        "id": "local",
+        "name": "local",
+        "provider": "local"
+      }
+    ],
+    "isSystem": true,
+    "temperature": 0.2,
+    "maxTokens": 2048,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  },
+  {
+    "id": "image-gen-system",
+    "name": "Image Generation",
+    "promptType": "image_gen",
+    "description": "Create a focused prompt for image generation models",
+    "messages": [
+      {
+        "role": "user",
+        "contentFile": "systemPrompts/image-gen-system/01-user.md"
+      }
+    ],
+    "allowedModels": [],
+    "isSystem": true,
+    "temperature": 1,
+    "maxTokens": 1024,
+    "top_p": 0,
+    "top_k": 0,
+    "repetition_penalty": 0,
+    "min_p": 0
+  }
+]

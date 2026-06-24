@@ -28,7 +28,7 @@ export function ConfirmRewritePanel({
             <div className="space-y-2 mb-3">
                 <div className="text-xs text-muted-foreground">
                     <span className="font-medium">Original:</span>
-                    <div className="px-2 py-1.5 mt-1 bg-muted rounded border line-through opacity-60 max-h-[100px] overflow-y-auto whitespace-pre-wrap">
+                    <div className="px-2 py-1.5 mt-1 bg-muted rounded border opacity-60 max-h-[100px] overflow-y-auto whitespace-pre-wrap">
                         "{originalText}"
                     </div>
                 </div>

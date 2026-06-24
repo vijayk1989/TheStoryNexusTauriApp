@@ -33,9 +33,11 @@ import { cn } from "@/lib/utils";
 
 export function BrainstormPanel({
     storyId,
+    currentChapterId,
     onConfigurePrompts,
 }: {
     storyId: string;
+    currentChapterId?: string | null;
     onConfigurePrompts?: () => void;
 }) {
     const { chats, selectedChat, fetchChats, createNewChat, selectChat, updateChat, deleteChat } = useBrainstormStore();
@@ -148,7 +150,11 @@ export function BrainstormPanel({
             </div>
             <div className="flex-1 overflow-hidden">
                 {selectedChat ? (
-                    <ChatInterface storyId={storyId} onConfigurePrompts={onConfigurePrompts} />
+                    <ChatInterface
+                        storyId={storyId}
+                        currentChapterId={currentChapterId}
+                        onConfigurePrompts={onConfigurePrompts}
+                    />
                 ) : (
                     <div className="flex items-center justify-center h-full flex-col gap-4 text-muted-foreground p-4 text-center">
                         <p>No chat selected. Select an existing chat or create a new one.</p>

@@ -328,8 +328,7 @@ export interface LorebookEntry extends BaseEntity {
     | "event"
     | "note"
     | "synopsis"
-    | "starting scenario"
-    | "timeline";
+    | "starting scenario";
   // Aliases are lookup phrases used for lore matching in chapters and SceneBeats.
   aliases: string[];
   // Tags are descriptive labels for filtering and organization.
@@ -343,10 +342,25 @@ export interface LorebookEntry extends BaseEntity {
       type: string;
       description?: string;
     }>;
-    chapterOrder?: number; // Added for Timeline isolation
-    participantIds?: string[]; // Added for Timeline isolation
     customFields?: Record<string, unknown>;
   };
+  isDisabled?: boolean;
+}
+
+export interface TimelineEvent extends BaseEntity {
+  storyId: string;
+  chapterId?: string;
+  chapterOrder?: number;
+  eventOrder: number;
+  title: string;
+  summary: string;
+  participantIds: string[];
+  unresolvedParticipants?: string[];
+  relatedLorebookEntryIds?: string[];
+  locationId?: string;
+  timeLabel?: string;
+  source: "manual" | "extracted";
+  updatedAt?: Date;
   isDisabled?: boolean;
 }
 

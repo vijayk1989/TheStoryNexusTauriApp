@@ -26,7 +26,7 @@ import { PromptForm } from "@/features/prompts/components/PromptForm";
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
 import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
-import { useBrainstormStore } from "../stores/useBrainstormStore";
+import { useBrainstormStore, type BrainstormPinnedSession } from "../stores/useBrainstormStore";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { useNotesStore } from "@/features/notes/stores/useNotesStore";
 import { useAgenticGeneration } from "@/features/agents/hooks/useAgenticGeneration";
@@ -67,10 +67,11 @@ import {
 
 interface ChatInterfaceProps {
   storyId: string;
+  currentChapterId?: string | null;
   onConfigurePrompts?: () => void;
 }
 
-export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInterfaceProps) {
+export default function ChatInterface({ storyId, currentChapterId, onConfigurePrompts }: ChatInterfaceProps) {
   // State for chat
   const [input, setInput] = useState(
     useBrainstormStore.getState().draftMessage
@@ -143,6 +144,11 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
   const setDraftMessage = useBrainstormStore((state) => state.setDraftMessage);
   const clearDraftMessage = useBrainstormStore((state) => state.clearDraftMessage);
   const setMessageEdited = useBrainstormStore((state) => state.setMessageEdited);
+  const pinnedChapterId = useBrainstormStore((state) => state.pinnedChapterId);
+  const pinnedSession = useBrainstormStore((state) => state.pinnedSession);
+  const pinToChapter = useBrainstormStore((state) => state.pinToChapter);
+  const updatePinnedSession = useBrainstormStore((state) => state.updatePinnedSession);
+  const clearPinnedSession = useBrainstormStore((state) => state.clearPinnedSession);
   const { fetchChapters, currentChapter, updateChapterOutline } = useChapterStore();
   const createNote = useNotesStore((state) => state.createNote);
 
@@ -199,6 +205,8 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
   }, [selectedChat]);
   const [selectedModel, setSelectedModel] = useState<AllowedModel | null>(null);
   const [availableModels, setAvailableModels] = useState<AllowedModel[]>([]);
+  const restoredPinnedChapterRef = useRef<string | null>(null);
+  const skipNextPinnedCaptureRef = useRef(false);
 
   // Get chat messages
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -206,6 +214,40 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
 
   // State for selected lorebook items
   const [selectedItems, setSelectedItems] = useState<LorebookEntry[]>([]);
+
+  const isPinnedToCurrentChapter = !!currentChapterId && pinnedChapterId === currentChapterId;
+
+  const capturePinnedSession = (): BrainstormPinnedSession => {
+    const existingPinnedSession = useBrainstormStore.getState().pinnedSession;
+
+    return {
+      input,
+      selectedPromptId: selectedPrompt?.id,
+      selectedModel,
+      includeFullContext,
+      includeAllLorebook,
+      selectedSummaryIds: selectedSummaries,
+      selectedLorebookEntryIds: selectedItems.map((item) => item.id),
+      selectedChapterContentIds: selectedChapterContent,
+      structuredOutputMode,
+      agenticMode,
+      selectedPipelineId:
+        selectedPipeline?.id ||
+        (existingPinnedSession?.agenticMode ? existingPinnedSession.selectedPipelineId : undefined),
+    };
+  };
+
+  const handlePinToChapterChange = (checked: boolean) => {
+    if (!currentChapterId) return;
+
+    if (checked) {
+      restoredPinnedChapterRef.current = currentChapterId;
+      pinToChapter(currentChapterId, capturePinnedSession());
+    } else {
+      restoredPinnedChapterRef.current = null;
+      clearPinnedSession();
+    }
+  };
 
   // Initialize
   useEffect(() => {
@@ -272,6 +314,14 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    if (!currentChapterId || !pinnedChapterId) return;
+    if (pinnedChapterId !== currentChapterId) {
+      restoredPinnedChapterRef.current = null;
+      clearPinnedSession();
+    }
+  }, [clearPinnedSession, currentChapterId, pinnedChapterId]);
+
   // Load available pipelines when agentic mode is enabled
   useEffect(() => {
     if (agenticMode) {
@@ -289,6 +339,93 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
   }, [agenticMode, getAvailablePipelines, selectedPipeline]);
 
   useEffect(() => {
+    if (!currentChapterId || pinnedChapterId !== currentChapterId || !pinnedSession) return;
+
+    const hasPendingPrompt = !!pinnedSession.selectedPromptId && prompts.length === 0;
+    const summaryIds = pinnedSession.selectedSummaryIds.filter((id) => id !== "all");
+    const hasPendingChapters =
+      (summaryIds.length > 0 || pinnedSession.selectedChapterContentIds.length > 0) &&
+      chapters.length === 0;
+    const hasPendingLorebook =
+      pinnedSession.selectedLorebookEntryIds.length > 0 &&
+      lorebookEntries.length === 0;
+
+    if (hasPendingPrompt || hasPendingChapters || hasPendingLorebook) return;
+
+    const prompt = pinnedSession.selectedPromptId
+      ? prompts.find((item) => item.id === pinnedSession.selectedPromptId) || null
+      : null;
+    const chapterIds = new Set(chapters.map((chapter) => chapter.id));
+    const selectedSummaryIds = pinnedSession.selectedSummaryIds.filter(
+      (id) => id === "all" || chapterIds.has(id)
+    );
+    const selectedChapterContentIds = pinnedSession.selectedChapterContentIds.filter((id) =>
+      chapterIds.has(id)
+    );
+    const lorebookIds = new Set(pinnedSession.selectedLorebookEntryIds);
+    const selectedLorebookEntries = lorebookEntries.filter((entry) => lorebookIds.has(entry.id));
+
+    skipNextPinnedCaptureRef.current = true;
+    setInput(pinnedSession.input);
+    setDraftMessage(pinnedSession.input);
+    setSelectedPrompt(prompt);
+    setSelectedModel(prompt ? pinnedSession.selectedModel || null : null);
+    setIncludeFullContext(pinnedSession.includeFullContext);
+    setIncludeAllLorebook(pinnedSession.includeFullContext ? false : pinnedSession.includeAllLorebook);
+    setSelectedSummaries(pinnedSession.includeFullContext ? [] : selectedSummaryIds);
+    setSelectedChapterContent(pinnedSession.includeFullContext ? [] : selectedChapterContentIds);
+    setSelectedItems(pinnedSession.includeFullContext ? [] : selectedLorebookEntries);
+    setStructuredOutputMode(pinnedSession.structuredOutputMode);
+    setAgenticMode(pinnedSession.agenticMode);
+
+    if (!pinnedSession.agenticMode) {
+      setSelectedPipeline(null);
+    } else if (pinnedSession.selectedPipelineId && availablePipelines.length > 0) {
+      setSelectedPipeline(
+        availablePipelines.find((pipeline) => pipeline.id === pinnedSession.selectedPipelineId) || null
+      );
+    }
+
+    restoredPinnedChapterRef.current = currentChapterId;
+  }, [
+    availablePipelines,
+    chapters,
+    currentChapterId,
+    lorebookEntries,
+    pinnedChapterId,
+    pinnedSession,
+    prompts,
+    setDraftMessage,
+  ]);
+
+  useEffect(() => {
+    if (!currentChapterId || pinnedChapterId !== currentChapterId) return;
+    if (restoredPinnedChapterRef.current !== currentChapterId) return;
+    if (skipNextPinnedCaptureRef.current) {
+      skipNextPinnedCaptureRef.current = false;
+      return;
+    }
+
+    updatePinnedSession(currentChapterId, capturePinnedSession());
+  }, [
+    agenticMode,
+    currentChapterId,
+    includeAllLorebook,
+    includeFullContext,
+    input,
+    pinnedChapterId,
+    selectedChapterContent,
+    selectedItems,
+    selectedModel,
+    selectedPipeline,
+    selectedPrompt,
+    selectedSummaries,
+    structuredOutputMode,
+    updatePinnedSession,
+  ]);
+
+  useEffect(() => {
+    if (isPinnedToCurrentChapter) return;
     if (!settings?.enablePromptDefaults || selectedPrompt || prompts.length === 0) return;
 
     const defaultPrompt = settings.defaultBrainstormPromptId
@@ -299,7 +436,7 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
 
     setSelectedPrompt(defaultPrompt);
     setSelectedModel(resolveSavedDefaultModel(settings, settings.defaultBrainstormModelId));
-  }, [prompts, selectedPrompt, settings]);
+  }, [isPinnedToCurrentChapter, prompts, selectedPrompt, settings]);
 
   // Get filtered entries based on enabled categories
   const getFilteredEntries = () => {
@@ -437,7 +574,7 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
   };
 
   // One-click lorebook template insertion
-  const LOREBOOK_TEMPLATE = `Please produce exactly one JSON object (or an array of objects) inside a \`\`\`json\ncode block only. Do NOT include any surrounding explanation or commentary. Each object should include at least a \"name\" field (string). Optional fields: \"description\" (string), \"aliases\" (array of lookup names and phrases), \"tags\" (array of descriptive labels), \"category\" (one of [\"character\",\"location\",\"item\",\"event\",\"note\",\"synopsis\",\"starting scenario\",\"timeline\"]), \"metadata\" (object), and \"isDisabled\" (boolean).\n\nExample:\n{\n  \"name\": \"Elandra, Crowned Hunter\",\n  \"description\": \"A skilled tracker and ruler of the northern woodlands.\",\n  \"aliases\": [\"Elandra\", \"Crowned Hunter\"],\n  \"tags\": [\"ranger\", \"royalty\"],\n  \"category\": \"character\",\n  \"metadata\": { \"importance\": \"major\", \"status\": \"active\" }\n}\n\nAliases are lookup names or phrases used to match this entry in prose. Tags are descriptive labels for organization.\n\nReturn only the JSON inside the fenced code block.`;
+  const LOREBOOK_TEMPLATE = `Please produce exactly one JSON object (or an array of objects) inside a \`\`\`json\ncode block only. Do NOT include any surrounding explanation or commentary. Each object should include at least a \"name\" field (string). Optional fields: \"description\" (string), \"aliases\" (array of lookup names and phrases), \"tags\" (array of descriptive labels), \"category\" (one of [\"character\",\"location\",\"item\",\"event\",\"note\",\"synopsis\",\"starting scenario\"]), \"metadata\" (object), and \"isDisabled\" (boolean).\n\nExample:\n{\n  \"name\": \"Elandra, Crowned Hunter\",\n  \"description\": \"A skilled tracker and ruler of the northern woodlands.\",\n  \"aliases\": [\"Elandra\", \"Crowned Hunter\"],\n  \"tags\": [\"ranger\", \"royalty\"],\n  \"category\": \"character\",\n  \"metadata\": { \"importance\": \"major\", \"status\": \"active\" }\n}\n\nAliases are lookup names or phrases used to match this entry in prose. Tags are descriptive labels for organization.\n\nReturn only the JSON inside the fenced code block.`;
 
   const insertLorebookTemplate = () => {
     // Append the template to existing input rather than replacing it
@@ -1308,6 +1445,8 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
                   <span className="text-sm">Full Context</span>
                   <div className="relative group">
                     <Switch
+                      aria-label="Include Full Context"
+                      data-testid="brainstorm-full-context"
                       checked={includeFullContext}
                       onCheckedChange={toggleIncludeFullContext}
                       className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
@@ -1473,7 +1612,6 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
                         "note",
                         "synopsis",
                         "starting scenario",
-                        "timeline",
                       ].map((category) => {
                         const categoryItems = getFilteredEntries().filter(
                           (entry) => entry.category === category
@@ -1627,6 +1765,18 @@ export default function ChatInterface({ storyId, onConfigurePrompts }: ChatInter
                   className="data-[state=checked]:bg-primary"
                 />
               </div>
+              {currentChapterId && (
+                <div className="flex items-center gap-2 min-h-9">
+                  <span className="text-sm font-medium">Pin to Chapter</span>
+                  <Switch
+                    aria-label="Pin to Chapter"
+                    data-testid="brainstorm-pin-to-chapter"
+                    checked={isPinnedToCurrentChapter}
+                    onCheckedChange={handlePinToChapterChange}
+                    className="data-[state=checked]:bg-primary"
+                  />
+                </div>
+              )}
               <Select
                 value={structuredOutputMode}
                 onValueChange={(value) => setStructuredOutputMode(value as BrainstormOutputMode)}

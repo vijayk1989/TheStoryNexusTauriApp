@@ -26,7 +26,7 @@ import { db } from "@/services/database";
 import { aiService } from "@/services/ai/AIService";
 import { processTimelineJSON } from "../services/timelineExtractor";
 
-type ExtractMode = "timeline" | "lorebook" | "style";
+type ExtractMode = "timeline" | "lorebook" | "lorebookUpdates" | "style";
 
 type ExtractModeConfig = {
     label: string;
@@ -42,7 +42,7 @@ const EXTRACT_MODES: Record<ExtractMode, ExtractModeConfig> = {
     timeline: {
         label: "Timeline",
         promptId: "timeline-extractor-system",
-        description: "Generate timeline events from this chapter and save them to the Lorebook timeline.",
+        description: "Generate ordered timeline events from this chapter.",
         outputLabel: "Extracted Timeline JSON",
         placeholder: "Timeline JSON output will appear here...",
         successMessage: "Timeline extraction complete. You can edit the JSON before saving.",
@@ -56,6 +56,15 @@ const EXTRACT_MODES: Record<ExtractMode, ExtractModeConfig> = {
         placeholder: "Lorebook entry JSON output will appear here...",
         successMessage: "Lorebook extraction complete. You can edit the JSON before saving.",
         saveLabel: "Accept & Save Lorebook",
+    },
+    lorebookUpdates: {
+        label: "Lorebook Updates",
+        promptId: "lorebook-update-extractor-system",
+        description: "Propose append-only updates for lorebook entries already matched in this chapter.",
+        outputLabel: "Proposed Lorebook Update JSON",
+        placeholder: "Lorebook update proposal JSON will appear here...",
+        successMessage: "Lorebook update extraction complete. Review or edit the JSON before applying.",
+        saveLabel: "Apply Lorebook Updates",
     },
     style: {
         label: "Style",
@@ -83,6 +92,7 @@ export function TimelineExtractionDialog({
 }: TimelineExtractionDialogProps) {
     const { prompts, fetchPrompts } = usePromptStore();
     const { settings } = useAIStore();
+    const chapterMatchedEntries = useLorebookStore((state) => state.chapterMatchedEntries);
 
     const [activeMode, setActiveMode] = useState<ExtractMode>("timeline");
     const [selectedPrompt, setSelectedPrompt] = useState<Prompt | undefined>();
@@ -137,13 +147,22 @@ export function TimelineExtractionDialog({
         try {
             const { getChapterPlainText } = useChapterStore.getState();
             const plainTextContent = await getChapterPlainText(chapterId);
+            const matchedEntries = new Set(Array.from(chapterMatchedEntries.values()));
+
+            if (activeMode === "lorebookUpdates" && matchedEntries.size === 0) {
+                throw new Error("No matched lorebook entries are available to update.");
+            }
 
             const parser = new PromptParser(db);
             const result = await parser.parse({
                 promptId: selectedPrompt.id,
                 storyId,
                 chapterId,
-                additionalContext: { plainTextContent },
+                chapterMatchedEntries: matchedEntries,
+                additionalContext: {
+                    plainTextContent,
+                    lorebookUpdateTargetIds: Array.from(matchedEntries).map((entry) => entry.id),
+                },
             });
 
             if (result.error || !result.messages.length) {
@@ -209,6 +228,9 @@ export function TimelineExtractionDialog({
             } else if (activeMode === "lorebook") {
                 count = await saveLorebookEntries(storyId, generatedOutput);
                 toast.success(`Added ${count} lorebook entr${count === 1 ? "y" : "ies"}.`);
+            } else if (activeMode === "lorebookUpdates") {
+                count = await saveLorebookUpdates(storyId, generatedOutput);
+                toast.success(`Updated ${count} lorebook entr${count === 1 ? "y" : "ies"}.`);
             } else {
                 count = await saveStyleEntry(storyId, chapterId, generatedOutput);
                 toast.success(`Added ${count} style note${count === 1 ? "" : "s"}.`);
@@ -239,9 +261,10 @@ export function TimelineExtractionDialog({
                     onValueChange={(value) => setActiveMode(value as ExtractMode)}
                     className="mt-2 flex min-h-0 flex-1 flex-col"
                 >
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-4">
                         <TabsTrigger value="timeline">Timeline</TabsTrigger>
                         <TabsTrigger value="lorebook">Lorebook Data</TabsTrigger>
+                        <TabsTrigger value="lorebookUpdates">Lorebook Updates</TabsTrigger>
                         <TabsTrigger value="style">Style</TabsTrigger>
                     </TabsList>
 
@@ -421,7 +444,7 @@ async function saveStyleEntry(storyId: string, chapterId: string, output: string
         tags: ["style", "voice"],
         metadata: {
             type: "style_guide",
-            chapterOrder: chapter?.order,
+            customFields: chapter ? { chapterOrder: chapter.order } : {},
         },
     });
 
@@ -437,8 +460,238 @@ function normalizeLorebookCategory(category: Partial<LorebookEntry>["category"])
         "note",
         "synopsis",
         "starting scenario",
-        "timeline",
     ];
 
     return category && allowedCategories.includes(category) ? category : "note";
+}
+
+type LorebookUpdateProposal = {
+    entryId: string;
+    entryName?: string;
+    descriptionAppend?: string;
+    aliasesToAdd?: string[];
+    tagsToAdd?: string[];
+    metadataPatch?: Partial<NonNullable<LorebookEntry["metadata"]>>;
+    evidence?: string;
+    confidence?: "high" | "medium" | "low";
+};
+
+type LorebookUpdateParseResult = {
+    updates: LorebookUpdateProposal[];
+    error?: string;
+};
+
+function parseLorebookUpdateJson(message: string): LorebookUpdateParseResult {
+    if (!message.trim()) return { updates: [] };
+
+    const values = extractJsonValues(message);
+    const updates = values.flatMap((value) => {
+        if (Array.isArray(value)) return value;
+        if (value && typeof value === "object") {
+            const record = value as Record<string, unknown>;
+            if (Array.isArray(record.entryUpdates)) return record.entryUpdates;
+            if (Array.isArray(record.updates)) return record.updates;
+        }
+        return [];
+    });
+
+    if (updates.length === 0) {
+        return { updates: [], error: "No valid lorebook update proposals found." };
+    }
+
+    return { updates: sanitizeLorebookUpdates(updates) };
+}
+
+function extractJsonValues(message: string): unknown[] {
+    const values: unknown[] = [];
+
+    const parse = (text: string) => {
+        try {
+            values.push(JSON.parse(text));
+        } catch {
+            // Ignore non-JSON fragments.
+        }
+    };
+
+    const fencedJsonRegex = /```json\s*([\s\S]*?)```/gi;
+    let match: RegExpExecArray | null;
+    while ((match = fencedJsonRegex.exec(message)) !== null) {
+        parse(match[1].trim());
+    }
+    if (values.length > 0) return values;
+
+    const fencedAnyRegex = /```\s*([\s\S]*?)```/gi;
+    while ((match = fencedAnyRegex.exec(message)) !== null) {
+        parse(match[1].trim());
+    }
+    if (values.length > 0) return values;
+
+    parse(message.trim());
+    return values;
+}
+
+function sanitizeLorebookUpdates(rawUpdates: unknown[]): LorebookUpdateProposal[] {
+    return rawUpdates
+        .filter((value): value is Record<string, unknown> => Boolean(value && typeof value === "object"))
+        .map((value) => {
+            const entryId = typeof value.entryId === "string" ? value.entryId.trim() : "";
+            const entryName = typeof value.entryName === "string" ? value.entryName.trim() : undefined;
+            const descriptionAppend = typeof value.descriptionAppend === "string" ? value.descriptionAppend.trim() : undefined;
+            const aliasesToAdd = sanitizeStringArray(value.aliasesToAdd);
+            const tagsToAdd = sanitizeStringArray(value.tagsToAdd);
+            const metadataPatch = sanitizeMetadataPatch(value.metadataPatch);
+            const evidence = typeof value.evidence === "string" ? value.evidence.trim() : undefined;
+            const confidence: LorebookUpdateProposal["confidence"] =
+                value.confidence === "high" || value.confidence === "medium" || value.confidence === "low"
+                ? value.confidence
+                : undefined;
+
+            return {
+                entryId,
+                entryName,
+                descriptionAppend,
+                aliasesToAdd,
+                tagsToAdd,
+                metadataPatch,
+                evidence,
+                confidence,
+            };
+        })
+        .filter((update) =>
+            update.entryId &&
+            Boolean(
+                update.descriptionAppend ||
+                update.aliasesToAdd?.length ||
+                update.tagsToAdd?.length ||
+                update.metadataPatch
+            )
+        );
+}
+
+function sanitizeStringArray(value: unknown): string[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+
+    const uniqueValues = mergeStringArrays([], value.map(String));
+    return uniqueValues.length > 0 ? uniqueValues : undefined;
+}
+
+function sanitizeMetadataPatch(value: unknown): LorebookUpdateProposal["metadataPatch"] | undefined {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+
+    const patch = value as Record<string, unknown>;
+    const sanitized: NonNullable<LorebookUpdateProposal["metadataPatch"]> = {};
+
+    if (typeof patch.type === "string") sanitized.type = patch.type.trim();
+    if (patch.importance === "major" || patch.importance === "minor" || patch.importance === "background") {
+        sanitized.importance = patch.importance;
+    }
+    if (patch.status === "active" || patch.status === "inactive" || patch.status === "historical") {
+        sanitized.status = patch.status;
+    }
+    if (patch.customFields && typeof patch.customFields === "object" && !Array.isArray(patch.customFields)) {
+        sanitized.customFields = patch.customFields as Record<string, unknown>;
+    }
+
+    return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+}
+
+async function saveLorebookUpdates(storyId: string, output: string): Promise<number> {
+    const { updates, error } = parseLorebookUpdateJson(output);
+    if (error || updates.length === 0) {
+        throw new Error(error || "No valid lorebook update proposals found.");
+    }
+
+    const lorebookStore = useLorebookStore.getState();
+    await lorebookStore.loadEntries(storyId);
+
+    let appliedCount = 0;
+    const entriesById = new Map(
+        useLorebookStore.getState().entries
+            .filter((entry) => entry.storyId === storyId)
+            .map((entry) => [entry.id, entry])
+    );
+
+    for (const update of updates) {
+        const existing = entriesById.get(update.entryId);
+        if (!existing) continue;
+
+        const nextDescription = appendDescription(existing.description, update.descriptionAppend);
+        const nextAliases = mergeStringArrays(existing.aliases, update.aliasesToAdd || []);
+        const nextTags = mergeStringArrays(existing.tags, update.tagsToAdd || []);
+        const nextMetadata = mergeLorebookMetadata(existing.metadata, update.metadataPatch);
+
+        const data: Partial<LorebookEntry> = {};
+        if (nextDescription !== existing.description) data.description = nextDescription;
+        if (!sameStringArray(nextAliases, existing.aliases)) data.aliases = nextAliases;
+        if (!sameStringArray(nextTags, existing.tags)) data.tags = nextTags;
+        if (!sameJsonValue(nextMetadata, existing.metadata)) data.metadata = nextMetadata;
+
+        if (Object.keys(data).length === 0) continue;
+
+        await lorebookStore.updateEntryAndRebuildAliases(existing.id, data);
+        entriesById.set(existing.id, { ...existing, ...data });
+        appliedCount += 1;
+    }
+
+    if (appliedCount === 0) {
+        throw new Error("No applicable lorebook updates found for this story.");
+    }
+
+    return appliedCount;
+}
+
+function appendDescription(description: string, appendValue?: string): string {
+    const current = description.trim();
+    const addition = appendValue?.trim();
+
+    if (!addition) return description;
+    if (current.toLowerCase().includes(addition.toLowerCase())) return description;
+
+    return current ? `${current}\n\n${addition}` : addition;
+}
+
+function mergeStringArrays(existing: string[], additions: string[]): string[] {
+    const merged: string[] = [];
+    const seen = new Set<string>();
+
+    for (const value of [...existing, ...additions]) {
+        const normalized = value.trim();
+        const key = normalized.toLowerCase();
+        if (!normalized || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(normalized);
+    }
+
+    return merged;
+}
+
+function mergeLorebookMetadata(
+    existing: LorebookEntry["metadata"],
+    patch: LorebookUpdateProposal["metadataPatch"]
+): LorebookEntry["metadata"] {
+    if (!patch) return existing;
+
+    const merged: LorebookEntry["metadata"] = {
+        ...(existing || {}),
+        ...patch,
+    };
+
+    if (patch.customFields) {
+        merged.customFields = {
+            ...(existing?.customFields || {}),
+            ...patch.customFields,
+        };
+    }
+
+    return {
+        ...merged,
+    };
+}
+
+function sameStringArray(left: string[], right: string[]): boolean {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameJsonValue(left: unknown, right: unknown): boolean {
+    return JSON.stringify(left || null) === JSON.stringify(right || null);
 }

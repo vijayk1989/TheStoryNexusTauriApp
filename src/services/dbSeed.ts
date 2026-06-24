@@ -164,20 +164,25 @@ export class DatabaseSeeder {
   }
 
   /**
-   * Seed the example fantasy story from docs/ExampleStory.md.
+   * Seed the example story from docs/ExampleStory.md.
    * This runs independently from prompt seeding so existing local databases get
    * the test story on their next startup without duplicate rows.
    */
   private async seedExampleStory(forceReseed = false): Promise<void> {
     const existing = await db.stories.get(EXAMPLE_STORY_ID);
 
-    if (existing && !forceReseed) {
+    const shouldReplaceLegacyDemo =
+      existing?.isDemo === true &&
+      existing.title === "Iron Salt" &&
+      exampleStorySeed.story.title !== existing.title;
+
+    if (existing && !forceReseed && !shouldReplaceLegacyDemo) {
       await this.repairExistingExampleStoryChapters();
       console.log("Example story already exists. Skipping.");
       return;
     }
 
-    if (existing && forceReseed) {
+    if (existing && (forceReseed || shouldReplaceLegacyDemo)) {
       console.log("Force reseeding - replacing example story...");
       await db.deleteStoryWithRelated(EXAMPLE_STORY_ID);
     }

@@ -8,7 +8,6 @@ import {
     StickyNote,
     FileText,
     PlayCircle,
-    Clock,
     Search,
     Filter,
     Eye,
@@ -164,16 +163,6 @@ export default function LorebookGuide() {
                                     Initial situation or setup for your story
                                 </p>
                             </div>
-
-                            <div className="border rounded-lg p-4 bg-card">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Clock className="h-5 w-5 text-primary" />
-                                    <h4 className="font-medium">Timeline</h4>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                    Chronological sequence of events or history
-                                </p>
-                            </div>
                         </div>
                     </div>
 
@@ -233,7 +222,7 @@ export default function LorebookGuide() {
                                     <li>
                                         <strong>Category:</strong> Select the appropriate category for your entry
                                         <p className="text-sm text-muted-foreground ml-6">
-                                            Choose from character, location, item, event, note, synopsis, starting scenario, or timeline
+                                            Choose from character, location, item, event, note, synopsis, or starting scenario
                                         </p>
                                     </li>
                                     <li>
@@ -333,7 +322,6 @@ export default function LorebookGuide() {
                                         <Badge variant="outline">Notes</Badge>
                                         <Badge variant="outline">Synopsis</Badge>
                                         <Badge variant="outline">Starting Scenario</Badge>
-                                        <Badge variant="outline">Timeline</Badge>
                                     </div>
                                 </div>
 

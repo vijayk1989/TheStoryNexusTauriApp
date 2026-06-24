@@ -11,6 +11,7 @@ import {
     PipelinePreset,
     PipelineExecution,
     Chapter,
+    TimelineEvent,
     AgentContextConfig,
     DEFAULT_CONTEXT_CONFIG
 } from '@/types/story';
@@ -25,6 +26,8 @@ export interface PipelineInput {
     lorebookEntries?: LorebookEntry[];
     // All lorebook entries (for lore judge)
     allLorebookEntries?: LorebookEntry[];
+    // Timeline events up to the current chapter
+    timelineEvents?: TimelineEvent[];
     // Chapter summaries
     chapterSummaries?: string;
     // POV settings
@@ -474,6 +477,31 @@ export class AgentOrchestrator {
         }
     }
 
+    private formatTimelineContext(input: PipelineInput): string {
+        const events = (input.timelineEvents || [])
+            .filter(event => !event.isDisabled)
+            .sort((a, b) => {
+                const chapterA = a.chapterOrder ?? Number.MAX_SAFE_INTEGER;
+                const chapterB = b.chapterOrder ?? Number.MAX_SAFE_INTEGER;
+                if (chapterA !== chapterB) return chapterA - chapterB;
+                return a.eventOrder - b.eventOrder;
+            });
+
+        if (events.length === 0) return '';
+
+        const lorebookById = new Map((input.allLorebookEntries || input.lorebookEntries || []).map(entry => [entry.id, entry]));
+
+        return events.map(event => {
+            const participants = [
+                ...event.participantIds.map(id => lorebookById.get(id)?.name).filter(Boolean),
+                ...(event.unresolvedParticipants || []),
+            ];
+            const participantLine = participants.length ? ` Participants: ${participants.join(', ')}.` : '';
+            const chapterLabel = event.chapterOrder ? `Chapter ${event.chapterOrder}, event ${event.eventOrder}` : `Event ${event.eventOrder}`;
+            return `- ${chapterLabel}: ${event.title}. ${event.summary}${participantLine}`;
+        }).join('\n');
+    }
+
     /**
      * Build the user message based on agent role
      */
@@ -535,6 +563,7 @@ export class AgentOrchestrator {
         const config = this.getEffectiveContextConfig(agent);
         const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
         const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const timelineContext = this.formatTimelineContext(input);
 
         // Build lorebook context with full descriptions
         const lorebookContext = lorebookEntries
@@ -545,6 +574,10 @@ export class AgentOrchestrator {
 
         if (lorebookContext) {
             message += `RELEVANT LORE:\n${lorebookContext}\n\n`;
+        }
+
+        if (timelineContext) {
+            message += `TIMELINE SO FAR:\n${timelineContext}\n\n`;
         }
 
         if (config.includePovInfo && input.povType) {
@@ -575,6 +608,7 @@ export class AgentOrchestrator {
         const lorebookEntries = this.getLorebookForAgent(agent, input);
         const originalProse = this.getLastProseOutput(previousResults);
         const feedback = this.getFeedbackSinceLastProse(previousResults);
+        const timelineContext = this.formatTimelineContext(input);
 
         // Build lorebook context for reference (full descriptions)
         const lorebookContext = lorebookEntries
@@ -585,6 +619,10 @@ export class AgentOrchestrator {
 
         if (lorebookContext) {
             message += `RELEVANT LORE (for reference):\n${lorebookContext}\n\n`;
+        }
+
+        if (timelineContext) {
+            message += `TIMELINE SO FAR (for reference):\n${timelineContext}\n\n`;
         }
 
         message += `ORIGINAL SCENE BEAT INSTRUCTION:\n${input.scenebeat || ''}\n\n`;
@@ -598,6 +636,7 @@ export class AgentOrchestrator {
     private buildLoreJudgeMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
         const proseOutput = this.getLastProseOutput(previousResults);
         const lorebookEntries = this.getLorebookForAgent(agent, input);
+        const timelineContext = this.formatTimelineContext(input);
         
         const lorebookContext = lorebookEntries
             .map(e => `[${e.category?.toUpperCase()}] ${e.name}:\n${e.description}`)
@@ -608,6 +647,9 @@ export class AgentOrchestrator {
 LOREBOOK DATA:
 ${lorebookContext}
 
+TIMELINE DATA:
+${timelineContext}
+
 PROSE TO CHECK:
 ${proseOutput}
 
@@ -617,11 +659,15 @@ List any inconsistencies found. If everything is consistent, respond with just: 
     private buildContinuityCheckerMessage(agent: AgentPreset, input: PipelineInput, previousResults: AgentResult[]): string {
         const proseOutput = this.getLastProseOutput(previousResults);
         const contextText = this.getPreviousWordsForAgent(agent, input, previousResults);
+        const timelineContext = this.formatTimelineContext(input);
 
         return `Check the following new prose for plot and character continuity with the previous context.
 
 PREVIOUS CONTEXT:
 ${contextText}
+
+TIMELINE SO FAR:
+${timelineContext}
 
 NEW PROSE:
 ${proseOutput}

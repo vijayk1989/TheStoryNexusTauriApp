@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { agentOrchestrator, PipelineInput, PipelineResult, ExecutablePipelineStep } from '@/services/ai/AgentOrchestrator';
 import { useAgentsStore } from '../stores/useAgentsStore';
-import { AgentResult, LorebookEntry, Chapter, PipelinePreset } from '@/types/story';
+import { AgentResult, LorebookEntry, Chapter, PipelinePreset, TimelineEvent } from '@/types/story';
 import { db } from '@/services/database';
 
 export interface AgenticGenerationCallbacks {
@@ -20,6 +20,7 @@ export interface AgenticGenerationContext {
     povType?: string;
     povCharacter?: string;
     currentChapter?: Chapter;
+    timelineEvents?: TimelineEvent[];
     storyLanguage?: string;
 }
 
@@ -47,12 +48,15 @@ export function useAgenticGeneration() {
         setError(null);
 
         try {
+            const timelineEvents = context.timelineEvents || await loadTimelineEventsForContext(context.currentChapter);
+
             // Build the pipeline input
             const input: PipelineInput = {
                 scenebeat: context.scenebeat,
                 previousWords: context.previousWords,
                 lorebookEntries: context.matchedEntries,
                 allLorebookEntries: context.allEntries,
+                timelineEvents,
                 povType: context.povType,
                 povCharacter: context.povCharacter,
                 currentChapter: context.currentChapter,
@@ -130,4 +134,18 @@ export function useAgenticGeneration() {
         getAvailablePipelines,
         getPipelineById,
     };
+}
+
+async function loadTimelineEventsForContext(currentChapter?: Chapter): Promise<TimelineEvent[]> {
+    if (!currentChapter) return [];
+
+    const events = await db.timelineEvents
+        .where('storyId')
+        .equals(currentChapter.storyId)
+        .toArray();
+
+    return events.filter((event) =>
+        !event.isDisabled &&
+        (event.chapterOrder === undefined || event.chapterOrder <= currentChapter.order)
+    );
 }

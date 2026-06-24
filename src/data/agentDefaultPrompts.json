@@ -1,0 +1,28 @@
+{
+  "defaultAgentPrompts": {
+    "summarizer": "agentPrompts/default/summarizer.md",
+    "prose_writer": "agentPrompts/default/prose-writer.md",
+    "lore_judge": "agentPrompts/default/lore-judge.md",
+    "continuity_checker": "agentPrompts/default/continuity-checker.md",
+    "style_editor": "agentPrompts/default/style-editor.md",
+    "dialogue_specialist": "agentPrompts/default/dialogue-specialist.md",
+    "expander": "agentPrompts/default/expander.md",
+    "outline_generator": "agentPrompts/default/outline-generator.md",
+    "style_extractor": "agentPrompts/default/style-extractor.md",
+    "scenebeat_generator": "agentPrompts/default/scenebeat-generator.md",
+    "refusal_checker": "agentPrompts/default/refusal-checker.md",
+    "custom": "agentPrompts/default/custom.md"
+  },
+  "systemAgentPrompts": {
+    "summarizer": "agentPrompts/system/summarizer.md",
+    "prose_writer": "agentPrompts/system/prose-writer.md",
+    "lore_judge": "agentPrompts/system/lore-judge.md",
+    "continuity_checker": "agentPrompts/system/continuity-checker.md",
+    "style_editor": "agentPrompts/system/style-editor.md",
+    "dialogue_specialist": "agentPrompts/system/dialogue-specialist.md",
+    "outline_generator": "agentPrompts/system/outline-generator.md",
+    "style_extractor": "agentPrompts/system/style-extractor.md",
+    "scenebeat_generator": "agentPrompts/system/scenebeat-generator.md",
+    "refusal_checker": "agentPrompts/system/refusal-checker.md"
+  }
+}

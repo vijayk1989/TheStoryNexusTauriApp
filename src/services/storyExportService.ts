@@ -1,5 +1,5 @@
 import { db } from './database';
-import type { Story, Chapter, LorebookEntry, SceneBeat, AIChat, MediaAsset, ImageGenerationRecord } from '@/types/story';
+import type { Story, Chapter, LorebookEntry, SceneBeat, AIChat, MediaAsset, ImageGenerationRecord, TimelineEvent } from '@/types/story';
 import { toast } from 'react-toastify';
 import { normalizeLorebookEntry } from '@/features/lorebook/utils/lorebookEntryNormalization';
 
@@ -12,6 +12,7 @@ interface StoryExport {
     lorebookEntries: LorebookEntry[];
     sceneBeats: SceneBeat[];
     aiChats: AIChat[];
+    timelineEvents?: TimelineEvent[];
     mediaAssets?: MediaAsset[];
     imageGenerations?: ImageGenerationRecord[];
 }
@@ -33,6 +34,7 @@ export const storyExportService = {
                 .map(normalizeLorebookEntry);
             const sceneBeats = await db.sceneBeats.where('storyId').equals(storyId).toArray();
             const aiChats = await db.aiChats.where('storyId').equals(storyId).toArray();
+            const timelineEvents = await db.timelineEvents.where('storyId').equals(storyId).toArray();
             const mediaAssets = await db.mediaAssets.where('storyId').equals(storyId).toArray();
             const imageGenerations = await db.imageGenerations.where('storyId').equals(storyId).toArray();
 
@@ -46,6 +48,7 @@ export const storyExportService = {
                 lorebookEntries,
                 sceneBeats,
                 aiChats,
+                timelineEvents,
                 mediaAssets,
                 imageGenerations
             };
@@ -102,7 +105,7 @@ export const storyExportService = {
 
             // Start a transaction to ensure all-or-nothing import
             await db.transaction('rw',
-                [db.stories, db.chapters, db.lorebookEntries, db.sceneBeats, db.aiChats, db.mediaAssets, db.imageGenerations],
+                [db.stories, db.chapters, db.lorebookEntries, db.sceneBeats, db.aiChats, db.timelineEvents, db.mediaAssets, db.imageGenerations],
                 async () => {
                     // Add the story
                     await db.stories.add(newStory);
@@ -130,6 +133,21 @@ export const storyExportService = {
                             id: newEntryId,
                             storyId: newStoryId,
                             createdAt: new Date()
+                        });
+                    }
+
+                    // Add timeline events with updated references
+                    for (const event of data.timelineEvents || []) {
+                        await db.timelineEvents.add({
+                            ...event,
+                            id: crypto.randomUUID(),
+                            storyId: newStoryId,
+                            chapterId: event.chapterId ? idMap.get(event.chapterId) || event.chapterId : undefined,
+                            participantIds: (event.participantIds || []).map((id) => idMap.get(id) || id),
+                            relatedLorebookEntryIds: (event.relatedLorebookEntryIds || []).map((id) => idMap.get(id) || id),
+                            locationId: event.locationId ? idMap.get(event.locationId) || event.locationId : undefined,
+                            createdAt: new Date(),
+                            updatedAt: new Date()
                         });
                     }
 

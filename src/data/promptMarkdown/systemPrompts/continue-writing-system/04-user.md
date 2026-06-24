@@ -1,0 +1,1 @@
+Continue writing in {{pov}} for around 300 words. Start exactly where the recent prose leaves off and output only the new prose to insert at the cursor.

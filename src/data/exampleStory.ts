@@ -13,32 +13,60 @@ function normalizeLexicalParagraphText(content: string): string {
     .trim();
 }
 
-function createLexicalState(content: string): string {
-  const paragraphs = content
+function createParagraphNode(text: string) {
+  return {
+    children: [
+      {
+        detail: 0,
+        format: 0,
+        mode: "normal",
+        style: "",
+        text,
+        type: "text",
+        version: 1,
+      },
+    ],
+    direction: "ltr",
+    format: "",
+    indent: 0,
+    type: "paragraph",
+    version: 1,
+  };
+}
+
+function createSceneBeatNode(command: string, sceneBeatId: string) {
+  return {
+    type: "scene-beat",
+    version: 2,
+    sceneBeatId,
+    command,
+    generatedContent: "",
+    accepted: false,
+    collapsed: false,
+  };
+}
+
+function getSceneBeatCommand(block: string): string | null {
+  const match = block.match(/^\[SceneBeat:\s*([\s\S]+)\]$/);
+  return match?.[1]?.trim() || null;
+}
+
+function createLexicalState(content: string, idPrefix: string): string {
+  const blocks = content
     .split(/(?:\r?\n){2,}/)
     .map(normalizeLexicalParagraphText)
     .filter(Boolean);
 
   return JSON.stringify({
     root: {
-      children: paragraphs.map((paragraph) => ({
-        children: [
-          {
-            detail: 0,
-            format: 0,
-            mode: "normal",
-            style: "",
-            text: paragraph,
-            type: "text",
-            version: 1,
-          },
-        ],
-        direction: "ltr",
-        format: "",
-        indent: 0,
-        type: "paragraph",
-        version: 1,
-      })),
+      children: blocks.map((block, index) => {
+        const sceneBeatCommand = getSceneBeatCommand(block);
+        if (sceneBeatCommand) {
+          return createSceneBeatNode(sceneBeatCommand, `${idPrefix}-scene-beat-${index + 1}`);
+        }
+
+        return createParagraphNode(block);
+      }),
       direction: "ltr",
       format: "",
       indent: 0,
@@ -49,7 +77,8 @@ function createLexicalState(content: string): string {
 }
 
 function countWords(content: string): number {
-  const matches = content.match(/\b[\w']+\b/g);
+  const proseOnly = content.replace(/^\[SceneBeat:[\s\S]+?\]$/gm, "");
+  const matches = proseOnly.match(/\b[\w']+\b/g);
   return matches?.length ?? 0;
 }
 
@@ -86,14 +115,14 @@ function slugify(value: string): string {
 }
 
 function categoryForLore(title: string): LorebookEntry["category"] {
-  const characterNames = new Set(["Tavin", "Mira", "Captain Varo", "Sered", "Bren"]);
-  const eventNames = new Set(["The Flood Wars", "Themes and Structural Notes"]);
-  const locationNames = new Set(["Kel Harrow", "The Hollow Stair"]);
+  const characterNames = new Set(["Mara Venn", "Jonas Pell", "Captain Anik"]);
+  const eventNames = new Set(["Arrival Watch", "Themes and Structural Notes"]);
+  const locationNames = new Set(["The Merian", "Ring Three Orchard"]);
 
   if (characterNames.has(title)) return "character";
   if (locationNames.has(title)) return "location";
   if (eventNames.has(title)) return "event";
-  if (title === "Deepstone" || title === "The Bells" || title === "Seal Contracts") {
+  if (title === "Horizon Probe" || title === "The Gray Growth") {
     return "item";
   }
   return "note";
@@ -106,7 +135,7 @@ function aliasesForLore(title: string): string[] {
 
 function parseExampleStory() {
   const titleMatch = exampleStoryMarkdown.match(/^#\s+(.+)$/m);
-  const title = titleMatch?.[1]?.trim() || "Iron Salt";
+  const title = titleMatch?.[1]?.trim() || "The Orchard Line";
   const loreHeadingPattern = /^#\s+Glossary and World Lore\s*$/m;
   const loreHeading = exampleStoryMarkdown.match(loreHeadingPattern);
   const loreStart = loreHeading?.index ?? exampleStoryMarkdown.length;
@@ -118,11 +147,11 @@ function parseExampleStory() {
     storyId: EXAMPLE_STORY_ID,
     title: chapter.title,
     order: index + 1,
-    content: createLexicalState(chapter.body),
+    content: createLexicalState(chapter.body, `${EXAMPLE_STORY_ID}-chapter-${index + 1}`),
     summary: "",
     wordCount: countWords(chapter.body),
     povType: "Third Person Limited",
-    povCharacter: "Tavin",
+    povCharacter: "Mara Venn",
     isDemo: true,
   }));
 
@@ -145,7 +174,7 @@ function parseExampleStory() {
     id: EXAMPLE_STORY_ID,
     title,
     synopsis:
-      "A fantasy-industrial story about a forge laborer altered by deepstone after an ancient warning bell wakes beneath Kel Harrow.",
+      "A compact generation-ship mystery about an ecology apprentice who discovers that the promised planet no longer matches the probe survey her ship has trusted for generations.",
     author: "Example Seed",
     language: "English",
     isDemo: true,

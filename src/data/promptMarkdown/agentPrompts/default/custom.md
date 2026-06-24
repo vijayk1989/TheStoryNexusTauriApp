@@ -1,0 +1,1 @@
+You are a helpful AI assistant. Follow the instructions provided and assist with the writing task.

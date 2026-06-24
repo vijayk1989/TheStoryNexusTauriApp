@@ -14,6 +14,7 @@ import type {
     SceneBeat,
     Story,
     Template,
+    TimelineEvent,
 } from "@/types/story";
 
 const SITE_BACKUP_TYPE = "story-nexus-site-backup";
@@ -23,6 +24,7 @@ interface SiteBackupData {
     stories: Story[];
     chapters: Chapter[];
     lorebookEntries: LorebookEntry[];
+    timelineEvents: TimelineEvent[];
     sceneBeats: SceneBeat[];
     drafts: Draft[];
     aiChats: AIChat[];
@@ -45,6 +47,7 @@ export interface SiteBackupSummary {
     stories: number;
     chapters: number;
     lorebookEntries: number;
+    timelineEvents: number;
     sceneBeats: number;
     drafts: number;
     aiChats: number;
@@ -66,6 +69,7 @@ export async function createSiteBackupPayload(): Promise<{ backup: SiteBackupFil
         stories: await db.stories.toArray(),
         chapters: await db.chapters.toArray(),
         lorebookEntries: (await db.lorebookEntries.toArray()).map(normalizeLorebookEntry),
+        timelineEvents: await db.timelineEvents.toArray(),
         sceneBeats: await db.sceneBeats.toArray(),
         drafts: await db.drafts.toArray(),
         aiChats: await db.aiChats.toArray(),
@@ -110,6 +114,7 @@ export const siteBackupService = {
         const storyIdMap = new Map<string, string>();
         const chapterIdMap = new Map<string, string>();
         const lorebookIdMap = new Map<string, string>();
+        const timelineEventIdMap = new Map<string, string>();
         const promptIdMap = new Map<string, string>();
         const templateIdMap = new Map<string, string>();
         const agentIdMap = new Map<string, string>();
@@ -130,6 +135,9 @@ export const siteBackupService = {
         }
         for (const entry of sourceData.lorebookEntries || []) {
             lorebookIdMap.set(entry.id, crypto.randomUUID());
+        }
+        for (const event of sourceData.timelineEvents || []) {
+            timelineEventIdMap.set(event.id, crypto.randomUUID());
         }
         for (const prompt of sourceData.prompts || []) {
             if (!prompt.isSystem) promptIdMap.set(prompt.id, crypto.randomUUID());
@@ -184,6 +192,22 @@ export const siteBackupService = {
                 }, lorebookIdMap);
             })
             .filter((entry): entry is LorebookEntry => entry !== null);
+
+        const timelineEvents = (sourceData.timelineEvents || [])
+            .map((event): TimelineEvent | null => {
+                const storyId = storyIdMap.get(event.storyId);
+                if (!storyId) return null;
+                return reviveTimelineEvent({
+                    ...event,
+                    id: timelineEventIdMap.get(event.id)!,
+                    storyId,
+                    chapterId: event.chapterId ? chapterIdMap.get(event.chapterId) : undefined,
+                    participantIds: (event.participantIds || []).map((id) => lorebookIdMap.get(id) || id),
+                    relatedLorebookEntryIds: (event.relatedLorebookEntryIds || []).map((id) => lorebookIdMap.get(id) || id),
+                    locationId: event.locationId ? lorebookIdMap.get(event.locationId) || event.locationId : undefined,
+                });
+            })
+            .filter((event): event is TimelineEvent => event !== null);
 
         const sceneBeats = (sourceData.sceneBeats || [])
             .map((sceneBeat): SceneBeat | null => {
@@ -321,6 +345,7 @@ export const siteBackupService = {
                 db.stories,
                 db.chapters,
                 db.lorebookEntries,
+                db.timelineEvents,
                 db.sceneBeats,
                 db.drafts,
                 db.aiChats,
@@ -335,6 +360,7 @@ export const siteBackupService = {
                 await db.stories.bulkAdd(stories);
                 await db.chapters.bulkAdd(chapters);
                 await db.lorebookEntries.bulkAdd(lorebookEntries);
+                await db.timelineEvents.bulkAdd(timelineEvents);
                 await db.sceneBeats.bulkAdd(sceneBeats);
                 await db.drafts.bulkAdd(drafts);
                 await db.aiChats.bulkAdd(aiChats);
@@ -351,6 +377,7 @@ export const siteBackupService = {
             stories: stories.length,
             chapters: chapters.length,
             lorebookEntries: lorebookEntries.length,
+            timelineEvents: timelineEvents.length,
             sceneBeats: sceneBeats.length,
             drafts: drafts.length,
             aiChats: aiChats.length,
@@ -372,6 +399,7 @@ export const siteBackupService = {
                 db.stories,
                 db.chapters,
                 db.lorebookEntries,
+                db.timelineEvents,
                 db.sceneBeats,
                 db.drafts,
                 db.aiChats,
@@ -389,6 +417,7 @@ export const siteBackupService = {
                 await db.stories.clear();
                 await db.chapters.clear();
                 await db.lorebookEntries.clear();
+                await db.timelineEvents.clear();
                 await db.sceneBeats.clear();
                 await db.drafts.clear();
                 await db.aiChats.clear();
@@ -422,6 +451,7 @@ function parseBackup(jsonData: string): SiteBackupFile {
             stories: parsed.data.stories || [],
             chapters: parsed.data.chapters || [],
             lorebookEntries: parsed.data.lorebookEntries || [],
+            timelineEvents: parsed.data.timelineEvents || [],
             sceneBeats: parsed.data.sceneBeats || [],
             drafts: parsed.data.drafts || [],
             aiChats: parsed.data.aiChats || [],
@@ -440,6 +470,7 @@ function summarize(data: SiteBackupData, skippedImages: number): SiteBackupSumma
         stories: data.stories.length,
         chapters: data.chapters.length,
         lorebookEntries: data.lorebookEntries.length,
+        timelineEvents: data.timelineEvents.length,
         sceneBeats: data.sceneBeats.length,
         drafts: data.drafts.length,
         aiChats: data.aiChats.length,
@@ -505,7 +536,6 @@ function reviveLorebookEntry(entry: LorebookEntry, lorebookIdMap: Map<string, st
         ...relationship,
         targetId: lorebookIdMap.get(relationship.targetId) || relationship.targetId,
     }));
-    const participantIds = entry.metadata?.participantIds?.map((id) => lorebookIdMap.get(id) || id);
 
     return {
         ...normalizedEntry,
@@ -514,8 +544,18 @@ function reviveLorebookEntry(entry: LorebookEntry, lorebookIdMap: Map<string, st
             ? {
                 ...normalizedEntry.metadata,
                 relationships,
-                participantIds,
             }
             : normalizedEntry.metadata,
+    };
+}
+
+function reviveTimelineEvent(event: TimelineEvent): TimelineEvent {
+    return {
+        ...event,
+        participantIds: event.participantIds || [],
+        unresolvedParticipants: event.unresolvedParticipants || [],
+        relatedLorebookEntryIds: event.relatedLorebookEntryIds || [],
+        createdAt: reviveDate(event.createdAt),
+        updatedAt: event.updatedAt ? reviveDate(event.updatedAt) : undefined,
     };
 }

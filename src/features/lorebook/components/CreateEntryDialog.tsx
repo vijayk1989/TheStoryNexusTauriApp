@@ -45,7 +45,6 @@ const CATEGORIES: LorebookCategory[] = [
   "note",
   "synopsis",
   "starting scenario",
-  "timeline",
 ];
 const IMPORTANCE_LEVELS = ["major", "minor", "background"] as const;
 const STATUS_OPTIONS = ["active", "inactive", "historical"] as const;

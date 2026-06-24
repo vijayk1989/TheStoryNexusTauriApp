@@ -66,7 +66,6 @@ function sanitizeResults(raw: any[]): Partial<LorebookEntry>[] {
     'note',
     'synopsis',
     'starting scenario',
-    'timeline',
   ]);
 
   return raw

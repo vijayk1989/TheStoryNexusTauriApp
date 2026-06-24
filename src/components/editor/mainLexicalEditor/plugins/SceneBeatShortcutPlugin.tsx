@@ -3,10 +3,12 @@ import { useEffect } from "react";
 import {
     $getSelection,
     $isRangeSelection,
+    COMMAND_PRIORITY_EDITOR,
     COMMAND_PRIORITY_HIGH,
     COMMAND_PRIORITY_NORMAL,
     KEY_BACKSPACE_COMMAND,
     KEY_MODIFIER_COMMAND,
+    KEY_TAB_COMMAND,
 } from "lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 
@@ -80,9 +82,31 @@ export function SceneBeatShortcutPlugin() {
             COMMAND_PRIORITY_HIGH
         );
 
+        const removeTabFocusMove = editor.registerCommand(
+            KEY_TAB_COMMAND,
+            (event: KeyboardEvent) => {
+                if (event.altKey || event.ctrlKey || event.metaKey) {
+                    return false;
+                }
+
+                const selection = $getSelection();
+                if (!$isRangeSelection(selection)) {
+                    return false;
+                }
+
+                event.preventDefault();
+                if (!event.shiftKey) {
+                    selection.insertText("    ");
+                }
+                return true;
+            },
+            COMMAND_PRIORITY_EDITOR
+        );
+
         return () => {
             removeShortcut();
             removeBackspace();
+            removeTabFocusMove();
         };
     }, [editor]);
 

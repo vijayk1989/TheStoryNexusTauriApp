@@ -4,7 +4,6 @@ import {
     Zap,
     Sparkles,
     CheckCircle,
-    XCircle,
     Settings,
     FileText,
     Code,
@@ -29,12 +28,11 @@ export default function PromptGuide() {
             </div>
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="grid grid-cols-5 mb-8">
+                <TabsList className="grid grid-cols-4 mb-8">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="creating">Creating Prompts</TabsTrigger>
                     <TabsTrigger value="variables">Using Variables</TabsTrigger>
                     <TabsTrigger value="managing">Managing Prompts</TabsTrigger>
-                    <TabsTrigger value="advanced">Advanced Strategies</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-6">
@@ -341,9 +339,9 @@ export default function PromptGuide() {
                         </p>
 
                         <div className="space-y-4">
-                            <h4 className="text-lg font-medium">Common Variables</h4>
+                            <h4 className="text-lg font-medium">Available Variables</h4>
                             <p>
-                                The Story Nexus provides a variety of variables you can use in your prompts:
+                                These variables are replaced when the prompt runs. Some are only populated in the flows that provide that context, such as Scene Beat or Brainstorm.
                             </p>
                             <div className="overflow-x-auto mt-4">
                                 <table className="w-full border-collapse">
@@ -360,11 +358,27 @@ export default function PromptGuide() {
                                         </tr>
                                         <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;scenebeat_context&#125;&#125;</td>
-                                            <td className="border p-2">This will dynamically generate a context based on matched lorebook entries in the chapter or custom context you provide</td>
+                                            <td className="border p-2">Lorebook context selected for the Scene Beat, including matched chapter entries, matched scene beat entries, or custom context items</td>
                                         </tr>
                                         <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;brainstorm_context&#125;&#125;</td>
-                                            <td className="border p-2">Dynamic Brainstorm Context</td>
+                                            <td className="border p-2">Selected chapter summaries, chapter text, and lorebook entries from the Brainstorm context panel</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;matched_entries_chapter&#125;&#125;</td>
+                                            <td className="border p-2">Lorebook entries matched against the current chapter. <span className="font-mono text-sm">&#123;&#123;lorebook_chapter_matched_entries&#125;&#125;</span> and <span className="font-mono text-sm">&#123;&#123;lorebook_data&#125;&#125;</span> resolve the same way.</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;lorebook_scenebeat_matched_entries&#125;&#125;</td>
+                                            <td className="border p-2">Lorebook entries matched against the current scene beat text</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;lorebook_update_targets&#125;&#125;</td>
+                                            <td className="border p-2">Lorebook entries selected as update targets for lorebook update prompts</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;lorebook Entry Name&#125;&#125;</td>
+                                            <td className="border p-2">A specific lorebook entry from any category by name or alias</td>
                                         </tr>
                                         <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;summaries&#125;&#125;</td>
@@ -395,12 +409,32 @@ export default function PromptGuide() {
                                             <td className="border p-2">The full content of the current chapter</td>
                                         </tr>
                                         <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;chapter_outline&#125;&#125;</td>
+                                            <td className="border p-2">The outline for the current chapter, when one exists</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;chapter_data(2)&#125;&#125;</td>
+                                            <td className="border p-2">The full text for a specific chapter by chapter number. Change the number to select a different chapter.</td>
+                                        </tr>
+                                        <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;selected_text&#125;&#125;</td>
-                                            <td className="border p-2">Text currently selected in the editor</td>
+                                            <td className="border p-2">Text currently selected in the editor. <span className="font-mono text-sm">&#123;&#123;selection&#125;&#125;</span> resolves the same way.</td>
                                         </tr>
                                         <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;story_language&#125;&#125;</td>
                                             <td className="border p-2">The language of the story</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;timeline&#125;&#125;</td>
+                                            <td className="border p-2">Timeline events up to the current chapter. <span className="font-mono text-sm">&#123;&#123;timeline_up_to_current_chapter&#125;&#125;</span> and <span className="font-mono text-sm">&#123;&#123;all_timelines&#125;&#125;</span> resolve the same way.</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;timeline_current_chapter&#125;&#125;</td>
+                                            <td className="border p-2">Only timeline events attached to the current chapter</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;all_entries&#125;&#125;</td>
+                                            <td className="border p-2">All enabled lorebook entries for the story</td>
                                         </tr>
                                         <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;all_characters&#125;&#125;</td>
@@ -409,6 +443,30 @@ export default function PromptGuide() {
                                         <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;all_locations&#125;&#125;</td>
                                             <td className="border p-2">All location entries from the Lorebook</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;all_items&#125;&#125;</td>
+                                            <td className="border p-2">All item entries from the Lorebook</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;all_events&#125;&#125;</td>
+                                            <td className="border p-2">All event entries from the Lorebook</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;all_notes&#125;&#125;</td>
+                                            <td className="border p-2">All note entries from the Lorebook</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;all_synopsis&#125;&#125;</td>
+                                            <td className="border p-2">All synopsis entries from the Lorebook</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;all_starting_scenarios&#125;&#125;</td>
+                                            <td className="border p-2">All starting scenario entries from the Lorebook</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="border p-2 font-mono text-sm">&#123;&#123;character Alias&#125;&#125;</td>
+                                            <td className="border p-2">A specific character entry by name or alias</td>
                                         </tr>
                                         <tr>
                                             <td className="border p-2 font-mono text-sm">&#123;&#123;user_input&#125;&#125;</td>
@@ -490,6 +548,16 @@ export default function PromptGuide() {
                                         Summaries of what came before
                                     </p>
                                 </div>
+
+                                <div className="border rounded-lg p-4 bg-card">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Table className="h-5 w-5 text-primary" />
+                                        <h5 className="font-medium">Timeline</h5>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Ordered events up to the current chapter or from the current chapter only
+                                    </p>
+                                </div>
                             </div>
                             <p className="text-sm mt-4">
                                 This context helps the AI generate content that's consistent with your story world.
@@ -499,14 +567,32 @@ export default function PromptGuide() {
                         <Alert className="mt-6">
                             <AlertTitle className="flex items-center gap-2">
                                 <Sparkles className="h-5 w-5" />
-                                Advanced Variable Usage
+                                Example: Prompt and Resolved Text
                             </AlertTitle>
                             <AlertDescription>
                                 <p className="mb-2">
-                                    You can create sophisticated prompts that adapt to your story context by combining variables:
+                                    Prompt text:
                                 </p>
                                 <div className="bg-muted p-3 rounded text-sm font-mono mt-2">
-                                    Write a scene where &#123;&#123;scenebeat&#125;&#125;. The scene involves the following characters: &#123;&#123;scenebeat_context&#125;&#125;. The scene takes place after these events: &#123;&#123;summaries&#125;&#125;. Maintain the &#123;&#123;pov&#125;&#125; perspective.
+                                    Write the next passage in &#123;&#123;story_language&#125;&#125; from &#123;&#123;pov&#125;&#125;. Scene beat: &#123;&#123;scenebeat&#125;&#125;.
+                                    <br />
+                                    Recent prose: &#123;&#123;previous_words(80)&#125;&#125;
+                                    <br />
+                                    Current chapter events: &#123;&#123;timeline_current_chapter&#125;&#125;
+                                    <br />
+                                    Relevant lore: &#123;&#123;scenebeat_context&#125;&#125;
+                                </div>
+                                <p className="mb-2 mt-4">
+                                    Resolved example:
+                                </p>
+                                <div className="bg-muted p-3 rounded text-sm font-mono mt-2">
+                                    Write the next passage in English from Mara Venn, third person limited. Scene beat: Mara confronts Elian at the observatory gate.
+                                    <br />
+                                    Recent prose: Rain ticked against the brass dome while the city lanterns flickered below the hill.
+                                    <br />
+                                    Current chapter events: Chapter 2, Event 1: Mara reaches the observatory. Participants: Mara Venn, Elian Cor. Summary: Mara arrives before dawn and finds Elian waiting with the stolen star map.
+                                    <br />
+                                    Relevant lore: CHARACTER: Mara Venn. Description: A careful cartographer who hides her fear behind precise words.
                                 </div>
                             </AlertDescription>
                         </Alert>
@@ -643,186 +729,6 @@ export default function PromptGuide() {
                     </div>
                 </TabsContent>
 
-                <TabsContent value="advanced" className="space-y-6">
-                    <div className="space-y-4">
-                        <h3 className="text-xl font-semibold">Advanced Prompt Strategies</h3>
-                        <p>
-                            Master these advanced techniques to get the most out of your AI-assisted writing.
-                        </p>
-
-                        <div className="space-y-4">
-                            <h4 className="text-lg font-medium">Creating Specialized Prompts</h4>
-                            <p>
-                                Develop prompts for specific writing challenges:
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                                <div className="border rounded-lg p-4 bg-card">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <MessageSquare className="h-5 w-5 text-primary" />
-                                        <h5 className="font-medium">Character Voice Prompts</h5>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Create prompts that capture specific character voices and speech patterns
-                                    </p>
-                                </div>
-
-                                <div className="border rounded-lg p-4 bg-card">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <BookOpen className="h-5 w-5 text-primary" />
-                                        <h5 className="font-medium">Description Prompts</h5>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Focus on vivid sensory details for settings and environments
-                                    </p>
-                                </div>
-
-                                <div className="border rounded-lg p-4 bg-card">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Zap className="h-5 w-5 text-primary" />
-                                        <h5 className="font-medium">Action Prompts</h5>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Emphasize clear, dynamic action sequences
-                                    </p>
-                                </div>
-
-                                <div className="border rounded-lg p-4 bg-card">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <Sparkles className="h-5 w-5 text-primary" />
-                                        <h5 className="font-medium">Emotional Prompts</h5>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Highlight internal thoughts and emotional reactions
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4 mt-6">
-                            <h4 className="text-lg font-medium">Prompt Chaining</h4>
-                            <p>
-                                Use multiple prompts in sequence for complex writing tasks:
-                            </p>
-                            <div className="relative overflow-hidden mt-4">
-                                <div className="border-l-2 border-primary absolute h-full left-4 top-0"></div>
-                                <div className="space-y-6 ml-10">
-                                    <div className="relative">
-                                        <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center absolute -left-12">1</div>
-                                        <div className="border rounded-lg p-4 bg-card">
-                                            <h5 className="font-medium">Brainstorming Prompt</h5>
-                                            <p className="text-sm text-muted-foreground mt-1">
-                                                Use a brainstorming prompt to generate ideas and possibilities
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative">
-                                        <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center absolute -left-12">2</div>
-                                        <div className="border rounded-lg p-4 bg-card">
-                                            <h5 className="font-medium">Scene Structure Prompt</h5>
-                                            <p className="text-sm text-muted-foreground mt-1">
-                                                Follow with a scene structure prompt to outline the scene
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative">
-                                        <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center absolute -left-12">3</div>
-                                        <div className="border rounded-lg p-4 bg-card">
-                                            <h5 className="font-medium">Detailed Scene Beat Prompt</h5>
-                                            <p className="text-sm text-muted-foreground mt-1">
-                                                Finish with a detailed scene beat prompt to write the full content
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4 mt-6">
-                            <h4 className="text-lg font-medium">Troubleshooting Common Issues</h4>
-                            <p>
-                                If your prompts aren't producing the desired results:
-                            </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <div className="border rounded-lg p-4 bg-card">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <XCircle className="h-5 w-5 text-destructive" />
-                                        <h5 className="font-medium">Too Generic</h5>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Add more specific instructions and examples
-                                    </p>
-                                </div>
-
-                                <div className="border rounded-lg p-4 bg-card">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <XCircle className="h-5 w-5 text-destructive" />
-                                        <h5 className="font-medium">Inconsistent Style</h5>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Include clear style guidelines in system messages
-                                    </p>
-                                </div>
-
-                                <div className="border rounded-lg p-4 bg-card">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <XCircle className="h-5 w-5 text-destructive" />
-                                        <h5 className="font-medium">Missing Context</h5>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Make sure you're using the right variables to include story context
-                                    </p>
-                                </div>
-
-                                <div className="border rounded-lg p-4 bg-card">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <XCircle className="h-5 w-5 text-destructive" />
-                                        <h5 className="font-medium">Too Restrictive</h5>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Increase temperature for more creative variations
-                                    </p>
-                                </div>
-
-                                <div className="border rounded-lg p-4 bg-card">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <XCircle className="h-5 w-5 text-destructive" />
-                                        <h5 className="font-medium">Too Random</h5>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Decrease temperature for more focused outputs
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-8 p-6 border rounded-lg bg-muted/30">
-                            <h3 className="text-xl font-semibold mb-4">Best Practices</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <ul className="list-disc list-inside space-y-2">
-                                        <li>Start Simple: Begin with basic prompts and refine them as you learn what works</li>
-                                        <li>Test Different Models: Different AI models respond differently to the same prompt</li>
-                                        <li>Include Examples: Provide examples of the style and format you want in assistant messages</li>
-                                        <li>Be Specific: Clear, detailed instructions yield better results than vague ones</li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <ul className="list-disc list-inside space-y-2">
-                                        <li>Iterate: Refine your prompts based on the results you get</li>
-                                        <li>Save Variations: Keep different versions of prompts for different writing needs</li>
-                                        <li>Balance Creativity and Control: Find the right temperature setting for your writing style</li>
-                                        <li>Use Variables Strategically: Include only the context that's relevant to your current task</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <p className="mt-4 text-muted-foreground">
-                                By mastering the art of prompt creation, you'll be able to harness the full power of AI to enhance your storytelling while maintaining your unique voice and vision.
-                            </p>
-                        </div>
-                    </div>
-                </TabsContent>
             </Tabs>
         </div>
     );

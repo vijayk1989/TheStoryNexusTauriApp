@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, test } from "vitest";
 
 import {
   SYSTEM_PIPELINE_PRESETS,
+  cleanupDuplicateSystemPresets,
   getSystemPipelines,
   seedSystemAgents,
 } from "@/features/agents/services/agentSeeder";
 import { isProseAgentRole } from "@/features/agents/utils/agentRoles";
 import { db } from "@/services/database";
-import type { PipelinePreset } from "@/types/story";
+import type { AgentPreset, PipelinePreset } from "@/types/story";
 import { resetTestDb } from "./testDb";
 
 describe("agent seeding", () => {
@@ -53,6 +54,55 @@ describe("agent seeding", () => {
       expect(isProseAgentRole(finalAgent?.role), pipelinePreset.name).toBe(true);
     }
   });
+
+  test("remaps pipeline steps before deleting duplicate system agents", async () => {
+    await seedSystemAgents();
+
+    const originalAgent = await db.agentPresets
+      .filter((agentPreset) => agentPreset.isSystem === true && agentPreset.name === "System Prose Writer")
+      .first();
+    expect(originalAgent).toBeTruthy();
+
+    const duplicateAgent = agent({
+      id: "duplicate-prose-writer",
+      name: originalAgent!.name,
+      role: originalAgent!.role,
+    });
+    await db.agentPresets.add(duplicateAgent);
+
+    await db.pipelinePresets.add({
+      ...pipeline("user-pipeline-with-duplicate-agent", "User Pipeline", false),
+      steps: [{ agentPresetId: duplicateAgent.id, order: 0 }],
+    });
+
+    await cleanupDuplicateSystemPresets();
+
+    const cleanedPipeline = await db.pipelinePresets.get("user-pipeline-with-duplicate-agent");
+    expect(await db.agentPresets.get(duplicateAgent.id)).toBeUndefined();
+    expect(cleanedPipeline?.steps[0]?.agentPresetId).toBe(originalAgent!.id);
+  });
+
+  test("repairs existing system pipelines with orphaned agent references", async () => {
+    await seedSystemAgents();
+
+    const quickDraft = await db.pipelinePresets
+      .filter((pipelinePreset) => pipelinePreset.isSystem === true && pipelinePreset.name === "Quick Draft")
+      .first();
+    expect(quickDraft).toBeTruthy();
+
+    await db.pipelinePresets.update(quickDraft!.id, {
+      steps: [{ agentPresetId: "missing-agent-id", order: 0, streamOutput: true }],
+    });
+
+    await seedSystemAgents();
+
+    const repairedPipeline = await db.pipelinePresets.get(quickDraft!.id);
+    const repairedAgentId = repairedPipeline?.steps[0]?.agentPresetId;
+    const repairedAgent = repairedAgentId ? await db.agentPresets.get(repairedAgentId) : undefined;
+
+    expect(repairedAgentId).not.toBe("missing-agent-id");
+    expect(repairedAgent?.role).toBe("prose_writer");
+  });
 });
 
 function pipeline(id: string, name: string, isSystem: boolean): PipelinePreset {
@@ -63,5 +113,22 @@ function pipeline(id: string, name: string, isSystem: boolean): PipelinePreset {
     steps: [],
     isSystem,
     storyId: isSystem ? null : "unit-story",
+  };
+}
+
+function agent(overrides: Pick<AgentPreset, "id" | "name" | "role">): AgentPreset {
+  return {
+    ...overrides,
+    createdAt: new Date(),
+    model: {
+      id: "test-model",
+      provider: "openrouter",
+      name: "Test Model",
+    },
+    systemPrompt: "Test agent",
+    temperature: 0.5,
+    maxTokens: 1000,
+    isSystem: true,
+    storyId: null,
   };
 }

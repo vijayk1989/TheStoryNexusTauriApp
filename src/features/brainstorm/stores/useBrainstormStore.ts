@@ -1,7 +1,21 @@
 import { create } from 'zustand';
 import { db } from '@/services/database';
-import type { AIChat } from '@/types/story';
+import type { AIChat, AllowedModel, BrainstormOutputMode } from '@/types/story';
 import { v4 as uuidv4 } from 'uuid';
+
+export interface BrainstormPinnedSession {
+    input: string;
+    selectedPromptId?: string;
+    selectedModel?: AllowedModel | null;
+    includeFullContext: boolean;
+    includeAllLorebook: boolean;
+    selectedSummaryIds: string[];
+    selectedLorebookEntryIds: string[];
+    selectedChapterContentIds: string[];
+    structuredOutputMode: BrainstormOutputMode;
+    agenticMode: boolean;
+    selectedPipelineId?: string;
+}
 
 interface BrainstormState {
     chats: AIChat[];
@@ -9,6 +23,8 @@ interface BrainstormState {
     isLoading: boolean;
     error: string | null;
     draftMessage: string;
+    pinnedChapterId: string | null;
+    pinnedSession: BrainstormPinnedSession | null;
 
     // Actions
     fetchChats: (storyId: string) => Promise<void>;
@@ -19,6 +35,9 @@ interface BrainstormState {
     updateChat: (chatId: string, data: Partial<AIChat>) => Promise<void>;
     setDraftMessage: (message: string) => void;
     clearDraftMessage: () => void;
+    pinToChapter: (chapterId: string, session: BrainstormPinnedSession) => void;
+    updatePinnedSession: (chapterId: string, session: BrainstormPinnedSession) => void;
+    clearPinnedSession: () => void;
     // Message-level helpers
     updateMessage: (chatId: string, messageId: string, updates: Partial<any>) => Promise<void>;
     setMessageEdited: (chatId: string, messageId: string, editedContent: string) => Promise<void>;
@@ -30,6 +49,8 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
     isLoading: false,
     error: null,
     draftMessage: '',
+    pinnedChapterId: null,
+    pinnedSession: null,
 
     fetchChats: async (storyId) => {
         set({ isLoading: true, error: null });
@@ -217,5 +238,25 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
 
     clearDraftMessage: () => {
         set({ draftMessage: '' });
+    },
+
+    pinToChapter: (chapterId, session) => {
+        set({
+            pinnedChapterId: chapterId,
+            pinnedSession: session,
+        });
+    },
+
+    updatePinnedSession: (chapterId, session) => {
+        const { pinnedChapterId } = get();
+        if (pinnedChapterId !== chapterId) return;
+        set({ pinnedSession: session });
+    },
+
+    clearPinnedSession: () => {
+        set({
+            pinnedChapterId: null,
+            pinnedSession: null,
+        });
     },
 })); 

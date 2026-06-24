@@ -3,7 +3,6 @@ import { useParams } from "react-router";
 import { useLorebookStore } from "../stores/useLorebookStore";
 import { CreateEntryDialog } from "../components/CreateEntryDialog";
 import { LorebookEntryList } from "../components/LorebookEntryList";
-import { TimelineView } from "../components/TimelineView";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, Upload } from "lucide-react";
 import { useState } from "react";
@@ -189,12 +188,6 @@ export default function LorebookPage() {
                         >
                             Starting ({categoryCounts['starting scenario'] || 0})
                         </TabsTrigger>
-                        <TabsTrigger
-                            value="timeline"
-                            className="whitespace-nowrap text-xs md:text-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                        >
-                            Timeline ({categoryCounts.timeline || 0})
-                        </TabsTrigger>
                     </TabsList>
                 </div>
 
@@ -203,8 +196,6 @@ export default function LorebookPage() {
                         <div className="flex justify-center p-8">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                         </div>
-                    ) : activeTab === "timeline" ? (
-                        <TimelineView entries={filteredEntries} />
                     ) : (
                         <LorebookEntryList entries={filteredEntries} />
                     )}

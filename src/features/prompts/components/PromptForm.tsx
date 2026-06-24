@@ -7,6 +7,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { usePromptStore } from '../store/promptStore';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { aiService } from '@/services/ai/AIService';
+import { PromptVariableReference } from './PromptVariableReference';
 import type { Prompt, PromptMessage, AIModel, AllowedModel, AIProvider } from '@/types/story';
 import { Plus, ArrowUp, ArrowDown, Trash2, X, Star, Layers, RefreshCw } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -420,6 +421,11 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             />
 
             <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-medium">Messages</h3>
+                    <PromptVariableReference />
+                </div>
+
                 {messages.map((message, index) => (
                     <div key={index} className="space-y-2 p-4 border rounded-lg">
                         <div className="flex items-center justify-between gap-2">

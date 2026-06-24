@@ -23,7 +23,7 @@ test.describe("main Lexical editor", () => {
     await openEditor(page);
   });
 
-  test("loads the seeded Iron Salt chapter as multiple paragraphs", async ({ page }) => {
+  test("loads the seeded example chapter as multiple paragraphs", async ({ page }) => {
     const snapshot = await getEditorSnapshot(page);
 
     expect(snapshot.currentStoryId).toBe(EXAMPLE_STORY_ID);
@@ -31,7 +31,7 @@ test.describe("main Lexical editor", () => {
     expect(snapshot.paragraphCount).toBeGreaterThan(10);
     expect(snapshot.sceneBeatCount).toBe(0);
     expect(snapshot.topLevelTypes[0]).toBe("paragraph");
-    expect(snapshot.plainText).toContain("Tavin");
+    expect(snapshot.plainText).toContain("Mara Venn");
   });
 
   test("keeps a valid selection after pressing Enter in seeded prose", async ({ page }) => {
@@ -77,6 +77,28 @@ test.describe("main Lexical editor", () => {
     });
   });
 
+  test("keeps Tab focus in the prose editor after a SceneBeat", async ({ page }) => {
+    await placeCursorAtTopLevelNode(page, 0, "end");
+    await page.keyboard.press("Alt+S");
+    await waitForEditorSnapshot(page, (snapshot) => snapshot.sceneBeatCount === 1);
+
+    const visibleEditor = page.locator(`${CHAPTER_EDITOR}:visible`).first();
+    await visibleEditor.focus();
+    await placeCursorAtTopLevelNode(page, 2, "end");
+
+    await expect.poll(() => getActiveElementInfo(page)).toMatchObject({
+      ariaLabel: "Chapter editor",
+    });
+
+    await page.keyboard.press("Tab");
+
+    await expect.poll(() => getActiveElementInfo(page)).toMatchObject({
+      ariaLabel: "Chapter editor",
+    });
+    await expect(page.locator("textarea:focus")).toHaveCount(0);
+    expect(getTopLevelText(await getEditorSnapshot(page), 2)).toBe("    ");
+  });
+
   test("autosaves edited prose back to IndexedDB", async ({ page }) => {
     const marker = ` E2E autosave marker ${Date.now()}.`;
 
@@ -93,7 +115,7 @@ test.describe("main Lexical editor", () => {
 
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain("Chapter text:");
-    expect(messages[0]).toContain("Tavin");
+    expect(messages[0]).toContain("Mara Venn");
     expect(messages[0]).not.toContain("{{chapter_content}}");
   });
 
@@ -112,9 +134,9 @@ test.describe("main Lexical editor", () => {
 
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain("Chapter 1: Chapter One");
-    expect(messages[0]).toContain("Tavin broke the");
+    expect(messages[0]).toContain("Mara Venn tightened the");
     expect(messages[0]).toContain("Chapter 2: Chapter Two");
-    expect(messages[0]).toContain("The fever hit before dawn.");
+    expect(messages[0]).toContain("Captain Anik sealed Cartography");
     expect(messages[0]).not.toContain("Chapter 3: Chapter Three");
     expect(messages[0]).not.toContain("{{all_previous_chapters}}");
     expect(messages[0]).not.toContain("{{previous_chapter(1)}}");
@@ -162,6 +184,42 @@ test.describe("main Lexical editor", () => {
 
     await expect(page.locator('[role="dialog"]').getByRole("heading", { name: "Prompts" })).toBeVisible();
   });
+
+  test("preserves pinned Brainstorm context across sheet remounts", async ({ page }) => {
+    await page.getByRole("button", { name: "Brainstorm" }).click();
+    await expect(page.locator('[role="dialog"]').getByRole("heading", { name: "Brainstorm" })).toBeVisible();
+
+    const startButton = page.getByRole("button", { name: "Start New Brainstorm" });
+    if (await startButton.isVisible().catch(() => false)) {
+      await startButton.click();
+    }
+
+    const pinSwitch = page.getByTestId("brainstorm-pin-to-chapter");
+    const fullContextSwitch = page.getByTestId("brainstorm-full-context");
+
+    await expect(pinSwitch).toBeVisible();
+    await expect(pinSwitch).toHaveAttribute("data-state", "unchecked");
+
+    await pinSwitch.click();
+    await fullContextSwitch.click();
+    await expect(pinSwitch).toHaveAttribute("data-state", "checked");
+    await expect(fullContextSwitch).toHaveAttribute("data-state", "checked");
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[role="dialog"]')).toBeHidden();
+
+    await page.getByRole("button", { name: "Brainstorm" }).click();
+    await expect(page.getByTestId("brainstorm-pin-to-chapter")).toHaveAttribute("data-state", "checked");
+    await expect(page.getByTestId("brainstorm-full-context")).toHaveAttribute("data-state", "checked");
+
+    await page.getByTestId("brainstorm-pin-to-chapter").click();
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[role="dialog"]')).toBeHidden();
+
+    await page.getByRole("button", { name: "Brainstorm" }).click();
+    await expect(page.getByTestId("brainstorm-pin-to-chapter")).toHaveAttribute("data-state", "unchecked");
+    await expect(page.getByTestId("brainstorm-full-context")).toHaveAttribute("data-state", "unchecked");
+  });
 });
 
 async function openEditor(page: Page) {
@@ -188,6 +246,33 @@ async function getEditorSnapshot(page: Page): Promise<EditorSnapshot> {
 
 async function getElementWidth(page: Page, selector: string): Promise<number> {
   return page.locator(selector).evaluate((element) => element.getBoundingClientRect().width);
+}
+
+async function getActiveElementInfo(page: Page): Promise<{
+  ariaLabel: string | null;
+  tagName: string | null;
+}> {
+  return page.evaluate(() => {
+    const activeElement = document.activeElement;
+    return {
+      ariaLabel: activeElement?.getAttribute("aria-label") ?? null,
+      tagName: activeElement?.tagName ?? null,
+    };
+  });
+}
+
+function getTopLevelText(snapshot: EditorSnapshot, index: number): string {
+  const root = (snapshot.state as { root?: { children?: SerializedLexicalNode[] } })?.root;
+  const topLevelNode = Array.isArray(root?.children) ? root.children[index] : null;
+  return topLevelNode ? collectSerializedText(topLevelNode) : "";
+}
+
+function collectSerializedText(node: SerializedLexicalNode): string {
+  const ownText = typeof node.text === "string" ? node.text : "";
+  const childText = Array.isArray(node.children)
+    ? node.children.map(collectSerializedText).join("")
+    : "";
+  return `${ownText}${childText}`;
 }
 
 async function waitForEditorSnapshot(

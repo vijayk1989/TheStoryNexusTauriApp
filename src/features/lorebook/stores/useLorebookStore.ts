@@ -38,7 +38,6 @@ interface LorebookState {
     getAllNotes: () => LorebookEntry[];
     getAllSynopsis: () => LorebookEntry[];
     getAllStartingScenarios: () => LorebookEntry[];
-    getAllTimelines: () => LorebookEntry[];
     getAllEntries: () => LorebookEntry[];
     getEntriesByImportance: (importance: 'major' | 'minor' | 'background') => LorebookEntry[];
     getEntriesByStatus: (status: 'active' | 'inactive' | 'historical') => LorebookEntry[];
@@ -275,14 +274,6 @@ export const useLorebookStore = create<LorebookState>((set, get) => ({
         return entries.filter(entry =>
             !entry.isDisabled && // Filter out disabled entries
             entry.category === 'starting scenario'
-        );
-    },
-
-    getAllTimelines: () => {
-        const { entries } = get();
-        return entries.filter(entry =>
-            !entry.isDisabled && // Filter out disabled entries
-            entry.category === 'timeline'
         );
     },
 

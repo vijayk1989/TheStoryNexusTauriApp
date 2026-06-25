@@ -19,6 +19,7 @@ import { useImageGenerationStore } from '@/features/images/stores/useImageGenera
 import { usePromptStore } from '@/features/prompts/store/promptStore';
 import { inferComfyTextToImageMapping, normalizeComfyWorkflowJson } from '@/features/images/services/comfyWorkflow';
 import { LOCAL_RUNTIME_PRESETS } from '@/services/ai/localRuntime';
+import { isLocalDefaultModel } from '@/features/ai/utils/defaultModels';
 
 type ProviderType = 'openai' | 'openrouter' | 'nanogpt' | 'local' | 'openai_compatible' | 'google';
 
@@ -33,6 +34,7 @@ export function AISettingsPanel() {
     const [localRuntime, setLocalRuntime] = useState<LocalAIRuntime>('lm_studio');
     const [localApiUrl, setLocalApiUrl] = useState('http://localhost:1234/v1');
     const [localModelsUrl, setLocalModelsUrl] = useState('http://localhost:1234/v1/models');
+    const [localDefaultModelId, setLocalDefaultModelId] = useState('auto');
     const [loadingProvider, setLoadingProvider] = useState<ProviderType | null>(null);
     const [models, setModels] = useState<Record<string, AIModel[]>>({
         openai: [],
@@ -77,6 +79,7 @@ export function AISettingsPanel() {
             const runtime = aiService.getLocalRuntime();
             const lUrl = aiService.getLocalApiUrl();
             const lModelsUrl = aiService.getLocalModelsUrl();
+            const localDefaultModelId = aiService.getLocalDefaultModelId();
 
             if (oKey) setOpenaiKey(oKey);
             if (orKey) setOpenrouterKey(orKey);
@@ -88,6 +91,7 @@ export function AISettingsPanel() {
             setLocalRuntime(runtime);
             if (lUrl) setLocalApiUrl(lUrl);
             if (lModelsUrl) setLocalModelsUrl(lModelsUrl);
+            setLocalDefaultModelId(localDefaultModelId || 'auto');
             const current = aiService.getSettings() || (await db.aiSettings.toArray())[0];
             if (current) {
                 setDefaultImageProvider(current.defaultImageProvider || 'openrouter');
@@ -228,12 +232,26 @@ export function AISettingsPanel() {
             await aiService.updateLocalRuntime(runtime);
             setLocalApiUrl(aiService.getLocalApiUrl());
             setLocalModelsUrl(aiService.getLocalModelsUrl());
+            setLocalDefaultModelId(aiService.getLocalDefaultModelId() || 'auto');
             const fetched = await aiService.getAvailableModels('local', false);
             setModels(prev => ({ ...prev, local: fetched }));
             setOpenSections(prev => ({ ...prev, local_models: true }));
             toast.success(`${LOCAL_RUNTIME_PRESETS[runtime].label} selected`);
         } catch {
             toast.error(`Failed to switch to ${LOCAL_RUNTIME_PRESETS[runtime].label}`);
+        } finally {
+            setLoadingProvider(null);
+        }
+    };
+
+    const handleLocalDefaultModelUpdate = async (modelId: string) => {
+        setLocalDefaultModelId(modelId);
+        setLoadingProvider('local');
+        try {
+            await aiService.updateLocalDefaultModelId(modelId === 'auto' ? undefined : modelId);
+            toast.success('Local default model updated');
+        } catch {
+            toast.error('Failed to update local default model');
         } finally {
             setLoadingProvider(null);
         }
@@ -308,6 +326,24 @@ export function AISettingsPanel() {
                                         {preset.label}
                                     </SelectItem>
                                 ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label className="text-xs">Default Model</Label>
+                        <Select value={localDefaultModelId} onValueChange={handleLocalDefaultModelUpdate}>
+                            <SelectTrigger className="mt-1">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="auto">First available model</SelectItem>
+                                {models.local
+                                    .filter((model) => !isLocalDefaultModel(model))
+                                    .map((model) => (
+                                        <SelectItem key={model.id} value={model.id}>
+                                            {model.name}
+                                        </SelectItem>
+                                    ))}
                             </SelectContent>
                         </Select>
                     </div>

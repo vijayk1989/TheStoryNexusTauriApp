@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { getSelectableModelsWithLocalDefault, normalizeAllowedModel } from '@/features/ai/utils/defaultModels';
 import {
     Collapsible,
     CollapsibleContent,
@@ -52,7 +53,9 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     const [promptType, setPromptType] = useState<PromptType>(prompt?.promptType || 'scene_beat');
     const isImagePrompt = promptType === 'image_gen';
     const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
-    const [selectedModels, setSelectedModels] = useState<AllowedModel[]>(prompt?.allowedModels || []);
+    const [selectedModels, setSelectedModels] = useState<AllowedModel[]>(
+        (prompt?.allowedModels || []).map(normalizeAllowedModel)
+    );
     const { createPrompt, updatePrompt } = usePromptStore();
     const [temperature, setTemperature] = useState(prompt?.temperature || 1.0);
     const [maxTokens, setMaxTokens] = useState(prompt?.maxTokens || 2048);
@@ -68,7 +71,9 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     
     // Multi-model comparison state
     const [multiModelEnabled, setMultiModelEnabled] = useState(prompt?.multiModelEnabled || false);
-    const [parallelModels, setParallelModels] = useState<AllowedModel[]>(prompt?.parallelModels || []);
+    const [parallelModels, setParallelModels] = useState<AllowedModel[]>(
+        (prompt?.parallelModels || []).map(normalizeAllowedModel)
+    );
     const [parallelModelSearch, setParallelModelSearch] = useState('');
     const [isRefreshingAllModels, setIsRefreshingAllModels] = useState(false);
 
@@ -110,8 +115,8 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         }
     };
 
-    const getConfiguredRemoteProviders = (): AIProvider[] => {
-        const providers: AIProvider[] = [];
+    const getRefreshableProviders = (): AIProvider[] => {
+        const providers: AIProvider[] = ['local'];
 
         if (aiService.getOpenAIKey()) providers.push('openai');
         if (aiService.getOpenRouterKey()) providers.push('openrouter');
@@ -153,11 +158,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             // Sync service settings from IndexedDB before checking configured keys.
             await getAvailableModels(undefined, false);
 
-            const providers = getConfiguredRemoteProviders();
-            if (providers.length === 0) {
-                toast.info('No configured remote AI providers found');
-                return;
-            }
+            const providers = getRefreshableProviders();
 
             const results = await Promise.allSettled(
                 providers.map(async (provider) => {
@@ -193,6 +194,10 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
 
     // Helper to create unique model key (provider:id)
     const getModelKey = (model: { provider: string; id: string }) => `${model.provider}:${model.id}`;
+    const selectableModels = useMemo(
+        () => getSelectableModelsWithLocalDefault(availableModels),
+        [availableModels]
+    );
 
     const modelGroups = useMemo(() => {
         const groups: ModelsByProvider = {
@@ -210,7 +215,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             'Free': [],
             'Other': []
         };
-        availableModels.forEach(model => {
+        selectableModels.forEach(model => {
             const modelKey = `${model.provider}:${model.id}`;
             // Add to Favorites if favorited
             if (favoriteModelIds.includes(modelKey)) {
@@ -250,7 +255,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
         return Object.fromEntries(
             Object.entries(groups).filter(([key, models]) => key === 'Favorites' || models.length > 0)
         );
-    }, [availableModels, favoriteModelIds]);
+    }, [selectableModels, favoriteModelIds]);
 
     // Simple search state for the popover-based selector (placed after modelGroups memo)
     const [modelSearch, setModelSearch] = useState('');

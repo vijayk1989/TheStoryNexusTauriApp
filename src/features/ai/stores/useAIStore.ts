@@ -97,7 +97,13 @@ export const useAIStore = create<AIState>((set, get) => ({
         if (!get().isInitialized) {
             await get().initialize();
         }
-        return aiService.getAvailableModels(provider, forceRefresh);
+        const models = await aiService.getAvailableModels(provider, forceRefresh);
+        const settings = aiService.getSettings();
+        set({
+            settings,
+            favoriteModelIds: settings?.favoriteModelIds || [],
+        });
+        return models;
     },
 
     updateProviderKey: async (provider: AIProvider, key: string) => {

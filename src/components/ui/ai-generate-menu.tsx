@@ -2,6 +2,8 @@ import { AIModel, Prompt, AllowedModel } from "@/types/story";
 import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarSub, MenubarSubContent, MenubarSubTrigger, MenubarTrigger } from "./menubar";
 import { Loader2, ChevronDown } from "lucide-react";
 import { openPromptsPanel } from "@/features/prompts/utils/openPromptsPanel";
+import { useAIStore } from "@/features/ai/stores/useAIStore";
+import { expandPromptAllowedModels } from "@/features/ai/utils/defaultModels";
 
 interface AIGenerateMenuProps {
     isGenerating: boolean;
@@ -25,6 +27,7 @@ export function AIGenerateMenu({
     onGenerate,
     onConfigurePrompts
 }: Omit<AIGenerateMenuProps, 'availableModels'>) {
+    const settings = useAIStore((state) => state.settings);
     const filteredPrompts = prompts.filter(p => p.promptType === promptType);
     const handleConfigurePrompts = onConfigurePrompts || openPromptsPanel;
 
@@ -67,9 +70,9 @@ export function AIGenerateMenu({
                                     </div>
                                 </MenubarSubTrigger>
                                 <MenubarSubContent className="max-h-[300px] overflow-y-auto">
-                                    {prompt.allowedModels.map((model) => (
+                                    {expandPromptAllowedModels(prompt.allowedModels, settings).map((model) => (
                                         <MenubarItem
-                                            key={model.id}
+                                            key={`${model.provider}:${model.id}`}
                                             onClick={() => onGenerate(prompt, model)}
                                             disabled={isGenerating}
                                             data-testid={`ai-generate-model-${prompt.id}-${model.provider}-${model.id}`}

@@ -2,6 +2,8 @@ import { Prompt, AllowedModel } from "@/types/story";
 import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarSub, MenubarSubContent, MenubarSubTrigger, MenubarTrigger } from "./menubar";
 import { ChevronDown } from "lucide-react";
 import { openPromptsPanel } from "@/features/prompts/utils/openPromptsPanel";
+import { useAIStore } from "@/features/ai/stores/useAIStore";
+import { expandPromptAllowedModels, normalizeAllowedModel } from "@/features/ai/utils/defaultModels";
 
 interface PromptSelectMenuProps {
     isLoading: boolean;
@@ -26,19 +28,21 @@ export function PromptSelectMenu({
     onConfigurePrompts,
     className
 }: PromptSelectMenuProps) {
+    const settings = useAIStore((state) => state.settings);
     const filteredPrompts = prompts.filter(p => p.promptType === promptType);
     const handleConfigurePrompts = onConfigurePrompts || openPromptsPanel;
+    const selectedDisplayModel = selectedModel ? normalizeAllowedModel(selectedModel) : undefined;
 
     return (
         <Menubar className={className}>
             <MenubarMenu>
                 <MenubarTrigger className="group w-full justify-between gap-2 overflow-hidden" data-testid={`prompt-select-${promptType}-trigger`}>
-                    {selectedPrompt && selectedModel ? (
+                    {selectedPrompt && selectedDisplayModel ? (
                         <>
                             <div className="flex min-w-0 flex-col items-start">
                                 <span className="w-full truncate text-sm text-inherit">{selectedPrompt.name}</span>
                                 <span className="w-full truncate text-xs text-muted-foreground group-data-[state=open]:text-accent-foreground/80">
-                                    {selectedModel.name}
+                                    {selectedDisplayModel.name}
                                 </span>
                             </div>
                             <ChevronDown className="h-4 w-4 shrink-0" />
@@ -69,12 +73,14 @@ export function PromptSelectMenu({
                                     </div>
                                 </MenubarSubTrigger>
                                 <MenubarSubContent className="max-h-[300px] overflow-y-auto">
-                                    {prompt.allowedModels.map((model) => {
-                                        const isSelectedModel = selectedPrompt?.id === prompt.id && selectedModel?.id === model.id;
+                                    {expandPromptAllowedModels(prompt.allowedModels, settings).map((model) => {
+                                        const isSelectedModel = selectedPrompt?.id === prompt.id &&
+                                            selectedModel?.provider === model.provider &&
+                                            selectedModel?.id === model.id;
 
                                         return (
                                             <MenubarItem
-                                                key={model.id}
+                                                key={`${model.provider}:${model.id}`}
                                                 onClick={() => onSelect(prompt, model)}
                                                 className={isSelectedModel
                                                     ? "group bg-accent text-accent-foreground"

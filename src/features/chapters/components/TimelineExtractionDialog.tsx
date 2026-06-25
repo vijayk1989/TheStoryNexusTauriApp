@@ -25,6 +25,7 @@ import { PromptParser } from "@/features/prompts/services/promptParser";
 import { db } from "@/services/database";
 import { aiService } from "@/services/ai/AIService";
 import { processTimelineJSON } from "../services/timelineExtractor";
+import { resolveSavedDefaultModel } from "@/features/ai/utils/defaultModels";
 
 type ExtractMode = "timeline" | "lorebook" | "lorebookUpdates" | "style";
 
@@ -126,8 +127,7 @@ export function TimelineExtractionDialog({
             availablePrompts.find((prompt) => prompt.id === "timeline-extractor-system") ||
             availablePrompts[0];
         const defaultModel =
-            settings.availableModels.find((model) => model.id === settings.defaultSceneBeatModelId) ||
-            settings.availableModels[0];
+            resolveSavedDefaultModel(settings, settings.defaultSceneBeatModelId);
 
         setSelectedPrompt(defaultPrompt);
         setSelectedModel(defaultModel);

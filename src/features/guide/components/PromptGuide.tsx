@@ -273,6 +273,7 @@ export default function PromptGuide() {
                             </p>
                             <ul className="list-disc list-inside space-y-1 ml-4 text-sm">
                                 <li>Click the model dropdown to see available models grouped by provider</li>
+                                <li>Choose <strong>Local default</strong> to use the default model configured for your local runtime, or choose a specific local model when several are available</li>
                                 <li>Select models that work well for your prompt's purpose</li>
                                 <li>Selected models appear as badges above the dropdown</li>
                                 <li>Click the X on a badge to remove a model</li>

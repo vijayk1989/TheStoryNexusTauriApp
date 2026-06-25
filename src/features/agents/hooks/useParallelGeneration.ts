@@ -64,7 +64,7 @@ export function useParallelGeneration(): UseParallelGenerationReturn {
             switch (model.provider) {
                 case 'local':
                     response = await aiService.generateWithLocalModel(
-                        messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p
+                        messages, temperature, maxTokens, top_p, top_k, repetition_penalty, min_p, model.id
                     );
                     break;
                 case 'openai':

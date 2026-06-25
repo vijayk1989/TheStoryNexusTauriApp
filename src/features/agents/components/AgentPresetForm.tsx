@@ -26,7 +26,11 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ArrowLeft, Check, X, ChevronDown, ChevronUp, Settings2, Star } from 'lucide-react';
 import { useAgentsStore, DEFAULT_AGENT_PROMPTS } from '../stores/useAgentsStore';
-import { resolveSavedDefaultModel } from '@/features/ai/utils/defaultModels';
+import {
+    getSelectableModelsWithLocalDefault,
+    normalizeAllowedModel,
+    resolveSavedDefaultModel,
+} from '@/features/ai/utils/defaultModels';
 import { useAIStore } from '@/features/ai/stores/useAIStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
@@ -93,7 +97,9 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
     const [systemPrompt, setSystemPrompt] = useState(agent?.systemPrompt || DEFAULT_AGENT_PROMPTS['prose_writer']);
     const [temperature, setTemperature] = useState(agent?.temperature ?? 0.8);
     const [maxTokens, setMaxTokens] = useState(agent?.maxTokens ?? 2048);
-    const [selectedModel, setSelectedModel] = useState<AllowedModel | null>(agent?.model || null);
+    const [selectedModel, setSelectedModel] = useState<AllowedModel | null>(
+        agent?.model ? normalizeAllowedModel(agent.model) : null
+    );
 
     // Context configuration state
     const [contextOpen, setContextOpen] = useState(false);
@@ -205,6 +211,10 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
 
     // Helper to create unique model key (provider:id)
     const getModelKey = (model: { provider: string; id: string }) => `${model.provider}:${model.id}`;
+    const selectableModels = useMemo(
+        () => getSelectableModelsWithLocalDefault(availableModels),
+        [availableModels]
+    );
 
     const modelGroups = useMemo(() => {
         const groups: ModelsByProvider = {
@@ -217,7 +227,7 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
             'OpenRouter': [],
         };
 
-        availableModels.forEach((model) => {
+        selectableModels.forEach((model) => {
             const modelKey = getModelKey(model);
             // Add to Favorites if favorited
             if (favoriteModelIds.includes(modelKey)) {
@@ -244,7 +254,7 @@ export function AgentPresetForm({ agent, onSave, onCancel }: AgentPresetFormProp
             Object.entries(groups).filter(([key, models]) => key === 'Favorites' || models.length > 0)
         );
         return filtered;
-    }, [availableModels, favoriteModelIds]);
+    }, [selectableModels, favoriteModelIds]);
 
     const filteredModelGroups = useMemo(() => {
         if (!modelSearch.trim()) return modelGroups;

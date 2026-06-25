@@ -1103,6 +1103,30 @@ export class AIService {
         return getLocalModelsUrl(this.settings);
     }
 
+    getLocalDefaultModelId(): string | undefined {
+        const runtime = getLocalRuntime(this.settings);
+        const savedModelId = this.settings?.localModelIdByRuntime?.[runtime];
+        return savedModelId ? `local/${savedModelId.replace(/^local\//, '')}` : undefined;
+    }
+
+    async updateLocalDefaultModelId(modelId?: string): Promise<void> {
+        if (!this.settings) {
+            throw new Error('Settings not initialized');
+        }
+
+        const runtime = getLocalRuntime(this.settings);
+        const localModelIdByRuntime = { ...(this.settings.localModelIdByRuntime || {}) };
+
+        if (modelId?.trim()) {
+            localModelIdByRuntime[runtime] = modelId.replace(/^local\//, '');
+        } else {
+            delete localModelIdByRuntime[runtime];
+        }
+
+        await db.aiSettings.update(this.settings.id, { localModelIdByRuntime });
+        this.settings.localModelIdByRuntime = localModelIdByRuntime;
+    }
+
     async updateLocalRuntime(runtime: LocalAIRuntime): Promise<void> {
         if (!this.settings) {
             throw new Error('Settings not initialized');

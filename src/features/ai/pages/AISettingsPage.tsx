@@ -11,6 +11,7 @@ import { toast } from 'react-toastify';
 import { AIModel, LocalAIRuntime } from '@/types/story';
 import { cn } from '@/lib/utils';
 import { LOCAL_RUNTIME_PRESETS } from '@/services/ai/localRuntime';
+import { isLocalDefaultModel } from '@/features/ai/utils/defaultModels';
 
 export default function AISettingsPage() {
     const [openaiKey, setOpenaiKey] = useState('');
@@ -23,6 +24,7 @@ export default function AISettingsPage() {
     const [localRuntime, setLocalRuntime] = useState<LocalAIRuntime>('lm_studio');
     const [localApiUrl, setLocalApiUrl] = useState('http://localhost:1234/v1');
     const [localModelsUrl, setLocalModelsUrl] = useState('http://localhost:1234/v1/models');
+    const [localDefaultModelId, setLocalDefaultModelId] = useState('auto');
     const [isLoading, setIsLoading] = useState(false);
     const [localModels, setLocalModels] = useState<AIModel[]>([]);
     const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
@@ -52,6 +54,7 @@ export default function AISettingsPage() {
             const localRuntime = aiService.getLocalRuntime();
             const localApiUrl = aiService.getLocalApiUrl();
             const localModelsUrl = aiService.getLocalModelsUrl();
+            const localDefaultModelId = aiService.getLocalDefaultModelId();
 
             console.log('[AISettingsPage] Retrieved API keys and URL from service');
             if (openaiKey) setOpenaiKey(openaiKey);
@@ -64,6 +67,7 @@ export default function AISettingsPage() {
             setLocalRuntime(localRuntime);
             if (localApiUrl) setLocalApiUrl(localApiUrl);
             if (localModelsUrl) setLocalModelsUrl(localModelsUrl);
+            setLocalDefaultModelId(localDefaultModelId || 'auto');
 
             console.log('[AISettingsPage] Getting all available models');
             // Don't force refresh on initial load to avoid unnecessary API calls
@@ -208,6 +212,7 @@ export default function AISettingsPage() {
             await aiService.updateLocalRuntime(runtime);
             setLocalApiUrl(aiService.getLocalApiUrl());
             setLocalModelsUrl(aiService.getLocalModelsUrl());
+            setLocalDefaultModelId(aiService.getLocalDefaultModelId() || 'auto');
             const models = await aiService.getAvailableModels('local', false);
             setLocalModels(models);
             setOpenSections(prev => ({ ...prev, local: true }));
@@ -215,6 +220,20 @@ export default function AISettingsPage() {
         } catch (error) {
             console.error('Error updating local runtime:', error);
             toast.error(`Failed to switch to ${LOCAL_RUNTIME_PRESETS[runtime].label}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleLocalDefaultModelUpdate = async (modelId: string) => {
+        setIsLoading(true);
+        setLocalDefaultModelId(modelId);
+        try {
+            await aiService.updateLocalDefaultModelId(modelId === 'auto' ? undefined : modelId);
+            toast.success('Local default model updated');
+        } catch (error) {
+            console.error('Error updating local default model:', error);
+            toast.error('Failed to update local default model');
         } finally {
             setIsLoading(false);
         }
@@ -655,6 +674,28 @@ export default function AISettingsPage() {
                                 </Select>
                                 <p className="text-xs text-muted-foreground">
                                     {LOCAL_RUNTIME_PRESETS[localRuntime].description}
+                                </p>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="local-default-model">Default Model</Label>
+                                <Select value={localDefaultModelId} onValueChange={handleLocalDefaultModelUpdate}>
+                                    <SelectTrigger id="local-default-model">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="auto">First available model</SelectItem>
+                                        {localModels
+                                            .filter((model) => !isLocalDefaultModel(model))
+                                            .map((model) => (
+                                                <SelectItem key={model.id} value={model.id}>
+                                                    {model.name}
+                                                </SelectItem>
+                                            ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">
+                                    Used whenever a prompt selects Local default.
                                 </p>
                             </div>
 

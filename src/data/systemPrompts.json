@@ -25,7 +25,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -55,7 +55,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -93,7 +93,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -123,7 +123,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -153,7 +153,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -183,7 +183,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -217,7 +217,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -247,7 +247,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -277,7 +277,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -307,7 +307,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],
@@ -337,7 +337,7 @@
     "allowedModels": [
       {
         "id": "local",
-        "name": "local",
+        "name": "Local default",
         "provider": "local"
       }
     ],

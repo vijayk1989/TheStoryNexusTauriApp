@@ -159,6 +159,10 @@ export class AIService {
         });
     }
 
+    private usesMaxCompletionTokens(modelId: string): boolean {
+        return /^(gpt-5|o1|o3|o4)(?:[-.]|$)/i.test(modelId);
+    }
+
     private initializeGoogle() {
         if (!this.settings?.googleKey) return;
 
@@ -646,9 +650,13 @@ export class AIService {
             model: modelId,
             messages: messages as any[],
             temperature: temperature,
-            max_tokens: maxTokens,
             stream: true,
         };
+        if (this.usesMaxCompletionTokens(modelId)) {
+            body.max_completion_tokens = maxTokens;
+        } else {
+            body.max_tokens = maxTokens;
+        }
 
         // Add optional parameters if they are defined and not 0
         if (top_p !== undefined && top_p !== 0) { body.top_p = top_p; }

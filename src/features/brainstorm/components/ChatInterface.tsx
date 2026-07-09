@@ -36,6 +36,12 @@ import { useAgenticGeneration } from "@/features/agents/hooks/useAgenticGenerati
 import { db } from "@/services/database";
 import MarkdownRenderer from "./MarkdownRenderer";
 import parseLorebookJson from "@/features/brainstorm/utils/parseLorebookJson";
+import {
+  getDefaultSelectedLorebookImportIndexes,
+  getLorebookImportWarnings,
+  normalizeLorebookImportCategory,
+  toLorebookEntryCreateInput,
+} from "@/features/lorebook/utils/lorebookJsonImport";
 import { cn } from '@/lib/utils';
 import {
   LOREBOOK_CATEGORIES,
@@ -921,18 +927,14 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
       return;
     }
 
-    const existingNames = new Set(
-      lorebookEntries
-        .filter((entry) => entry.storyId === storyId)
-        .map((entry) => entry.name.toLowerCase().trim())
+    const existingStoryEntries = lorebookEntries.filter((entry) => entry.storyId === storyId);
+    const defaultSelected = getDefaultSelectedLorebookImportIndexes(
+      parsed.entries,
+      existingStoryEntries
     );
-    const defaultSelected = parsed.entries
-      .map((entry, index) => ({ entry, index }))
-      .filter(({ entry }) => !entry.name || !existingNames.has(entry.name.toLowerCase().trim()))
-      .map(({ index }) => index);
 
     setReviewEntries(parsed.entries);
-    setSelectedReviewIndexes(new Set(defaultSelected));
+    setSelectedReviewIndexes(defaultSelected);
     setReviewDialogOpen(true);
   };
 
@@ -964,16 +966,9 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     try {
       setIsImportingReviewedEntries(true);
       for (const item of entriesToImport) {
-        await useLorebookStore.getState().createEntry({
-          ...item,
-          storyId,
-          aliases: item.aliases || [],
-          tags: item.tags || [],
-          description: item.description || "",
-          category: normalizeLorebookCategory(item.category),
-          metadata: item.metadata || {},
-          isDisabled: item.isDisabled ?? false,
-        } as Omit<LorebookEntry, "id" | "createdAt">);
+        await useLorebookStore.getState().createEntry(
+          toLorebookEntryCreateInput(storyId, item)
+        );
       }
       toast.success(`Created ${entriesToImport.length} lorebook entr${entriesToImport.length === 1 ? "y" : "ies"}`);
       await loadEntries(storyId);
@@ -2203,7 +2198,7 @@ function LorebookImportReviewDialog({
             {entries.map((entry, index) => {
               const warnings = getLorebookImportWarnings(entry, existingEntries);
               const checkboxId = `review-lorebook-entry-${index}`;
-              const category = normalizeLorebookCategory(entry.category);
+              const category = normalizeLorebookImportCategory(entry.category);
 
               return (
                 <div key={`${entry.name || "entry"}-${index}`} className="rounded-md border p-3">
@@ -2274,52 +2269,6 @@ function LorebookImportReviewDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function normalizeLorebookCategory(category: Partial<LorebookEntry>["category"]): LorebookEntry["category"] {
-  return category && LOREBOOK_CATEGORIES.includes(category) ? category : "note";
-}
-
-function getLorebookImportWarnings(
-  entry: Partial<LorebookEntry>,
-  existingEntries: LorebookEntry[]
-): string[] {
-  const warnings: string[] = [];
-  const normalizedName = entry.name?.toLowerCase().trim();
-
-  if (normalizedName && existingEntries.some((item) => item.name.toLowerCase().trim() === normalizedName)) {
-    warnings.push("Duplicate name already exists in this story.");
-  }
-
-  const broadAliases = (entry.aliases || []).filter(isBroadLorebookAlias);
-  if (broadAliases.length > 0) {
-    warnings.push(`Broad aliases may overmatch prose: ${broadAliases.join(", ")}`);
-  }
-
-  return warnings;
-}
-
-function isBroadLorebookAlias(alias: string): boolean {
-  const normalized = alias.toLowerCase().trim();
-  const broadTerms = new Set([
-    "a",
-    "an",
-    "the",
-    "he",
-    "she",
-    "they",
-    "we",
-    "i",
-    "magic",
-    "school",
-    "city",
-    "world",
-    "kingdom",
-    "empire",
-    "war",
-  ]);
-
-  return normalized.length < 3 || broadTerms.has(normalized);
 }
 
 function formatStoryDecisions(

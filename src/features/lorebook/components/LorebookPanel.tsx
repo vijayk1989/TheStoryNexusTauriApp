@@ -5,9 +5,10 @@
 import { useState } from 'react';
 import { useLorebookStore } from '../stores/useLorebookStore';
 import { CreateEntryDialog } from './CreateEntryDialog';
+import { LorebookJsonImportDialog } from './LorebookJsonImportDialog';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronRight, Plus, Trash2, Edit, X, Eye, EyeOff } from 'lucide-react';
+import { ClipboardPaste, ChevronRight, Plus, Trash2, Edit, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { LorebookEntry } from '@/types/story';
 import { cn } from '@/lib/utils';
@@ -25,11 +26,12 @@ import {
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 
 export function LorebookPanel() {
-    const { entries, deleteEntry, updateEntry } = useLorebookStore();
+    const { entries, deleteEntry, updateEntry, loadEntries, buildAliasMap } = useLorebookStore();
     const { currentStoryId } = useStoryContext();
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [showNewDialog, setShowNewDialog] = useState(false);
     const [editingEntry, setEditingEntry] = useState<LorebookEntry | null>(null);
+    const [jsonImportOpen, setJsonImportOpen] = useState(false);
     const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
     // Group entries by category
@@ -62,13 +64,23 @@ export function LorebookPanel() {
             {/* Header / New Entry Button */}
             <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">{entries.length} entr{entries.length !== 1 ? 'ies' : 'y'}</span>
-                <Button
-                    variant={showNewDialog ? "secondary" : "default"}
-                    size="sm"
-                    onClick={() => setShowNewDialog(true)}
-                >
-                    <Plus className="h-3 w-3 mr-1" /> New Entry
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setJsonImportOpen(true)}
+                        disabled={!currentStoryId}
+                    >
+                        <ClipboardPaste className="h-3 w-3 mr-1" /> Paste JSON
+                    </Button>
+                    <Button
+                        variant={showNewDialog ? "secondary" : "default"}
+                        size="sm"
+                        onClick={() => setShowNewDialog(true)}
+                    >
+                        <Plus className="h-3 w-3 mr-1" /> New Entry
+                    </Button>
+                </div>
             </div>
 
             {/* Create/Edit Dialog */}
@@ -83,6 +95,19 @@ export function LorebookPanel() {
                     }}
                     storyId={currentStoryId}
                     entry={editingEntry || undefined}
+                />
+            )}
+
+            {currentStoryId && (
+                <LorebookJsonImportDialog
+                    open={jsonImportOpen}
+                    onOpenChange={setJsonImportOpen}
+                    storyId={currentStoryId}
+                    existingEntries={entries.filter((entry) => entry.storyId === currentStoryId)}
+                    onImported={async () => {
+                        await loadEntries(currentStoryId);
+                        buildAliasMap();
+                    }}
                 />
             )}
 

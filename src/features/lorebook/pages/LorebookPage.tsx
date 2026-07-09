@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import { useParams } from "react-router";
 import { useLorebookStore } from "../stores/useLorebookStore";
 import { CreateEntryDialog } from "../components/CreateEntryDialog";
+import { LorebookJsonImportDialog } from "../components/LorebookJsonImportDialog";
 import { LorebookEntryList } from "../components/LorebookEntryList";
 import { Button } from "@/components/ui/button";
-import { Plus, Download, Upload } from "lucide-react";
+import { ClipboardPaste, Plus, Download, Upload } from "lucide-react";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -35,6 +36,7 @@ export default function LorebookPage() {
         importEntries
     } = useLorebookStore();
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [isJsonImportDialogOpen, setIsJsonImportDialogOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("all");
 
     useEffect(() => {
@@ -141,6 +143,16 @@ export default function LorebookPage() {
                         className="hidden"
                         onChange={handleImport}
                     />
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsJsonImportDialogOpen(true)}
+                        size="sm"
+                        className="border-2 border-gray-300 dark:border-gray-700"
+                        disabled={!storyId}
+                    >
+                        <ClipboardPaste className="w-4 h-4 mr-2" />
+                        Paste JSON
+                    </Button>
                     <Button onClick={() => setIsCreateDialogOpen(true)} size="sm">
                         <Plus className="w-4 h-4 mr-2" />
                         New Entry
@@ -187,6 +199,18 @@ export default function LorebookPage() {
                 onOpenChange={setIsCreateDialogOpen}
                 storyId={storyId!}
             />
+            {storyId && (
+                <LorebookJsonImportDialog
+                    open={isJsonImportDialogOpen}
+                    onOpenChange={setIsJsonImportDialogOpen}
+                    storyId={storyId}
+                    existingEntries={entries}
+                    onImported={async () => {
+                        await loadEntries(storyId);
+                        buildAliasMap();
+                    }}
+                />
+            )}
         </div>
     );
 } 

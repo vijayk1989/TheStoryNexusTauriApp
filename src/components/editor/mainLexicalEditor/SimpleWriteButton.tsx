@@ -15,8 +15,12 @@ import { Pencil, Square } from "lucide-react";
 import { toast } from "react-toastify";
 
 import { Button } from "@/components/ui/button";
+import { GenerationSetupDialog } from "@/features/ai/components/GenerationSetupDialog";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
-import { resolveSavedDefaultModel } from "@/features/ai/utils/defaultModels";
+import {
+    getGenerationSetupIssue,
+    resolveIntendedGenerationModel,
+} from "@/features/ai/utils/generationSetup";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { useEditorSaveStatusStore } from "@/features/editor/stores/useEditorSaveStatusStore";
 import { saveLastEditorTarget } from "@/features/editor/utils/lastEditorTarget";
@@ -25,13 +29,17 @@ import { SUPPLIED_CONTINUE_WRITING_PROMPT_ID } from "@/features/prompts/constant
 import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { useStoryStore } from "@/features/stories/stores/useStoryStore";
-import type { Prompt, PromptParserConfig } from "@/types/story";
+import type { AllowedModel, Prompt, PromptParserConfig } from "@/types/story";
 
 import { $isSceneBeatNode } from "./nodes/SceneBeatNode";
 import { SIMPLE_WRITE_STREAM_TAG } from "./simpleWrite";
 
 type SimpleWriteButtonProps = {
     onStreamingChange?: (isStreaming: boolean) => void;
+};
+
+type PendingSimpleWrite = {
+    config: PromptParserConfig;
 };
 
 export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps) {
@@ -44,7 +52,11 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
     const { fetchPrompts } = usePromptStore();
     const { setStatus, markSaved } = useEditorSaveStatusStore();
     const [isGenerating, setIsGenerating] = useState(false);
+    const [setupOpen, setSetupOpen] = useState(false);
+    const [setupPrompt, setSetupPrompt] = useState<Prompt | null>(null);
+    const [setupModel, setSetupModel] = useState<AllowedModel>();
     const savedSelectionRef = useRef<RangeSelection | null>(null);
+    const pendingWriteRef = useRef<PendingSimpleWrite | null>(null);
     const abortRequestedRef = useRef(false);
     const hasInsertedTokensRef = useRef(false);
 
@@ -105,66 +117,17 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
         }
     }, [currentChapterId, currentStoryId, editor, markSaved, setStatus, updateChapter]);
 
-    const handleSimpleWrite = useCallback(async () => {
-        if (isGenerating) {
-            abortRequestedRef.current = true;
-            abortGeneration();
-            return;
-        }
-
-        if (!currentStoryId || !currentChapterId) {
-            toast.error("Open a chapter before using Simple Write.");
-            return;
-        }
-
-        const { previousWords, afterWords, hasCursor, hasExpandedSelection } = captureCursorContext();
-        if (hasExpandedSelection) {
-            toast.error("Place the cursor where Simple Write should continue.");
-            return;
-        }
-        if (!hasCursor) {
-            editor.focus();
-            toast.error("Place the cursor where Simple Write should continue.");
-            return;
-        }
-
+    const executeSimpleWrite = useCallback(async (
+        pendingWrite: PendingSimpleWrite,
+        model: AllowedModel,
+    ) => {
         setIsGenerating(true);
         onStreamingChange?.(true);
         abortRequestedRef.current = false;
         hasInsertedTokensRef.current = false;
 
         try {
-            await initialize();
-            await fetchPrompts();
-
-            const settings = useAIStore.getState().settings;
-            const prompts = usePromptStore.getState().prompts;
-            const prompt = resolveContinueWritingPrompt(prompts, settings?.simpleWriteUseCustomPrompt, settings?.defaultContinueWritingPromptId);
-            const includeAfterWords = Boolean(settings?.simpleWriteUseCustomPrompt || settings?.simpleWriteIncludeAfterCursor);
-
-            if (!prompt) {
-                throw new Error("No Continue Writing prompt is available.");
-            }
-
-            const model = resolveSavedDefaultModel(settings, settings?.defaultContinueWritingModelId);
-            const config: PromptParserConfig = {
-                promptId: prompt.id,
-                storyId: currentStoryId,
-                chapterId: currentChapterId,
-                previousWords,
-                afterWords: includeAfterWords ? afterWords : undefined,
-                chapterMatchedEntries: new Set(
-                    chapterMatchedEntries ? Array.from(chapterMatchedEntries.values()) : []
-                ),
-                matchedEntries: new Set(
-                    chapterMatchedEntries ? Array.from(chapterMatchedEntries.values()) : []
-                ),
-                storyLanguage: currentStory?.language || "English",
-                povType: currentChapter?.povType,
-                povCharacter: currentChapter?.povCharacter,
-            };
-
-            const response = await generateWithPrompt(config, model);
+            const response = await generateWithPrompt(pendingWrite.config, model);
 
             if (!response.ok && response.status !== 204) {
                 throw new Error("Failed to generate response");
@@ -211,6 +174,92 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
         }
     }, [
         abortGeneration,
+        generateWithPrompt,
+        insertTokenAtSavedSelection,
+        onStreamingChange,
+        processStreamedResponse,
+        saveFinalContent,
+    ]);
+
+    const handleSimpleWrite = useCallback(async () => {
+        if (isGenerating) {
+            abortRequestedRef.current = true;
+            abortGeneration();
+            return;
+        }
+
+        if (!currentStoryId || !currentChapterId) {
+            toast.error("Open a chapter before using Simple Write.");
+            return;
+        }
+
+        const { previousWords, afterWords, hasCursor, hasExpandedSelection } = captureCursorContext();
+        if (hasExpandedSelection) {
+            toast.error("Place the cursor where Simple Write should continue.");
+            return;
+        }
+        if (!hasCursor) {
+            editor.focus();
+            toast.error("Place the cursor where Simple Write should continue.");
+            return;
+        }
+
+        try {
+            await initialize();
+            await fetchPrompts();
+
+            const settings = useAIStore.getState().settings;
+            const prompts = usePromptStore.getState().prompts;
+            const prompt = resolveContinueWritingPrompt(
+                prompts,
+                settings?.simpleWriteUseCustomPrompt,
+                settings?.defaultContinueWritingPromptId,
+            );
+            if (!prompt) throw new Error("No Continue Writing prompt is available.");
+
+            const includeAfterWords = Boolean(
+                settings?.simpleWriteUseCustomPrompt || settings?.simpleWriteIncludeAfterCursor,
+            );
+            const pendingWrite: PendingSimpleWrite = {
+                config: {
+                    promptId: prompt.id,
+                    storyId: currentStoryId,
+                    chapterId: currentChapterId,
+                    previousWords,
+                    afterWords: includeAfterWords ? afterWords : undefined,
+                    chapterMatchedEntries: new Set(
+                        chapterMatchedEntries ? Array.from(chapterMatchedEntries.values()) : [],
+                    ),
+                    matchedEntries: new Set(
+                        chapterMatchedEntries ? Array.from(chapterMatchedEntries.values()) : [],
+                    ),
+                    storyLanguage: currentStory?.language || "English",
+                    povType: currentChapter?.povType,
+                    povCharacter: currentChapter?.povCharacter,
+                },
+            };
+            const model = resolveIntendedGenerationModel(
+                settings,
+                settings?.defaultContinueWritingModelId,
+                prompt.allowedModels,
+            );
+
+            if (getGenerationSetupIssue(settings, model)) {
+                pendingWriteRef.current = pendingWrite;
+                setSetupPrompt(prompt);
+                setSetupModel(model);
+                setSetupOpen(true);
+                return;
+            }
+
+            await executeSimpleWrite(pendingWrite, model);
+        } catch (error) {
+            savedSelectionRef.current = null;
+            console.error("Simple Write failed:", error);
+            toast.error(error instanceof Error ? error.message : "Simple Write failed.");
+        }
+    }, [
+        abortGeneration,
         captureCursorContext,
         chapterMatchedEntries,
         currentChapter,
@@ -218,35 +267,55 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
         currentStory,
         currentStoryId,
         editor,
+        executeSimpleWrite,
         fetchPrompts,
-        generateWithPrompt,
         initialize,
-        insertTokenAtSavedSelection,
         isGenerating,
-        onStreamingChange,
-        processStreamedResponse,
-        saveFinalContent,
     ]);
 
+    const handleSetupOpenChange = useCallback((open: boolean) => {
+        setSetupOpen(open);
+        if (!open && pendingWriteRef.current) {
+            pendingWriteRef.current = null;
+            savedSelectionRef.current = null;
+        }
+    }, []);
+
+    const handleSetupRetry = useCallback(async (model: AllowedModel) => {
+        const pendingWrite = pendingWriteRef.current;
+        if (!pendingWrite) return;
+        pendingWriteRef.current = null;
+        await executeSimpleWrite(pendingWrite, model);
+    }, [executeSimpleWrite]);
+
     return (
-        <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="gap-1.5"
-            aria-label={isGenerating ? "Stop Write" : "Simple Write"}
-            title={isGenerating ? "Stop Write" : "Simple Write"}
-            data-testid="simple-write-button"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={handleSimpleWrite}
-        >
-            {isGenerating ? (
-                <Square className="h-3.5 w-3.5" />
-            ) : (
-                <Pencil className="h-4 w-4" />
-            )}
-            <span>{isGenerating ? "Stop" : "Write"}</span>
-        </Button>
+        <>
+            <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-1.5"
+                aria-label={isGenerating ? "Stop Write" : "Simple Write"}
+                title={isGenerating ? "Stop Write" : "Simple Write"}
+                data-testid="simple-write-button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={handleSimpleWrite}
+            >
+                {isGenerating ? (
+                    <Square className="h-3.5 w-3.5" />
+                ) : (
+                    <Pencil className="h-4 w-4" />
+                )}
+                <span>{isGenerating ? "Stop" : "Write"}</span>
+            </Button>
+            <GenerationSetupDialog
+                open={setupOpen}
+                prompt={setupPrompt}
+                initialModel={setupModel}
+                onOpenChange={handleSetupOpenChange}
+                onRetry={handleSetupRetry}
+            />
+        </>
     );
 }
 

@@ -14,6 +14,7 @@ interface PromptSelectMenuProps {
     selectedModel?: AllowedModel;
     onSelect: (prompt: Prompt, model: AllowedModel) => void;
     onConfigurePrompts?: () => void;
+    showConfigurePrompts?: boolean;
     className?: string;
 }
 
@@ -26,6 +27,7 @@ export function PromptSelectMenu({
     selectedModel,
     onSelect,
     onConfigurePrompts,
+    showConfigurePrompts = true,
     className
 }: PromptSelectMenuProps) {
     const settings = useAIStore((state) => state.settings);
@@ -105,15 +107,19 @@ export function PromptSelectMenu({
                             </MenubarSub>
                         ))
                     ) : null}
-                    <MenubarSeparator />
-                    <MenubarItem
-                        onPointerDown={handleConfigurePrompts}
-                        onClick={handleConfigurePrompts}
-                        onSelect={handleConfigurePrompts}
-                        data-testid="prompt-select-configure-prompts"
-                    >
-                        Configure Prompts...
-                    </MenubarItem>
+                    {showConfigurePrompts && (
+                        <>
+                            <MenubarSeparator />
+                            <MenubarItem
+                                onPointerDown={handleConfigurePrompts}
+                                onClick={handleConfigurePrompts}
+                                onSelect={handleConfigurePrompts}
+                                data-testid="prompt-select-configure-prompts"
+                            >
+                                Configure Prompts...
+                            </MenubarItem>
+                        </>
+                    )}
                 </MenubarContent>
             </MenubarMenu>
         </Menubar>

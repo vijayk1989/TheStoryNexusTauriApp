@@ -43,6 +43,14 @@ This keeps the fragile caret cases testable without relying only on DOM snapshot
 - Backspace from the empty paragraph after a SceneBeat removes the SceneBeat
 - editor changes autosave back to IndexedDB
 
+## Simple Write Setup Recovery
+
+Simple Write performs a configuration preflight before sending a generation request. If its model is missing, a hosted provider has no API key, the OpenAI-compatible provider is missing its URL, or local model discovery has only returned the placeholder model, the editor opens the AI setup dialog instead of showing a generic generation error.
+
+The dialog preserves the pending Simple Write request, lets the user connect a provider and choose a model with the existing prompt/model menu, saves that model as the Simple Write default, and retries the captured request. Invalid credentials, provider outages after a valid setup, rate limits, and other generation failures continue through normal error reporting.
+
+Pure configuration detection and model-resolution cases are covered in `tests/unit/generationSetup.test.ts`. Browser coverage for the recovery dialog can be added separately without placing provider credentials in the E2E fixtures.
+
 ## Next Phase
 
 Phase 2 adds a separate local-LLM project for local OpenAI-compatible runtimes such as LM Studio, Ollama, and llama.cpp.

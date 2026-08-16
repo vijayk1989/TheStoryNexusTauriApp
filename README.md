@@ -53,7 +53,9 @@ The app supports multiple AI backends:
 - NanoGPT
 - Google Gemini through `@google/genai`
 
-API keys and model settings are stored locally. Prompt defaults currently include scene beat, brainstorm, and agent defaults. The agent default is configured for `google/gemma-4-31b-it` on OpenRouter, with local model fallback behavior when OpenRouter is not configured.
+API keys and model settings are stored locally. Prompt defaults currently include Simple Write, scene beat, brainstorm, and agent defaults. The agent default is configured for `google/gemma-4-31b-it` on OpenRouter, with local model fallback behavior when OpenRouter is not configured.
+
+If Simple Write is used before its AI provider or model is configured, the app opens an inline setup dialog. The user can connect a local or hosted provider, choose the generation model, and retry the original writing request without leaving the editor.
 
 ## Getting Started
 

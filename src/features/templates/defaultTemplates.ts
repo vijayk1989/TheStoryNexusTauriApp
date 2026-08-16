@@ -12,6 +12,26 @@ export interface DefaultTemplate {
   templateType: 'chat' | 'other';
 }
 
+export interface SystemTemplate extends DefaultTemplate {
+  id: string;
+}
+
+export const SYSTEM_TEMPLATES: SystemTemplate[] = [
+  {
+    id: 'system-image-prompt-anima-natural-language',
+    name: 'Image Prompt — Anima (Natural Language)',
+    templateType: 'chat',
+    content: `Create one production-ready image-generation prompt from the chapter data included in the current Brainstorm context.
+
+Target model: Anima
+Prompt format: natural language
+
+Identify the single strongest visual moment in the chapter. Describe only details supported by the chapter: the subjects and their distinctive appearance, clothing, pose and expression; the setting and important props; the action; composition and camera framing; lighting, color palette, atmosphere, and visual style. Preserve story continuity and do not invent conflicting character or setting details.
+
+Write a vivid, coherent natural-language prompt rather than a list of tags. Anima also understands tag-like quality cues, so begin with: masterpiece, best quality, score_7, safe. Do not include a negative prompt, generation settings, explanations, headings, alternatives, or quotation marks. Return only the final prompt, ready to paste into the image generator.`,
+  },
+];
+
 export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   {
     name: 'Lorebook Entry (JSON)',

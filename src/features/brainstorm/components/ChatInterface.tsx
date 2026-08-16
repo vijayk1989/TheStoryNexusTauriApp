@@ -1963,7 +1963,8 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                     <SelectItem key={tpl.id} value={tpl.id}>
                       <div className="flex items-center gap-2 w-full align-middle">
                         <div className="truncate">{tpl.name}</div>
-                        <button
+                        {!tpl.isSystem && (
+                          <button
                           type="button"
                           onPointerDown={(e) => {
                             // Prevent the SelectItem from being selected (Radix handles pointerdown)
@@ -1985,7 +1986,8 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                           title="Edit template"
                         >
                           <Edit className="h-4 w-4" />
-                        </button>
+                          </button>
+                        )}
                       </div>
                     </SelectItem>
                   ))}

@@ -55,6 +55,8 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
 
   updateTemplate: async (id, data) => {
     try {
+      const existing = await db.templates.get(id);
+      if (existing?.isSystem) throw new Error('System templates cannot be edited');
       await db.templates.update(id, data);
       const templates = await db.templates.toArray();
       set({ templates, error: null });
@@ -66,6 +68,8 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
 
   deleteTemplate: async (id) => {
     try {
+      const existing = await db.templates.get(id);
+      if (existing?.isSystem) throw new Error('System templates cannot be deleted');
       await db.templates.delete(id);
       const templates = await db.templates.toArray();
       set({ templates, error: null });
@@ -76,7 +80,7 @@ export const useTemplateStore = create<TemplateStore>((set, get) => ({
   },
 
   exportTemplates: async () => {
-    return await db.templates.toArray();
+    return (await db.templates.toArray()).filter(template => !template.isSystem);
   },
 
   importTemplates: async (data) => {

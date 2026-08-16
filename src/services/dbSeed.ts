@@ -1,7 +1,35 @@
 import { db } from "./database";
-import { Prompt } from "../types/story";
+import { Prompt, Template } from "../types/story";
 import { EXAMPLE_STORY_ID, exampleStorySeed } from "../data/exampleStory";
 import systemPrompts from "../data/systemPrompts";
+import { SYSTEM_TEMPLATES } from "../features/templates/defaultTemplates";
+
+export async function seedSystemTemplates(): Promise<void> {
+  for (const templateData of SYSTEM_TEMPLATES) {
+    const existing = await db.templates.get(templateData.id);
+
+    if (existing && !existing.isSystem) {
+      console.warn(`Template ID ${templateData.id} is already used by a custom template. Skipping system template.`);
+      continue;
+    }
+
+    if (existing) {
+      await db.templates.update(templateData.id, {
+        ...templateData,
+        storyId: null,
+        isSystem: true,
+        createdAt: existing.createdAt,
+      });
+    } else {
+      await db.templates.add({
+        ...templateData,
+        storyId: null,
+        isSystem: true,
+        createdAt: new Date(),
+      } as Template);
+    }
+  }
+}
 
 export class DatabaseSeeder {
   private static instance: DatabaseSeeder;
@@ -42,6 +70,7 @@ export class DatabaseSeeder {
 
       await this.syncContinueWritingSystemPrompt();
       await this.disableSystemPromptAdvancedSampling();
+      await seedSystemTemplates();
       await this.seedExampleStory(forceReseed);
 
       console.log("Database seeding complete.");

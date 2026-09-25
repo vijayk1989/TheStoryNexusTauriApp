@@ -24,6 +24,7 @@ Windows may show a SmartScreen warning for new or unsigned builds. If you trust 
 - **Story and chapter management**: create, rename, reorder, summarize, import, export, and delete stories or chapters.
 - **Scene beats**: insert inline AI command blocks in the editor with `Alt+S` or `Option+S`, then generate, revise, compare models, or run an agent pipeline.
 - **Lorebook**: store characters, locations, items, events, notes, synopsis, starting scenario, and timeline entries. Matching tags are surfaced while you write.
+- **Copy lorebook as Markdown**: use an entry's copy icon or **Copy all as MD** on the Lorebook page or editor panel. Copies full descriptions, aliases, tags, and metadata; copying all includes disabled entries and ignores category/search filters.
 - **Brainstorm**: keep story-scoped brainstorm chats, add context, rename or delete chats from the chat selector, and optionally use agentic generation.
 - **Prompts and defaults**: manage reusable prompts, import/export prompt packs, and set default models for scene beats, brainstorm, and agents.
 - **Agents and pipelines**: build reusable AI workers and multi-step workflows such as summarize -> draft -> lore check -> revise.

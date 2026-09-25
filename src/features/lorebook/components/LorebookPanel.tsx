@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useLorebookStore } from '../stores/useLorebookStore';
 import { CreateEntryDialog } from './CreateEntryDialog';
+import { CopyLorebookMarkdownButton } from './CopyLorebookMarkdownButton';
 import { LorebookJsonImportDialog } from './LorebookJsonImportDialog';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -64,7 +65,8 @@ export function LorebookPanel() {
             {/* Header / New Entry Button */}
             <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">{entries.length} entr{entries.length !== 1 ? 'ies' : 'y'}</span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <CopyLorebookMarkdownButton entries={entries.filter(entry => entry.storyId === currentStoryId)} />
                     <Button
                         variant="outline"
                         size="sm"
@@ -201,6 +203,7 @@ function LorebookItem({
                     </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
+                    <CopyLorebookMarkdownButton entries={[entry]} compact />
                     <Button
                         variant="ghost"
                         size="icon"

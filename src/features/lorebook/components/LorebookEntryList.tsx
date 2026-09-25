@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLorebookStore } from "../stores/useLorebookStore";
 import { CreateEntryDialog } from "./CreateEntryDialog";
+import { CopyLorebookMarkdownButton } from "./CopyLorebookMarkdownButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -140,6 +141,7 @@ export function LorebookEntryList({ entries: allEntries }: LorebookEntryListProp
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 dark:bg-transparent">
                             <CardTitle className="text-lg font-semibold">{entry.name}</CardTitle>
                             <div className="flex gap-2">
+                                <CopyLorebookMarkdownButton entries={[entry]} compact />
                                 <Button
                                     variant="ghost"
                                     size="icon"

@@ -4,6 +4,7 @@ import { useLorebookStore } from "../stores/useLorebookStore";
 import { CreateEntryDialog } from "../components/CreateEntryDialog";
 import { LorebookJsonImportDialog } from "../components/LorebookJsonImportDialog";
 import { LorebookEntryList } from "../components/LorebookEntryList";
+import { CopyLorebookMarkdownButton } from "../components/CopyLorebookMarkdownButton";
 import { Button } from "@/components/ui/button";
 import { ClipboardPaste, Plus, Download, Upload } from "lucide-react";
 import { useState } from "react";
@@ -124,6 +125,7 @@ export default function LorebookPage() {
                     </p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
+                    <CopyLorebookMarkdownButton entries={isLoading ? [] : entries.filter(entry => entry.storyId === storyId)} />
                     <Button variant="outline" onClick={handleExport} size="sm" className="border-2 border-gray-300 dark:border-gray-700">
                         <Download className="w-4 h-4 mr-2" />
                         Export

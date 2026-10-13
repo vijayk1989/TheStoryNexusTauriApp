@@ -19,6 +19,8 @@ $env:E2E_PORT='1435'; npm.cmd run test:e2e:editor
 
 ## Editor Bridge
 
+Dependency updates that affect CSS should run the editor lane and include a visual check of the editor and its dialogs. Tailwind 4 uses the native Vite plugin and loads the existing theme explicitly from `src/index.css`; see [dependency security maintenance](DEPENDENCY_SECURITY.md) for the migration and verification notes. Store temporary visual comparisons under `playwright/.cache/`, since Playwright clears `test-results/` when a run starts.
+
 `src/components/editor/mainLexicalEditor/testing/EditorE2EBridge.tsx` exposes `window.__STORY_NEXUS_E2E__` only when Vite starts with `VITE_E2E=true`.
 
 The bridge lets tests assert serialized Lexical state directly:

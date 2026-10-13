@@ -7,6 +7,7 @@ import { CLEAR_HISTORY_COMMAND } from "lexical";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 import { useEditorSaveStatusStore } from "@/features/editor/stores/useEditorSaveStatusStore";
 import { saveLastEditorTarget } from "@/features/editor/utils/lastEditorTarget";
+import { setEditorDraftContent, clearSavedEditorDraft } from "@/features/editor/utils/editorDraftContent";
 import { useSceneBeatStore } from "@/features/scenebeats/stores/useSceneBeatStore";
 import { useStoryContext } from "@/features/stories/context/StoryContext";
 
@@ -90,6 +91,7 @@ export function ChapterContentPlugin() {
             setStatus("saving");
             updateChapter(chapterId, { content })
                 .then(() => {
+                    clearSavedEditorDraft(chapterId, content);
                     if (storyId) {
                         saveLastEditorTarget({ storyId, chapterId });
                     }
@@ -130,7 +132,9 @@ export function ChapterContentPlugin() {
             }
 
             setStatus("pending");
-            saveContent(currentChapterId, currentStoryId, JSON.stringify(editorState.toJSON()));
+            const content = JSON.stringify(editorState.toJSON());
+            setEditorDraftContent(currentChapterId, content);
+            saveContent(currentChapterId, currentStoryId, content);
         });
 
         return () => {

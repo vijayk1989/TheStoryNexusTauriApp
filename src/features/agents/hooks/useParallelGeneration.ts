@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { AllowedModel, PromptMessage, PromptParserConfig, PromptReasoningSettings } from '@/types/story';
+import { AllowedModel, Prompt, PromptMessage, PromptParserConfig, PromptReasoningSettings } from '@/types/story';
 import { aiService } from '@/services/ai/AIService';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { db } from '@/services/database';
@@ -15,7 +15,7 @@ export interface UseParallelGenerationReturn {
     responses: ParallelResponse[];
     isGenerating: boolean;
     allComplete: boolean;
-    generateParallel: (config: PromptParserConfig, models: AllowedModel[]) => Promise<void>;
+    generateParallel: (config: PromptParserConfig, models: AllowedModel[], onPrompt?: (messages: PromptMessage[], prompt: Prompt) => void) => Promise<void>;
     abortAll: () => void;
     resetResponses: () => void;
 }
@@ -55,7 +55,7 @@ export function useParallelGeneration(): UseParallelGenerationReturn {
         // Update status to streaming
         setResponses(prev => {
             const copy = [...prev];
-            copy[index] = { ...copy[index], status: 'streaming' };
+            copy[index] = { ...copy[index], model: aiService.getGenerationModel(model), status: 'streaming' };
             return copy;
         });
 
@@ -171,7 +171,8 @@ export function useParallelGeneration(): UseParallelGenerationReturn {
      */
     const generateParallel = useCallback(async (
         config: PromptParserConfig,
-        models: AllowedModel[]
+        models: AllowedModel[],
+        onPrompt?: (messages: PromptMessage[], prompt: Prompt) => void
     ): Promise<void> => {
         if (models.length === 0) {
             throw new Error('No models provided for parallel generation');
@@ -201,6 +202,7 @@ export function useParallelGeneration(): UseParallelGenerationReturn {
 
             // Get prompt settings
             const prompt = await db.prompts.get(config.promptId);
+            if (prompt) onPrompt?.(messages, prompt);
             const temperature = prompt?.temperature;
             const maxTokens = prompt?.maxTokens ?? 2048;
             const top_p = prompt?.top_p;

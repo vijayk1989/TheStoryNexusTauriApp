@@ -133,6 +133,7 @@ export class AgentOrchestrator {
                 try {
                     const messages = this.buildMessages(step.agent, input, results, step.isRevision, step);
                     const shouldStream = step.streamOutput ?? false; // Default to NOT streaming
+                    const generationModel = aiService.getGenerationModel(step.agent.model);
 
                     let rawOutput: string;
                     if (shouldStream && callbacks?.onToken) {
@@ -151,6 +152,8 @@ export class AgentOrchestrator {
                     if (thinkingText) metadata.thinkingText = thinkingText;
 
                     const result: AgentResult = {
+                        model: generationModel,
+                        agentPresetId: step.agent.id,
                         role: step.agent.role,
                         agentName: step.agent.name,
                         output,

@@ -6,7 +6,8 @@ import {
     PromptParserConfig,
     PromptMessage,
     AllowedModel,
-    PromptReasoningSettings
+    PromptReasoningSettings,
+    Prompt,
 } from '@/types/story';
 import { aiService } from '@/services/ai/AIService';
 import { db } from '@/services/database';
@@ -62,7 +63,8 @@ interface AIState {
     generateWithParsedMessages: (
         messages: PromptMessage[],
         selectedModel: AllowedModel,
-        promptId: string
+        promptId: string,
+        onRequest?: (model: AllowedModel, prompt: Prompt) => void
     ) => Promise<Response>;
 
     // New method to abort generation
@@ -317,7 +319,7 @@ export const useAIStore = create<AIState>((set, get) => ({
     },
 
     // New method for generating with pre-parsed messages
-    generateWithParsedMessages: async (messages: PromptMessage[], selectedModel: AllowedModel, promptId: string) => {
+    generateWithParsedMessages: async (messages: PromptMessage[], selectedModel: AllowedModel, promptId: string, onRequest) => {
         if (!get().isInitialized) {
             await get().initialize();
         }
@@ -332,6 +334,8 @@ export const useAIStore = create<AIState>((set, get) => ({
         if (!prompt) {
             throw new Error(`Prompt with ID ${promptId} not found`);
         }
+
+        onRequest?.(aiService.getGenerationModel(selectedModel), prompt);
 
         const temperature = prompt.temperature;
         const maxTokens = prompt.maxTokens ?? 2048;

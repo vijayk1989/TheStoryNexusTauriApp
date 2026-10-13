@@ -11,10 +11,12 @@ import {
     type HeadingTagType,
 } from "@lexical/rich-text";
 import { $getSelectionStyleValueForProperty, $patchStyleText, $setBlocksType } from "@lexical/selection";
+import { $findMatchingParent } from "@lexical/utils";
 import {
     $createParagraphNode,
     $getSelection,
     $insertNodes,
+    $isElementNode,
     $isRangeSelection,
     CAN_REDO_COMMAND,
     CAN_UNDO_COMMAND,
@@ -39,6 +41,7 @@ import {
     Underline,
     Undo2,
     ImageIcon,
+    Tags,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -52,6 +55,9 @@ import {
 import { cn } from "@/lib/utils";
 import { $insertSceneBeatBelowSelection, focusInsertedSceneBeat } from "../nodes/scene-beat/insertSceneBeat";
 import { $createImageGenerationNode } from "../nodes/ImageGenerationNode";
+import { useEditorPreferencesStore } from "@/features/editor/stores/useEditorPreferencesStore";
+import { $isGeneratedProseNode } from "../nodes/GeneratedProseNode";
+import { $isInDisabledProse } from "../utils/activeProse";
 
 type BlockType = "paragraph" | "h1" | "h2" | "h3" | "bullet" | "number";
 type FontFamily = "Arial" | "Georgia" | "Times New Roman";
@@ -70,6 +76,7 @@ const ALIGNMENT_OPTIONS: AlignmentOption[] = [
 ];
 
 export function StoryToolbarPlugin() {
+    const { showGenerationLabels, toggleGenerationLabels } = useEditorPreferencesStore();
     const [editor] = useLexicalComposerContext();
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
@@ -91,9 +98,13 @@ export function StoryToolbarPlugin() {
         }
 
         const anchorNode = selection.anchor.getNode();
-        const element = anchorNode.getKey() === "root"
+        let element = anchorNode.getKey() === "root"
             ? anchorNode
             : anchorNode.getTopLevelElementOrThrow();
+        if ($isGeneratedProseNode(element)) {
+            const paragraph = $findMatchingParent(anchorNode, (node) => node.getType() === "paragraph" || $isHeadingNode(node) || $isListNode(node));
+            if ($isElementNode(paragraph)) element = paragraph;
+        }
 
         if ($isListNode(element)) {
             setBlockType(element.getListType() === "number" ? "number" : "bullet");
@@ -169,6 +180,7 @@ export function StoryToolbarPlugin() {
         editor.update(() => {
             const selection = $getSelection();
             if (!$isRangeSelection(selection)) return;
+            if (selection.getNodes().some($isInDisabledProse)) return;
 
             if (nextBlockType === "paragraph") {
                 $setBlocksType(selection, () => $createParagraphNode());
@@ -181,7 +193,7 @@ export function StoryToolbarPlugin() {
     const applyFontFamily = (nextFontFamily: FontFamily) => {
         editor.update(() => {
             const selection = $getSelection();
-            if ($isRangeSelection(selection)) {
+            if ($isRangeSelection(selection) && !selection.getNodes().some($isInDisabledProse)) {
                 $patchStyleText(selection, { "font-family": nextFontFamily });
                 setFontFamily(nextFontFamily);
             }
@@ -192,7 +204,7 @@ export function StoryToolbarPlugin() {
         const boundedFontSize = Math.max(8, Math.min(72, nextFontSize));
         editor.update(() => {
             const selection = $getSelection();
-            if ($isRangeSelection(selection)) {
+            if ($isRangeSelection(selection) && !selection.getNodes().some($isInDisabledProse)) {
                 $patchStyleText(selection, { "font-size": `${boundedFontSize}px` });
                 setFontSize(boundedFontSize);
             }
@@ -226,6 +238,9 @@ export function StoryToolbarPlugin() {
 
     return (
         <div className="sn-main-editor-toolbar" aria-label="Editor toolbar">
+            <ToolbarButton label="Show generation labels" active={showGenerationLabels} onClick={toggleGenerationLabels}>
+                <Tags className="h-4 w-4" />
+            </ToolbarButton>
             <div className="sn-main-editor-toolbar-group">
                 <ToolbarButton
                     label="Undo"

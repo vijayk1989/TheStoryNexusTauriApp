@@ -186,6 +186,7 @@ export function SceneBeatHeader({ streaming, onAbort, onDelete }: SceneBeatHeade
                     variant="ghost"
                     size="icon"
                     onClick={onDelete}
+                    aria-label="Delete SceneBeat"
                     className="h-7 w-7 md:h-8 md:w-8 text-muted-foreground hover:text-destructive"
                 >
                     <Trash2 className="h-3 w-3 md:h-4 md:w-4" />

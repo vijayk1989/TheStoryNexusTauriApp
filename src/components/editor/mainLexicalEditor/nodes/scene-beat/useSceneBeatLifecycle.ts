@@ -52,6 +52,7 @@ export function useSceneBeatLifecycle({
   const isLoaded = useSBStore((s) => s.isLoaded);
   const streamedText = useSBStore((s) => s.streamedText);
   const streamComplete = useSBStore((s) => s.streamComplete);
+  const generationMetadata = useSBStore((s) => s.generationMetadata);
   const selectedPrompt = useSBStore((s) => s.selectedPrompt);
   const selectedPipeline = useSBStore((s) => s.selectedPipeline);
   const agenticMode = useSBStore((s) => s.agenticMode);
@@ -99,6 +100,7 @@ export function useSceneBeatLifecycle({
       tempPovType: pov,
       tempPovCharacter: char,
       streamedText: accepted ? "" : generatedContent,
+      generationMetadata: initialSnapshot.generationMetadata,
       streamComplete: Boolean(generatedContent && !accepted),
       ...hydratedMetadata,
       isLoaded: false,
@@ -169,6 +171,7 @@ export function useSceneBeatLifecycle({
               povType: pov,
               povCharacter: char,
               generatedContent: initialSnapshot.generatedContent,
+              generationMetadata: initialSnapshot.generationMetadata,
               accepted: initialSnapshot.accepted,
               metadata,
             });
@@ -185,6 +188,7 @@ export function useSceneBeatLifecycle({
               tempPovType: pov,
               tempPovCharacter: char,
               streamedText: initialSnapshot.accepted ? "" : initialSnapshot.generatedContent || "",
+              generationMetadata: initialSnapshot.generationMetadata,
               streamComplete: Boolean(initialSnapshot.generatedContent && !initialSnapshot.accepted),
               ...hydratedMetadata,
               isLoaded: true,
@@ -196,6 +200,7 @@ export function useSceneBeatLifecycle({
               povType: pov,
               povCharacter: char,
               generatedContent: initialSnapshot.generatedContent,
+              generationMetadata: initialSnapshot.generationMetadata,
               accepted: initialSnapshot.accepted,
               metadata,
               collapsed: initialSnapshot.collapsed,
@@ -224,6 +229,7 @@ export function useSceneBeatLifecycle({
             tempPovType: pov,
             tempPovCharacter: char,
             streamedText: accepted ? "" : generatedContent,
+            generationMetadata: data.generationMetadata,
             streamComplete: Boolean(generatedContent && !accepted),
             ...hydratedMetadata,
             isLoaded: true,
@@ -235,6 +241,7 @@ export function useSceneBeatLifecycle({
             povType: pov,
             povCharacter: char,
             generatedContent,
+            generationMetadata: data.generationMetadata,
             accepted,
             metadata,
           });
@@ -352,6 +359,7 @@ export function useSceneBeatLifecycle({
 
     writeNodeSnapshot({
       generatedContent: streamedText,
+      generationMetadata,
       accepted: false,
     });
 
@@ -360,10 +368,11 @@ export function useSceneBeatLifecycle({
       useSceneBeatStore.getState().upsertSceneBeat({
         ...cached,
         generatedContent: streamedText,
+        generationMetadata,
         accepted: false,
       });
     }
-  }, [streamComplete, streamedText, sceneBeatId, isLoaded, writeNodeSnapshot]);
+  }, [streamComplete, streamedText, generationMetadata, sceneBeatId, isLoaded, writeNodeSnapshot]);
 
   useEffect(() => {
     const matchAliases = () => {

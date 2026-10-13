@@ -67,6 +67,7 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
     __povType: SceneBeat["povType"] | undefined;
     __povCharacter: string | undefined;
     __generatedContent: string;
+    __generationMetadata: SceneBeat["generationMetadata"];
     __accepted: boolean;
     __metadata: SceneBeat["metadata"] | undefined;
     __collapsed: boolean;
@@ -82,6 +83,7 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
         this.__povType = snapshot.povType;
         this.__povCharacter = snapshot.povCharacter;
         this.__generatedContent = snapshot.generatedContent || "";
+        this.__generationMetadata = snapshot.generationMetadata;
         this.__accepted = snapshot.accepted || false;
         this.__metadata = snapshot.metadata;
         this.__collapsed = snapshot.collapsed || false;
@@ -105,6 +107,7 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
             povType: serializedNode.povType,
             povCharacter: serializedNode.povCharacter,
             generatedContent: serializedNode.generatedContent || "",
+            generationMetadata: serializedNode.generationMetadata,
             accepted: serializedNode.accepted || false,
             metadata: serializedNode.metadata,
             collapsed: serializedNode.collapsed || false,
@@ -130,6 +133,7 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
             povType: this.__povType,
             povCharacter: this.__povCharacter,
             generatedContent: this.__generatedContent,
+            generationMetadata: this.__generationMetadata,
             accepted: this.__accepted,
             metadata: this.__metadata,
             collapsed: this.__collapsed,
@@ -166,6 +170,9 @@ export class SceneBeatNode extends DecoratorNode<JSX.Element> {
         }
         if ("accepted" in snapshot && this.__accepted !== (snapshot.accepted || false)) {
             getWritableNode().__accepted = snapshot.accepted || false;
+        }
+        if ("generationMetadata" in snapshot && this.__generationMetadata !== snapshot.generationMetadata) {
+            getWritableNode().__generationMetadata = snapshot.generationMetadata;
         }
         if ("metadata" in snapshot && JSON.stringify(this.__metadata) !== JSON.stringify(snapshot.metadata)) {
             getWritableNode().__metadata = snapshot.metadata;

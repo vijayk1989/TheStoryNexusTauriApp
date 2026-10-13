@@ -111,6 +111,9 @@ describe("AIService.testLocalDefaultModel", () => {
     expect(JSON.parse(request.body as string)).toMatchObject({
       model: "gemma-3",
     });
+    expect(aiService.getGenerationModel({ id: "local", name: "Local default", provider: "local" })).toEqual({
+      id: "local/gemma-3", name: "Gemma 3", provider: "local",
+    });
   });
 
   test("omits temperature when prompt temperature is disabled", async () => {

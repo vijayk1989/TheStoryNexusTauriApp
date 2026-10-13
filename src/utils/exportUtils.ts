@@ -2,6 +2,7 @@ import { $generateHtmlFromNodes } from '@lexical/html';
 import { LexicalEditor } from 'lexical';
 import { Story, Chapter } from '@/types/story';
 import { db } from '@/services/database';
+import { getChapterContentForReading } from '@/features/editor/utils/editorDraftContent';
 
 /**
  * Converts Lexical JSON content to HTML
@@ -18,6 +19,7 @@ export async function convertLexicalToHtml(jsonContent: string): Promise<string>
 
         // Process nodes recursively
         const processNode = (node: any, parentElement: HTMLElement) => {
+            if (node.disabled) return;
             if (node.type === 'text') {
                 const textNode = document.createTextNode(node.text);
                 parentElement.appendChild(textNode);
@@ -119,7 +121,7 @@ export async function downloadStory(storyId: string, format: 'html' | 'text') {
     <h2 class="chapter-title">Chapter ${chapter.order}: ${chapter.title}</h2>`;
 
                 // Convert chapter content to HTML
-                const chapterHtml = await convertLexicalToHtml(chapter.content);
+                const chapterHtml = await convertLexicalToHtml(getChapterContentForReading(chapter));
                 htmlContent += `<div class="chapter-content">${chapterHtml}</div>
   </div>`;
             }
@@ -145,10 +147,11 @@ export async function downloadStory(storyId: string, format: 'html' | 'text') {
                 // Get chapter plain text
                 try {
                     // Parse the Lexical state
-                    const editorState = JSON.parse(chapter.content);
+                    const editorState = JSON.parse(getChapterContentForReading(chapter));
                     let plainText = '';
 
                     const processNode = (node: any) => {
+                        if (node.disabled) return;
                         if (node.type === 'text') {
                             plainText += node.text;
                         } else if (node.children) {
@@ -219,7 +222,7 @@ export async function downloadChapter(chapterId: string, format: 'html' | 'text'
     <h2 class="chapter-title">Chapter ${chapter.order}: ${chapter.title}</h2>`;
 
             // Convert chapter content to HTML
-            const chapterHtml = await convertLexicalToHtml(chapter.content);
+            const chapterHtml = await convertLexicalToHtml(getChapterContentForReading(chapter));
             htmlContent += `<div class="chapter-content">${chapterHtml}</div>
   </div>
 </body>
@@ -235,10 +238,11 @@ export async function downloadChapter(chapterId: string, format: 'html' | 'text'
             // Get chapter plain text
             try {
                 // Parse the Lexical state
-                const editorState = JSON.parse(chapter.content);
+                const editorState = JSON.parse(getChapterContentForReading(chapter));
                 let plainText = '';
 
                 const processNode = (node: any) => {
+                    if (node.disabled) return;
                     if (node.type === 'text') {
                         plainText += node.text;
                     } else if (node.children) {
@@ -265,4 +269,4 @@ export async function downloadChapter(chapterId: string, format: 'html' | 'text'
         console.error('Failed to download chapter:', error);
         throw error;
     }
-} 
+}

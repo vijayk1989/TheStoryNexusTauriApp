@@ -6,6 +6,7 @@ import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { SceneBeatNode } from "./nodes/SceneBeatNode";
 import { AssetImageNode } from "./nodes/AssetImageNode";
 import { ImageGenerationNode } from "./nodes/ImageGenerationNode";
+import { GeneratedProseNode } from "./nodes/GeneratedProseNode";
 import "./styles.css";
 
 const theme: EditorThemeClasses = {
@@ -47,6 +48,7 @@ export const mainLexicalEditorNodes: Array<Klass<LexicalNode>> = [
     SceneBeatNode,
     AssetImageNode,
     ImageGenerationNode,
+    GeneratedProseNode,
 ];
 
 export const mainLexicalEditorConfig = {

@@ -35,6 +35,26 @@ This keeps the fragile caret cases testable without relying only on DOM snapshot
 
 ## Current Coverage
 
+### Accepted prose attribution
+
+SceneBeat acceptance creates a `generated-prose` Lexical ElementNode containing editable paragraphs. Each acceptance stores its own generation ID, source SceneBeat instruction, model/provider, prompt name, generation time, and the resolved messages sent to the model. Standard generation and regeneration capture attribution after provider routing; local attribution uses the concrete model selected by the local request resolver. Parallel responses use their producing model, and pipeline output uses the matching producing step. The snapshot stays independent of later prompt edits or selector changes.
+
+Acceptance also inserts an ordinary empty paragraph between the SceneBeat and its prose, including parallel-response acceptance. This gives the writer a clickable line for adding their own text outside the attribution block. Editor E2E coverage clicks and types in that line with labels shown and hidden, then verifies it survives autosave and reload.
+
+The toolbar's **Show generation labels** preference is saved locally across sessions. Turning it off hides labels and block borders while continuing to capture metadata. Clicking a label selects its block; Delete/Backspace removes it and Undo restores it. Details opens the saved attribution and prompt messages. Enter inside the block creates attributed paragraphs; Enter on its final empty paragraph exits to ordinary prose. Backspace/Delete at block boundaries does not merge attribution groups. Deleting the source SceneBeat leaves accepted prose intact.
+
+Metadata lives in chapter JSON, so autosave and story backups retain it. Manuscript HTML/text and word counts traverse only prose children, excluding the label and prompt snapshot. Clipboard HTML similarly omits the label; Lexical clipboard data can retain attribution. Earlier plain paragraphs are not retroactively attributed.
+
+Each block also offers **Remove label** beside Details. It unwraps that block into ordinary editor paragraphs/headings, removing its label, border, and prose attribution while retaining the children and their formatting. Other attributed blocks and the source SceneBeat remain intact. Undo/Redo restores/removes the wrapper as one history action; autosave retains the conversion on reload. E2E coverage checks child-state preservation, history, persistence, and removal of only the chosen block.
+
+**Copy text** copies the current prose of that block as plain text with paragraph breaks, excluding labels, controls, and generation metadata. It also works on disabled blocks as an explicit user copy action; this does not enable the block or change its content. Clipboard success/failure uses the app's existing toast feedback.
+
+**Disable block / Enable block** persists a disabled flag on the entire prose container. Disabled prose is muted and read-only until enabled. Manuscript HTML/text exports, chapter text for summaries and timeline extraction, prompt chapter content, SceneBeat and pipeline previous words, Simple Write before/after context, brainstorm chapter context, lore matching, and active word counts skip disabled subtrees. Selection-based AI actions reject disabled text. The controls of a disabled block stay visible when generation labels are globally hidden so the block can be enabled again; Remove label is unavailable until then. Existing saved summaries and historical generation snapshots are not rewritten. Regenerate earlier summaries if they contain prose that has since been disabled.
+
+Chapter readers and manuscript exports consult the pending editor content during the autosave debounce, so disabling a block takes effect immediately. Once that exact content is saved, the pending copy is cleared; an older save cannot clear a newer edit. Chapter JSON and backups preserve disabled content for restoration. Unit tests cover persistence, summary prompt input, all four manuscript export paths, pending edits, and active word counts. E2E tests cover before/after context, read-only behavior, re-enabling, hidden-label recovery, reload, and Undo/Redo.
+
+Unit tests check snapshot independence, serialized-state round trips, word counts, and manuscript/clipboard HTML. Editor E2E tests accept a deterministic pending SceneBeat fixture using the bridge (available only with `VITE_E2E=true`) and cover visibility persistence, details, editing, exiting the block, source deletion, whole-block deletion, and undo/redo. The local LLM lane verifies attribution on actual generated outputs and must still abort if LM Studio is unavailable.
+
 `tests/editor.spec.ts` covers:
 
 - seeded example story content loads as many paragraph nodes, not one giant paragraph

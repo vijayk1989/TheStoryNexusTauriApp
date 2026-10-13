@@ -1,4 +1,4 @@
-import { AIModel, AIProvider, AISettings, LocalAIRuntime, PromptMessage, PromptReasoningSettings } from '@/types/story';
+import { AIModel, AIProvider, AISettings, AllowedModel, LocalAIRuntime, PromptMessage, PromptReasoningSettings } from '@/types/story';
 import { db } from '../database';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
@@ -567,6 +567,13 @@ export class AIService {
         } catch {
             return '';
         }
+    }
+
+    getGenerationModel(model: AllowedModel): AllowedModel {
+        if (model.provider !== 'local') return { ...model };
+        const id = `local/${this.resolveLocalModelId(model.id)}`;
+        const available = this.settings?.availableModels.find((candidate) => candidate.provider === 'local' && candidate.id === id);
+        return { id, provider: 'local', name: available?.name || id.replace(/^local\//, '') };
     }
 
     private resolveLocalModelId(modelId?: string): string {

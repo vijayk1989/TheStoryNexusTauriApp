@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { db } from '../../../services/database';
 import type { Chapter, ChapterOutline, ChapterNotes } from '../../../types/story';
 import { normalizeChapterContent } from '../utils/emptyChapterContent';
+import { countWordsInText, lexicalToPlainText } from '@/components/editor/mainLexicalEditor/serialization/lexicalToPlainText';
+import { getChapterContentForReading } from '@/features/editor/utils/editorDraftContent';
 
 interface ChapterState {
     chapters: Chapter[];
@@ -104,7 +106,7 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
                 content,
                 order: nextOrder,
                 createdAt: new Date(),
-                wordCount: content.split(/\s+/).filter(Boolean).length
+                wordCount: countWordsInText(lexicalToPlainText(content))
             });
 
             const newChapter = await db.chapters.get(chapterId);
@@ -132,7 +134,7 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
         try {
             if (chapterData.content !== undefined) {
                 chapterData.content = normalizeChapterContent(chapterData.content);
-                chapterData.wordCount = chapterData.content.split(/\s+/).filter(Boolean).length;
+                chapterData.wordCount = countWordsInText(lexicalToPlainText(chapterData.content));
                 const chapter = await db.chapters.get(id);
                 if (chapter) {
                     // Store last edited with storyId
@@ -298,10 +300,11 @@ export const useChapterStore = create<ChapterState>((set, get) => ({
             }
 
             // Parse the Lexical state
-            const editorState = JSON.parse(chapter.content);
+            const editorState = JSON.parse(getChapterContentForReading(chapter));
             let plainText = '';
 
             const processNode = (node: any) => {
+                if (node.disabled) return;
                 if (node.type === 'text') {
                     plainText += node.text;
                 } else if (node.children) {

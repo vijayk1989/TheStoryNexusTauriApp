@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext.js";
+import { $isInDisabledProse } from "./utils/activeProse";
 import {
     $getRoot,
     $getSelection,
@@ -62,6 +63,7 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
 
     const captureCursorContext = useCallback(() => {
         let previousWords = "";
+        let hasDisabledSelection = false;
         let afterWords = "";
         let hasCursor = false;
         let hasExpandedSelection = false;
@@ -79,9 +81,10 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
             savedSelectionRef.current = selection.clone();
             previousWords = collectTextBeforeSelection(selection);
             afterWords = collectTextAfterSelection(selection);
+            hasDisabledSelection = selection.getNodes().some($isInDisabledProse);
         });
 
-        return { previousWords, afterWords, hasCursor, hasExpandedSelection };
+        return { previousWords, afterWords, hasCursor, hasExpandedSelection, hasDisabledSelection };
     }, [editor]);
 
     const insertTokenAtSavedSelection = useCallback((token: string) => {
@@ -193,7 +196,11 @@ export function SimpleWriteButton({ onStreamingChange }: SimpleWriteButtonProps)
             return;
         }
 
-        const { previousWords, afterWords, hasCursor, hasExpandedSelection } = captureCursorContext();
+        const { previousWords, afterWords, hasCursor, hasExpandedSelection, hasDisabledSelection } = captureCursorContext();
+        if (hasDisabledSelection) {
+            toast.info("Enable this block before using AI generation inside it.");
+            return;
+        }
         if (hasExpandedSelection) {
             toast.error("Place the cursor where Simple Write should continue.");
             return;
@@ -338,7 +345,7 @@ function resolveContinueWritingPrompt(
         : suppliedPrompt || savedPrompt || firstContinueWritingPrompt;
 }
 
-function collectTextBeforeSelection(selection: RangeSelection): string {
+export function collectTextBeforeSelection(selection: RangeSelection): string {
     const anchorNode = selection.anchor.getNode();
     const anchorOffset = selection.anchor.offset;
     const textParts: string[] = [];
@@ -347,6 +354,10 @@ function collectTextBeforeSelection(selection: RangeSelection): string {
     const traverse = (node: LexicalNode): boolean => {
         if (reachedAnchor) return true;
         if ($isSceneBeatNode(node)) return false;
+        if ($isInDisabledProse(node)) {
+            if (node.is(anchorNode) || anchorNode.getParents().some((parent) => parent.is(node))) reachedAnchor = true;
+            return reachedAnchor;
+        }
 
         if (node.is(anchorNode)) {
             if ($isTextNode(node)) {
@@ -378,7 +389,7 @@ function collectTextBeforeSelection(selection: RangeSelection): string {
     return textParts.join("");
 }
 
-function collectTextAfterSelection(selection: RangeSelection): string {
+export function collectTextAfterSelection(selection: RangeSelection): string {
     const anchorNode = selection.anchor.getNode();
     const anchorOffset = selection.anchor.offset;
     const textParts: string[] = [];
@@ -386,6 +397,10 @@ function collectTextAfterSelection(selection: RangeSelection): string {
 
     const traverse = (node: LexicalNode): void => {
         if ($isSceneBeatNode(node)) return;
+        if ($isInDisabledProse(node)) {
+            if (node.is(anchorNode) || anchorNode.getParents().some((parent) => parent.is(node))) reachedAnchor = true;
+            return;
+        }
 
         if (node.is(anchorNode)) {
             if ($isTextNode(node)) {
@@ -416,7 +431,7 @@ function collectTextAfterSelection(selection: RangeSelection): string {
 }
 
 function collectNodeText(node: LexicalNode, textParts: string[]): void {
-    if ($isSceneBeatNode(node)) return;
+    if ($isSceneBeatNode(node) || $isInDisabledProse(node)) return;
     if ($isTextNode(node)) {
         textParts.push(node.getTextContent());
         return;

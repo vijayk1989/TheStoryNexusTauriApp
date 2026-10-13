@@ -31,6 +31,8 @@ import { usePromptStore } from "@/features/prompts/store/promptStore";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
 import { useBrainstormStore, type BrainstormPinnedSession } from "../stores/useBrainstormStore";
 import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
+import { lexicalToPlainText } from "@/components/editor/mainLexicalEditor/serialization/lexicalToPlainText";
+import { getChapterContentForReading } from "@/features/editor/utils/editorDraftContent";
 import { useNotesStore } from "@/features/notes/stores/useNotesStore";
 import { useAgenticGeneration } from "@/features/agents/hooks/useAgenticGeneration";
 import { db } from "@/services/database";
@@ -783,7 +785,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
           selectedChapterContent.map(async (chapterId) => {
             const chapter = chapters.find((c) => c.id === chapterId);
             if (chapter) {
-              return `## ${chapter.title}\n${chapter.content || ""}`;
+              return `## ${chapter.title}\n${lexicalToPlainText(getChapterContentForReading(chapter))}`;
             }
             return "";
           })

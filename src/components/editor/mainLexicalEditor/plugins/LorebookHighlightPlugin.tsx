@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext.js";
 import debounce from "lodash/debounce";
-import { $getRoot } from "lexical";
+import { lexicalToPlainText } from "../serialization/lexicalToPlainText";
 
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
 import type { LorebookEntry } from "@/types/story";
@@ -20,7 +20,7 @@ export function LorebookHighlightPlugin(): null {
 
         const updateMatches = debounce(() => {
             editor.getEditorState().read(() => {
-                const content = $getRoot().getTextContent();
+                const content = lexicalToPlainText(editor.getEditorState().toJSON());
                 const normalizedContent = content.toLowerCase();
                 const matchedEntries = new Map<string, LorebookEntry>();
 
@@ -35,7 +35,7 @@ export function LorebookHighlightPlugin(): null {
             });
         }, 500);
 
-        const removeListener = editor.registerTextContentListener(updateMatches);
+        const removeListener = editor.registerUpdateListener(updateMatches);
         updateMatches();
 
         return () => {

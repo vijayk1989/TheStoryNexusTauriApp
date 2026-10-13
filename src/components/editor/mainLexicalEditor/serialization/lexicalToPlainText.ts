@@ -1,7 +1,9 @@
 type SerializedLexicalNode = {
+    root?: SerializedLexicalNode;
     type?: string;
     text?: string;
     children?: SerializedLexicalNode[];
+    disabled?: boolean;
 };
 
 const BLOCK_TYPES = new Set([
@@ -13,6 +15,7 @@ const BLOCK_TYPES = new Set([
 ]);
 
 function appendNodeText(node: SerializedLexicalNode, chunks: string[]) {
+    if (node.disabled) return;
     if (node.type === "text" && typeof node.text === "string") {
         chunks.push(node.text);
         return;

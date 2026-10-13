@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext.js";
 import {
     $getRoot,
+    $createParagraphNode,
     $getSelection,
     $isRangeSelection,
     type EditorState,
@@ -13,7 +14,10 @@ import { useStoryContext } from "@/features/stories/context/StoryContext";
 import { useAIStore } from "@/features/ai/stores/useAIStore";
 import { createPromptParser } from "@/features/prompts/services/promptParser";
 import { db } from "@/services/database";
-import type { AISettings } from "@/types/story";
+import type { AISettings, ProseGenerationMetadata } from "@/types/story";
+import { $createSceneBeatNode } from "../nodes/SceneBeatNode";
+import { collectTextBeforeSelection, collectTextAfterSelection } from "../SimpleWriteButton";
+import { useChapterStore } from "@/features/chapters/stores/useChapterStore";
 
 type SerializedLexicalNode = {
     type?: string;
@@ -58,7 +62,10 @@ export type EditorE2ESnapshot = {
 };
 
 export type StoryNexusE2EApi = {
+    insertPendingSceneBeat: (text: string, generation: ProseGenerationMetadata) => Promise<void>;
     getEditorSnapshot: () => EditorE2ESnapshot;
+    getActiveChapterText: () => Promise<string>;
+    getCursorContext: () => { previousWords: string; afterWords: string };
     getPersistedChapterContent: () => Promise<string | null>;
     resolvePromptMessages: (content: string, options?: ResolvePromptMessagesOptions) => Promise<Array<string | null>>;
     placeCursorAtTopLevelNode: (index: number, position?: CursorPosition) => Promise<void>;
@@ -116,6 +123,30 @@ function createApi(
     }
 ): StoryNexusE2EApi {
     return {
+        getActiveChapterText: () => useChapterStore.getState().getChapterPlainText(context.getCurrentChapterId()!),
+        getCursorContext: () => editor.getEditorState().read(() => {
+            const selection = $getSelection();
+            if (!$isRangeSelection(selection)) throw new Error("No range selection.");
+            return { previousWords: collectTextBeforeSelection(selection), afterWords: collectTextAfterSelection(selection) };
+        }),
+        insertPendingSceneBeat: async (text, generation) => {
+            const storyId = context.getCurrentStoryId();
+            const chapterId = context.getCurrentChapterId();
+            if (!storyId || !chapterId) throw new Error("No chapter context available.");
+            await db.sceneBeats.put({
+                id: generation.sceneBeatId, storyId, chapterId, createdAt: new Date(),
+                command: generation.sceneBeatCommand, generatedContent: text, accepted: false,
+                generationMetadata: generation,
+            });
+            editor.update(() => {
+                const beat = $createSceneBeatNode(generation.sceneBeatId, {
+                    command: generation.sceneBeatCommand, generatedContent: text, accepted: false,
+                    generationMetadata: generation,
+                });
+                $getRoot().getFirstChildOrThrow().insertAfter(beat);
+                beat.insertAfter($createParagraphNode());
+            }, { discrete: true });
+        },
         getEditorSnapshot: () => {
             const editorState = editor.getEditorState();
             return readEditorSnapshot(editorState, context);

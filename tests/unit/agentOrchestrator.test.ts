@@ -8,6 +8,7 @@ import type { AgentPreset, AgentRole } from "@/types/story";
 
 vi.mock("@/services/ai/AIService", () => {
   const aiServiceMock = {
+    getGenerationModel: (model: unknown) => structuredClone(model),
     generateWithLocalModel: vi.fn(),
     generateWithOpenAI: vi.fn(),
     generateWithOpenRouter: vi.fn(),
@@ -65,6 +66,8 @@ describe("AgentOrchestrator", () => {
     expect(result.proseOutput).toBe("Revised prose");
     expect(result.displayOutput).toBe("Revised prose");
     expect(result.outputKind).toBe("prose");
+    expect(result.steps[0].model).toMatchObject({ provider: "openrouter" });
+    expect(result.steps[0].agentPresetId).toBeTruthy();
   });
 
   test("uses the latest judge result when looping through revisions", async () => {

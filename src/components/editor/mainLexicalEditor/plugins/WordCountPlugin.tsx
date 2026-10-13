@@ -1,9 +1,8 @@
 import { useEffect } from "react";
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext.js";
-import { $getRoot } from "lexical";
 
-import { countWordsInText } from "../serialization/lexicalToPlainText";
+import { countWordsInText, lexicalToPlainText } from "../serialization/lexicalToPlainText";
 
 type WordCountPluginProps = {
     onChange: (wordCount: number) => void;
@@ -15,7 +14,7 @@ export function WordCountPlugin({ onChange }: WordCountPluginProps) {
     useEffect(() => {
         const updateWordCount = () => {
             editor.getEditorState().read(() => {
-                onChange(countWordsInText($getRoot().getTextContent()));
+                onChange(countWordsInText(lexicalToPlainText(editor.getEditorState().toJSON())));
             });
         };
 
@@ -23,7 +22,7 @@ export function WordCountPlugin({ onChange }: WordCountPluginProps) {
 
         return editor.registerUpdateListener(({ editorState }) => {
             editorState.read(() => {
-                onChange(countWordsInText($getRoot().getTextContent()));
+                onChange(countWordsInText(lexicalToPlainText(editorState.toJSON())));
             });
         });
     }, [editor, onChange]);

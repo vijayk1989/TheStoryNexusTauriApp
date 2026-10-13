@@ -10,6 +10,7 @@ export type SerializedSceneBeatNode = Spread<
     povType?: SceneBeat["povType"];
     povCharacter?: string;
     generatedContent?: string;
+    generationMetadata?: SceneBeat["generationMetadata"];
     accepted?: boolean;
     metadata?: SceneBeat["metadata"];
     collapsed?: boolean;
@@ -24,6 +25,7 @@ export type SceneBeatNodeSnapshot = Pick<
   | "povType"
   | "povCharacter"
   | "generatedContent"
+  | "generationMetadata"
   | "accepted"
   | "metadata"
   | "collapsed"

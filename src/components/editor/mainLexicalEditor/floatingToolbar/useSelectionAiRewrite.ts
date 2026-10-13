@@ -31,6 +31,7 @@ import type {
 } from "@/types/story";
 
 import { $isSceneBeatNode } from "../nodes/SceneBeatNode";
+import { $isInDisabledProse } from "../utils/activeProse";
 
 export function useSelectionAiRewrite() {
     const [editor] = useLexicalComposerContext();
@@ -99,6 +100,10 @@ export function useSelectionAiRewrite() {
             const traverseNodes = (node: any): boolean => {
                 if (reachedStartNode) return true;
                 if ($isSceneBeatNode(node)) return false;
+                if ($isInDisabledProse(node)) {
+                    if (node.is(startNode) || startNode.getParents().some((parent) => parent.is(node))) reachedStartNode = true;
+                    return reachedStartNode;
+                }
 
                 if (node.is(startNode)) {
                     if ($isTextNode(node)) {
@@ -135,6 +140,12 @@ export function useSelectionAiRewrite() {
             if (!currentStoryId || !currentChapterId) {
                 throw new Error("No story or chapter context found");
             }
+            editor.getEditorState().read(() => {
+                const selection = savedSelectionRef.current || $getSelection();
+                if ($isRangeSelection(selection) && selection.getNodes().some($isInDisabledProse)) {
+                    throw new Error("Enable disabled blocks before using their text in a prompt.");
+                }
+            });
 
             const previousWords = collectPreviousText();
 
@@ -165,6 +176,7 @@ export function useSelectionAiRewrite() {
         },
         [
             collectPreviousText,
+            editor,
             currentChapter,
             currentChapterId,
             currentStory,
@@ -191,6 +203,7 @@ export function useSelectionAiRewrite() {
         editor.getEditorState().read(() => {
             const selection = $getSelection();
             if ($isRangeSelection(selection)) {
+                if (selection.getNodes().some($isInDisabledProse)) return;
                 selectionText = selection.getTextContent();
                 savedSelectionRef.current = selection.clone();
             }
@@ -260,6 +273,7 @@ export function useSelectionAiRewrite() {
             editor.getEditorState().read(() => {
                 const selection = $getSelection();
                 if ($isRangeSelection(selection)) {
+                    if (selection.getNodes().some($isInDisabledProse)) throw new Error("Enable disabled blocks before using their text in a prompt.");
                     selectionText = selection.getTextContent();
                 }
             });
@@ -287,18 +301,26 @@ export function useSelectionAiRewrite() {
     // ── custom rewrite ────────────────────────────────────────
 
     const handleOpenCustomRewrite = useCallback(() => {
+        let hasDisabledSelection = false;
+        let text = "";
         editor.getEditorState().read(() => {
             const selection = $getSelection();
-            if ($isRangeSelection(selection)) {
-                const text = selection.getTextContent();
-                setSavedSelectionText(text);
-                savedSelectionRef.current = selection.clone();
-                setShowCustomRewrite(true);
-                setCustomInstruction("");
-                setCustomSelectedPrompt(undefined);
-                setCustomSelectedModel(undefined);
-            }
+            if (!$isRangeSelection(selection)) return;
+            hasDisabledSelection = selection.getNodes().some($isInDisabledProse);
+            if (hasDisabledSelection) return;
+            text = selection.getTextContent();
+            savedSelectionRef.current = selection.clone();
         });
+        if (hasDisabledSelection) {
+            toast.info("Enable disabled blocks before rewriting their text.");
+            return;
+        }
+        if (!text) return;
+        setSavedSelectionText(text);
+        setShowCustomRewrite(true);
+        setCustomInstruction("");
+        setCustomSelectedPrompt(undefined);
+        setCustomSelectedModel(undefined);
     }, [editor]);
 
     const handleCustomPromptSelect = useCallback((prompt: Prompt, model: AllowedModel) => {

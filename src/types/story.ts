@@ -57,6 +57,18 @@ export interface ChapterNotes {
   lastUpdated: Date;
 }
 
+export interface ProseGenerationMetadata {
+  id: string;
+  sceneBeatId: string;
+  sceneBeatCommand: string;
+  generatedAt: string;
+  model?: AllowedModel;
+  promptId: string;
+  promptName: string;
+  promptMessages: PromptMessage[];
+  mode: "standard" | "regeneration" | "parallel" | "pipeline";
+}
+
 // SceneBeat structure
 export interface SceneBeat extends BaseEntity {
   storyId: string;
@@ -66,6 +78,7 @@ export interface SceneBeat extends BaseEntity {
   povCharacter?: string;
   generatedContent?: string; // To store the last generated content
   accepted?: boolean; // Whether the generated content was accepted
+  generationMetadata?: ProseGenerationMetadata;
   metadata?: {
     useMatchedChapter?: boolean;
     useMatchedSceneBeat?: boolean;
@@ -609,6 +622,8 @@ export interface PipelinePreset extends BaseEntity {
 }
 
 export interface AgentResult {
+  model?: AllowedModel;
+  agentPresetId?: string;
   role: AgentRole;
   agentName: string;
   output: string;

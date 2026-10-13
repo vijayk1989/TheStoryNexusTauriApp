@@ -26,6 +26,7 @@ import { EditorE2EBridge } from "./testing/EditorE2EBridge";
 import { WordCountPlugin } from "./plugins/WordCountPlugin";
 import { StoryToolbarPlugin } from "./toolbar/StoryToolbarPlugin";
 import { SimpleWriteButton } from "./SimpleWriteButton";
+import { GeneratedProsePlugin } from "./plugins/GeneratedProsePlugin";
 
 type MainLexicalEditorProps = {
     maximizeButton?: ReactNode;
@@ -99,6 +100,7 @@ export function MainLexicalEditor({ maximizeButton }: MainLexicalEditorProps) {
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                     <HistoryPlugin />
+                    <GeneratedProsePlugin />
                     <ListPlugin />
                     <SceneBeatShortcutPlugin />
                     <AssetImageInsertPlugin />

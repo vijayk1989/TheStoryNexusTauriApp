@@ -75,16 +75,22 @@ test.describe("local LLM generation", () => {
 
     await expectChapterTextToContainGeneratedOutput(page, firstOutput);
 
-    const secondBlock = await insertSceneBeatAtTopLevelNode(page, 2, 2);
+    const secondBlock = await insertSceneBeatAtTopLevelNode(page, 3, 2);
     const secondOutput = await generateAndAcceptSceneBeat(
       secondBlock,
       "Write 2 short sentences: Jonas tells Mara the probe archive was locked before her father died."
     );
 
     const finalSnapshot = await expectChapterTextToContainGeneratedOutput(page, secondOutput);
+    const blocks = (finalSnapshot.state as { root: { children: Array<{ type: string; generation?: { model?: { provider: string; id: string }; promptId: string } }> } }).root.children.filter((node) => node.type === "generated-prose");
+    expect(blocks).toHaveLength(2);
+    for (const block of blocks) {
+      expect(block.generation?.model).toMatchObject({ provider: "local", id: `local/${model.id.replace(/^local\//, "")}` });
+      expect(block.generation?.promptId).toBe("scene-beat-system");
+    }
 
     expect(finalSnapshot.sceneBeatCount).toBe(2);
-    expect(finalSnapshot.paragraphCount).toBeGreaterThanOrEqual(initial.paragraphCount + 4);
+    expect(finalSnapshot.paragraphCount).toBeGreaterThanOrEqual(initial.paragraphCount + 6);
     expect(localRequests.length).toBeGreaterThanOrEqual(2);
     expect(paidGuard.getBlockedUrls()).toEqual([]);
   });

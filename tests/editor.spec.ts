@@ -35,6 +35,37 @@ test.describe("main Lexical editor", () => {
     expect(snapshot.plainText).toContain("Mara Venn");
   });
 
+  test("copies the whole chapter from Download and pastes rich text without generation controls", async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await acceptProseFixture(page);
+    await placeCursorAtTopLevelNode(page, 3, 'start');
+    await page.locator('#main-editor-block-type:visible').selectOption('h2');
+    await page.getByRole('button', { name: 'Download', exact: true }).filter({ visible: true }).click();
+    await page.getByRole('menuitem', { name: 'Copy to clipboard', exact: true }).click();
+    await expect(page.getByText('Chapter copied to clipboard', { exact: true })).toBeVisible();
+    const clipboard = await page.evaluate(async () => {
+      const [item] = await navigator.clipboard.read();
+      return { html: await (await item.getType('text/html')).text(), text: await (await item.getType('text/plain')).text() };
+    });
+    expect(clipboard.text).toContain('Mara Venn');
+    expect(clipboard.text).toContain('Fixture first paragraph.');
+    expect(clipboard.text).toContain('Fixture second paragraph.');
+    expect(clipboard.html).not.toMatch(/Fixture model|Fixture prompt|Original prompt sent|Write fixture prose|Generation details/);
+    await page.evaluate(() => {
+      const target = document.createElement('div');
+      target.contentEditable = 'true';
+      target.setAttribute('role', 'textbox');
+      target.setAttribute('aria-label', 'Rich text paste target');
+      document.body.append(target);
+      target.focus();
+    });
+    await page.keyboard.press('Control+V');
+    const target = page.getByRole('textbox', { name: 'Rich text paste target' });
+    await expect(target.locator('h2')).toHaveText('Fixture first paragraph.');
+    await expect(target).toContainText('Mara Venn');
+    await expect(target).toContainText('Fixture second paragraph.');
+  });
+
   test("accepts attributed prose, hides labels without losing metadata, and reloads it", async ({ page }) => {
     await acceptProseFixture(page);
     const block = page.locator(".sn-generated-prose:visible");
@@ -253,6 +284,34 @@ test.describe("main Lexical editor", () => {
 
     expect(after.topLevelTypes[1]).toBe("scene-beat");
     expect(after.topLevelTypes[2]).toBe("paragraph");
+  });
+
+  test('preserves SceneBeat typing while its initial database save is pending', async ({ page }) => {
+    await page.evaluate(async () => {
+      const database = (await indexedDB.databases()).find(item => item.name && !item.name.startsWith('__'))!;
+      const request = indexedDB.open(database.name!);
+      const connection = await new Promise<IDBDatabase>((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const gate = { held: true };
+      (window as any).__sceneBeatSaveGate = gate;
+      const transaction = connection.transaction('sceneBeats', 'readwrite');
+      transaction.oncomplete = () => connection.close();
+      const store = transaction.objectStore('sceneBeats');
+      const hold = () => { store.get('__e2e_save_gate__').onsuccess = () => { if (gate.held) hold(); }; };
+      hold();
+    });
+    await placeCursorAtTopLevelNode(page, 0, 'end');
+    await page.keyboard.press('Alt+S');
+    const command = page.getByTestId('scene-beat-block').filter({ visible: true }).getByTestId('scene-beat-command');
+    await command.fill('Keep text entered before the first save finishes.');
+    await page.evaluate(() => { (window as any).__sceneBeatSaveGate.held = false; });
+    await expect(command).toHaveValue('Keep text entered before the first save finishes.');
+    await expect.poll(() => getPersistedChapterContent(page)).toContain('Keep text entered before the first save finishes.');
+    await page.reload();
+    await page.waitForFunction(() => !!window.__STORY_NEXUS_E2E__);
+    await expect(command).toHaveValue('Keep text entered before the first save finishes.');
   });
 
   test("Backspace from an empty paragraph after a SceneBeat removes only the SceneBeat", async ({ page }) => {

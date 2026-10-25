@@ -14,6 +14,7 @@ interface PromptsListProps {
 
 const getPromptTypeLabel = (type: Prompt['promptType']) => {
     const labels: Record<Prompt['promptType'], string> = {
+        'universal_system': 'Universal System',
         'scene_beat': 'Scene Beat',
         'image_gen': 'Image Generation',
         'gen_summary': 'Generate Summary',
@@ -27,6 +28,7 @@ const getPromptTypeLabel = (type: Prompt['promptType']) => {
 
 // Define order for prompt types to display
 const promptTypeOrder: Prompt['promptType'][] = [
+    'universal_system',
     'scene_beat',
     'image_gen',
     'continue_writing',

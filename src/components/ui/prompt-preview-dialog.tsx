@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog";
 import { ScrollArea } from "./scroll-area";
-import { PromptMessage } from "@/types/story";
+import { GenerationMessage } from "@/types/story";
+import { hasImageInput, messageText } from '@/services/ai/multimodal';
 import { Loader2 } from "lucide-react";
 import { useMemo } from "react";
 import { encode } from "gpt-tokenizer";
@@ -8,18 +9,18 @@ import { encode } from "gpt-tokenizer";
 interface PromptPreviewDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    messages: PromptMessage[] | undefined;
+    messages: GenerationMessage[] | undefined;
     isLoading: boolean;
     error: string | null;
 }
 
 // Function to count tokens using gpt-tokenizer
-function countTokens(text: string): number {
-    return encode(text).length;
+function countTokens(text: GenerationMessage['content']): number {
+    return encode(messageText(text)).length;
 }
 
 // Function to count tokens for a full conversation
-function countConversationTokens(messages: PromptMessage[]): number {
+function countConversationTokens(messages: GenerationMessage[]): number {
     // Base tokens for the messages format
     let tokens = 3; // Every reply is primed with <|start|>assistant<|message|>
 
@@ -55,7 +56,7 @@ export function PromptPreviewDialog({
                         <span>Resolved Prompt Preview</span>
                         {messages && !isLoading && !error && (
                             <span className="text-sm font-normal text-muted-foreground">
-                                {tokenCount.toLocaleString()} tokens
+                                {tokenCount.toLocaleString()} {hasImageInput(messages) ? 'text tokens (images extra)' : 'tokens'}
                             </span>
                         )}
                     </DialogTitle>
@@ -80,8 +81,13 @@ export function PromptPreviewDialog({
                                         </span>
                                     </div>
                                     <div className="whitespace-pre-wrap">
-                                        {message.content}
+                                        {messageText(message.content)}
                                     </div>
+                                    {Array.isArray(message.content) && <div className="flex flex-wrap gap-2">
+                                        {message.content.filter(part => part.type === 'image_url').map((part, imageIndex) => part.type === 'image_url' && (
+                                            <img key={imageIndex} src={part.image_url.url} alt={`Attached image ${imageIndex + 1}`} className="h-32 max-w-full rounded border object-contain" />
+                                        ))}
+                                    </div>}
                                 </div>
                             ))}
                         </div>
@@ -94,4 +100,4 @@ export function PromptPreviewDialog({
             </DialogContent>
         </Dialog>
     );
-} 
+}

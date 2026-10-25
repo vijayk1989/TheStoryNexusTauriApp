@@ -200,7 +200,7 @@ export function MiscSettingsPanel({ onSiteDataChanged }: MiscSettingsPanelProps)
                     <div className="flex gap-2">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                         <p className="leading-6">
-                            Site Backup does not include API keys, AI provider settings, generated images, or uploaded images.
+                            Site Backup includes Brainstorm image attachments. API keys, AI provider settings, and other gallery images are excluded.
                             Enter keys manually in AI Settings after importing on another device.
                         </p>
                     </div>

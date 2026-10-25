@@ -30,6 +30,7 @@ function metadataFromSceneBeat(metadata: SceneBeat["metadata"]) {
     useMatchedChapter: metadata?.useMatchedChapter ?? true,
     useMatchedSceneBeat: metadata?.useMatchedSceneBeat ?? false,
     useCustomContext: metadata?.useCustomContext ?? false,
+    universalSystemPromptId: metadata?.universalSystemPromptId,
   };
 }
 
@@ -54,6 +55,7 @@ export function useSceneBeatLifecycle({
   const streamComplete = useSBStore((s) => s.streamComplete);
   const generationMetadata = useSBStore((s) => s.generationMetadata);
   const selectedPrompt = useSBStore((s) => s.selectedPrompt);
+  const universalSystemPromptId = useSBStore((s) => s.universalSystemPromptId);
   const selectedPipeline = useSBStore((s) => s.selectedPipeline);
   const agenticMode = useSBStore((s) => s.agenticMode);
   const useMatchedChapter = useSBStore((s) => s.useMatchedChapter);
@@ -64,6 +66,7 @@ export function useSceneBeatLifecycle({
   const didHydrateSnapshot = useRef(false);
   const lastPersistedCommand = useRef<string | null>(null);
   const lastPersistedMetadata = useRef<string | null>(null);
+  const loadInFlight = useRef(false);
 
   useEffect(() => {
     if (didHydrateSnapshot.current) return;
@@ -109,6 +112,8 @@ export function useSceneBeatLifecycle({
   }, [initialSnapshot, currentChapter, set]);
 
   useEffect(() => {
+    const ai = useAIStore.getState();
+    if (!ai.isInitialized && !ai.isLoading) void ai.initialize();
     generation.fetchPrompts().catch((error: unknown) => {
       toast.error("Failed to load prompts");
       console.error("Error loading prompts:", error);
@@ -144,6 +149,7 @@ export function useSceneBeatLifecycle({
   }, [agenticMode, generation.getAvailablePipelines, selectedPipeline, set]);
 
   useEffect(() => {
+    if (loadInFlight.current) return;
     const loadOrCreate = async () => {
       const currentState = storeApi.getState();
       if (currentState.isLoaded) return;
@@ -176,13 +182,15 @@ export function useSceneBeatLifecycle({
               metadata,
             });
             const hydratedMetadata = metadataFromSceneBeat(metadata);
+            const latestCommand = storeApi.getState().command;
+            const hydratedCommand = latestCommand !== currentState.command ? latestCommand : initialSnapshot.command || '';
 
             lastPersistedCommand.current = initialSnapshot.command || "";
             lastPersistedMetadata.current = JSON.stringify(hydratedMetadata);
 
             set({
               sceneBeatId: replacementId,
-              command: initialSnapshot.command || "",
+              command: hydratedCommand,
               povType: pov,
               povCharacter: char,
               tempPovType: pov,
@@ -196,7 +204,7 @@ export function useSceneBeatLifecycle({
 
             writeNodeSnapshot({
               sceneBeatId: replacementId,
-              command: initialSnapshot.command || "",
+              command: hydratedCommand,
               povType: pov,
               povCharacter: char,
               generatedContent: initialSnapshot.generatedContent,
@@ -216,7 +224,8 @@ export function useSceneBeatLifecycle({
           const hydratedMetadata = metadataFromSceneBeat(metadata);
           const storedCommand = data.command || "";
           const snapshotCommand = initialSnapshot.command || "";
-          const hydratedCommand = storedCommand || snapshotCommand;
+          const latestCommand = storeApi.getState().command;
+          const hydratedCommand = latestCommand !== currentState.command ? latestCommand : storedCommand || snapshotCommand;
 
           lastPersistedCommand.current = hydratedCommand;
           lastPersistedMetadata.current = JSON.stringify(hydratedMetadata);
@@ -269,9 +278,12 @@ export function useSceneBeatLifecycle({
             povCharacter: char,
           });
 
+          const latestCommand = storeApi.getState().command;
+          const hydratedCommand = latestCommand !== currentState.command ? latestCommand : currentCommand;
+
           writeNodeSnapshot({
             sceneBeatId: newId,
-            command: currentCommand,
+            command: hydratedCommand,
             povType: pov,
             povCharacter: char,
             metadata: {
@@ -284,7 +296,7 @@ export function useSceneBeatLifecycle({
 
           set({
             sceneBeatId: newId,
-            command: currentCommand,
+            command: hydratedCommand,
             povType: pov,
             povCharacter: char,
             tempPovType: pov,
@@ -307,7 +319,8 @@ export function useSceneBeatLifecycle({
       }
     };
 
-    loadOrCreate();
+    loadInFlight.current = true;
+    void loadOrCreate().finally(() => { loadInFlight.current = false; });
   }, [
     sceneBeatId,
     currentStoryId,
@@ -393,7 +406,7 @@ export function useSceneBeatLifecycle({
   useEffect(() => {
     if (!sceneBeatId || !isLoaded) return;
 
-    const metadata = { useMatchedChapter, useMatchedSceneBeat, useCustomContext };
+    const metadata = { useMatchedChapter, useMatchedSceneBeat, useCustomContext, universalSystemPromptId };
     writeNodeSnapshot({ metadata });
     const metadataKey = JSON.stringify(metadata);
     if (lastPersistedMetadata.current === metadataKey) return;
@@ -407,7 +420,7 @@ export function useSceneBeatLifecycle({
     if (cached) {
       useSceneBeatStore.getState().upsertSceneBeat({ ...cached, metadata });
     }
-  }, [useMatchedChapter, useMatchedSceneBeat, useCustomContext, sceneBeatId, isLoaded, writeNodeSnapshot]);
+  }, [useMatchedChapter, useMatchedSceneBeat, useCustomContext, universalSystemPromptId, sceneBeatId, isLoaded, writeNodeSnapshot]);
 
   useEffect(() => {
     if (!useCustomContext) {

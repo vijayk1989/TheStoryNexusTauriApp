@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { db } from '@/services/database';
 import type { Prompt, PromptMessage } from '@/types/story';
+import { validatePromptMessages } from '../utils/promptValidation';
 
 interface PromptStore {
     prompts: Prompt[];
@@ -29,21 +30,7 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
     isLoading: false,
     error: null,
 
-    validatePromptData: (messages, promptType) => {
-        if (promptType === 'image_gen') {
-            return messages.length === 1 &&
-                messages[0].role === 'user' &&
-                typeof messages[0].content === 'string';
-        }
-
-        return messages.every(msg =>
-            typeof msg === 'object' &&
-            ('role' in msg) &&
-            ('content' in msg) &&
-            ['system', 'user', 'assistant'].includes(msg.role) &&
-            typeof msg.content === 'string'
-        );
-    },
+    validatePromptData: validatePromptMessages,
 
     fetchPrompts: async () => {
         if (fetchPromptsPromise) {
@@ -102,7 +89,10 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
 
     updatePrompt: async (id, promptData) => {
         try {
-            if (promptData.messages && !get().validatePromptData(promptData.messages, promptData.promptType)) {
+            const existing = await db.prompts.get(id);
+            if (!existing) throw new Error('Prompt not found');
+            const updated = { ...existing, ...promptData };
+            if (!get().validatePromptData(updated.messages, updated.promptType)) {
                 throw new Error('Invalid prompt data structure');
             }
 
@@ -153,6 +143,9 @@ export const usePromptStore = create<PromptStore>((set, get) => ({
             const originalPrompt = await db.prompts.get(id);
             if (!originalPrompt) {
                 throw new Error('Prompt not found');
+            }
+            if (!get().validatePromptData(originalPrompt.messages, originalPrompt.promptType)) {
+                throw new Error('Invalid prompt data structure');
             }
 
             const newId = crypto.randomUUID();

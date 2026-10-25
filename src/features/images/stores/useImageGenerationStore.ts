@@ -93,13 +93,15 @@ export const useImageGenerationStore = create<ImageGenerationState>((set, get) =
         if (!asset) return;
 
         const ref = `story-nexus-asset:${assetId}`;
-        const [story, chapters] = await Promise.all([
+        const [story, chapters, chats] = await Promise.all([
             db.stories.get(asset.storyId),
             db.chapters.where("storyId").equals(asset.storyId).toArray(),
+            db.aiChats.where("storyId").equals(asset.storyId).toArray(),
         ]);
         const isReferenced =
             story?.editorBackground?.assetId === assetId ||
-            chapters.some(chapter => chapter.content.includes(ref));
+            chapters.some(chapter => chapter.content.includes(ref)) ||
+            chats.some(chat => chat.draftImageAssetIds?.includes(assetId) || chat.messages.some(message => message.imageAssetIds?.includes(assetId)));
 
         if (isReferenced) {
             await db.mediaAssets.update(assetId, { archivedAt: new Date() });

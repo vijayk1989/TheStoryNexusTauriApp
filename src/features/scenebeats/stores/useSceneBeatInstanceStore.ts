@@ -51,6 +51,7 @@ export interface SceneBeatInstanceState {
     // Prompt selection
     selectedPrompt: Prompt | undefined;
     selectedModel: AllowedModel | undefined;
+    universalSystemPromptId: string | undefined;
 
     // Generation
     streaming: boolean;
@@ -145,6 +146,7 @@ export function createSceneBeatInstanceStore(nodeKey: string) {
         // Prompt
         selectedPrompt: undefined,
         selectedModel: undefined,
+        universalSystemPromptId: undefined,
 
         // Generation
         streaming: false,

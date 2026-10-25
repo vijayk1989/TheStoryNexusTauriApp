@@ -1,4 +1,5 @@
-import { AIModel, AIProvider, AISettings, AllowedModel, LocalAIRuntime, PromptMessage, PromptReasoningSettings } from '@/types/story';
+import { AIModel, AIProvider, AISettings, AllowedModel, LocalAIRuntime, GenerationMessage, PromptReasoningSettings } from '@/types/story';
+import { googleMessageContents, messageText, validateImageModel } from './multimodal';
 import { db } from '../database';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
@@ -334,6 +335,7 @@ export class AIService {
             name: model.name,
             provider: 'openrouter' as AIProvider,
             contextLength: model.context_length,
+            supportsImages: Array.isArray(model.architecture?.input_modalities) ? model.architecture.input_modalities.includes('image') : undefined,
             enabled: true
         }));
     }
@@ -353,6 +355,7 @@ export class AIService {
             name: model.name || model.id,
             provider: 'nanogpt' as AIProvider,
             contextLength: model.context_length || 32768,
+            supportsImages: typeof model.capabilities?.vision === 'boolean' ? model.capabilities.vision : undefined,
             enabled: true
         }));
     }
@@ -391,6 +394,7 @@ export class AIService {
             name: model.name || model.id || String(model.id),
             provider: 'openai_compatible' as AIProvider,
             contextLength: model.context_length || model.max_context || 32768,
+            supportsImages: typeof model.capabilities?.vision === 'boolean' ? model.capabilities.vision : undefined,
             enabled: true
         }));
     }
@@ -452,7 +456,7 @@ export class AIService {
     }
 
     async generateWithLocalModel(
-        messages: PromptMessage[],
+        messages: GenerationMessage[],
         temperature?: number,
         maxTokens: number = 2048,
         top_p?: number,
@@ -463,6 +467,7 @@ export class AIService {
         reasoning?: PromptReasoningSettings
     ): Promise<Response> {
         if (!this.settings) throw new Error('AIService not initialized');
+        await validateImageModel(messages, this.getGenerationModel({ provider: 'local', id: modelId || 'local', name: modelId || 'Local model' }), this.settings);
 
         // Create request body with optional parameters
         const requestBody: any = {
@@ -729,7 +734,7 @@ export class AIService {
     }
 
     async generateWithOpenAI(
-        messages: PromptMessage[],
+        messages: GenerationMessage[],
         modelId: string,
         temperature?: number,
         maxTokens: number = 2048,
@@ -743,6 +748,7 @@ export class AIService {
         if (!this.settings?.openaiKey) {
             throw new Error('OpenAI API key not set');
         }
+        await validateImageModel(messages, { provider: 'openai', id: modelId, name: modelId }, this.settings);
         if (!this.openAI) {
             this.initializeOpenAI();
         }
@@ -821,7 +827,7 @@ export class AIService {
     }
 
     async generateWithOpenRouter(
-        messages: PromptMessage[],
+        messages: GenerationMessage[],
         modelId: string,
         temperature?: number,
         maxTokens: number = 2048,
@@ -835,6 +841,7 @@ export class AIService {
         if (!this.settings?.openrouterKey) {
             throw new Error('OpenRouter API key not set');
         }
+        await validateImageModel(messages, { provider: 'openrouter', id: modelId, name: modelId }, this.settings);
         if (!this.openRouter) {
             this.initializeOpenRouter();
         }
@@ -912,7 +919,7 @@ export class AIService {
     }
 
     async generateWithNanoGPT(
-        messages: PromptMessage[],
+        messages: GenerationMessage[],
         modelId: string,
         temperature?: number,
         maxTokens: number = 2048,
@@ -926,6 +933,7 @@ export class AIService {
         if (!this.settings?.nanogptKey) {
             throw new Error('NanoGPT API key not set');
         }
+        await validateImageModel(messages, { provider: 'nanogpt', id: modelId, name: modelId }, this.settings);
         if (!this.nanoGPT) {
             this.initializeNanoGPT();
         }
@@ -995,7 +1003,7 @@ export class AIService {
     }
 
     async generateWithOpenAICompatible(
-        messages: PromptMessage[],
+        messages: GenerationMessage[],
         modelId: string,
         temperature?: number,
         maxTokens: number = 2048,
@@ -1009,6 +1017,7 @@ export class AIService {
         if (!this.settings?.openaiCompatibleKey || !this.settings?.openaiCompatibleUrl) {
             throw new Error('OpenAI-compatible provider not configured');
         }
+        await validateImageModel(messages, { provider: 'openai_compatible', id: modelId, name: modelId }, this.settings);
 
         const urlBase = this.settings.openaiCompatibleUrl;
         const endpoint = urlBase.endsWith('/') ? `${urlBase}chat/completions` : `${urlBase}/chat/completions`;
@@ -1053,7 +1062,7 @@ export class AIService {
     }
 
     async generateWithGoogle(
-        messages: PromptMessage[],
+        messages: GenerationMessage[],
         modelId: string,
         temperature?: number,
         maxTokens: number = 2048,
@@ -1074,15 +1083,11 @@ export class AIService {
 
         // Extract system instruction from messages
         const systemMessages = messages.filter(m => m.role === 'system');
-        const systemInstruction = systemMessages.map(m => m.content).join('\n\n') || undefined;
+        const systemInstruction = systemMessages.map(m => messageText(m.content)).join('\n\n') || undefined;
 
         // Convert user/assistant messages to Google's contents format
-        const contents = messages
-            .filter(m => m.role !== 'system')
-            .map(m => ({
-                role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-                parts: [{ text: m.content }]
-            }));
+        await validateImageModel(messages, { provider: 'google', id: modelId, name: modelId }, this.settings);
+        const contents = googleMessageContents(messages);
 
         // Build generation config
         const config: Record<string, any> = {

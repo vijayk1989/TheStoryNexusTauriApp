@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const PROMPT_TYPE_LABELS: Record<string, string> = {
+    universal_system: 'Universal System',
     scene_beat: 'Scene Beat',
     gen_summary: 'Generate Summary',
     selection_specific: 'Selection-Specific',

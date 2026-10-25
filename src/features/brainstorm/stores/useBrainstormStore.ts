@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 export interface BrainstormPinnedSession {
     input: string;
     selectedPromptId?: string;
+    universalSystemPromptId?: string;
     selectedModel?: AllowedModel | null;
     includeFullContext: boolean;
     includeAllLorebook: boolean;
@@ -28,7 +29,7 @@ interface BrainstormState {
 
     // Actions
     fetchChats: (storyId: string) => Promise<void>;
-    addChat: (storyId: string, title: string, messages: any[]) => Promise<string>;
+    addChat: (storyId: string, title: string, messages: any[], universalSystemPromptId?: string) => Promise<string>;
     selectChat: (chat: AIChat) => void;
     createNewChat: (storyId: string) => Promise<string>;
     deleteChat: (chatId: string) => Promise<void>;
@@ -69,7 +70,7 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
         }
     },
 
-    addChat: async (storyId: string, title: string, messages: any[]) => {
+    addChat: async (storyId: string, title: string, messages: any[], universalSystemPromptId?: string) => {
         try {
             const id = uuidv4();
             const newChat: AIChat = {
@@ -77,6 +78,7 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
                 storyId,
                 title,
                 messages,
+                universalSystemPromptId,
                 createdAt: new Date(),
                 updatedAt: new Date()
             };

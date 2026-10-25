@@ -37,6 +37,52 @@ This keeps the fragile caret cases testable without relying only on DOM snapshot
 
 ## Current Coverage
 
+### Brainstorm image attachments
+
+Normal Brainstorm supports **Attach image** and clipboard image paste, including image-only messages. PNG, JPEG, and WebP are accepted, up to four images per message. **Resize large images** is enabled by default and limits newly attached images to 1600 pixels on the longest side. Files over 20 MB are rejected before decoding; stored/sent images are limited to 4 MB each. Disabling resizing retains the original image when it fits that limit. Requests containing more than 12 images or over 16 MB of encoded image data fail explicitly; earlier images are never silently dropped.
+
+Thumbnails can be opened at full size or removed from the draft. Draft image references are saved in `AIChat.draftImageAssetIds`; sent images use `ChatMessage.imageAssetIds`. Bytes live in the existing `mediaAssets`/`mediaBlobs` repository, not in prompt templates or chat text. Removing an attachment detaches it from the draft; its asset remains available in the Images gallery. Gallery deletion archives images still referenced by chats or drafts so saved conversations retain their bytes. Agent pipelines currently accept text; image conversations must use normal Brainstorm mode.
+
+Send immediately moves text and images into the right-side user message and clears the composer. A waiting indicator remains in the conversation until visible response text arrives. If generation fails before producing reply text, the user message is rolled back and its text/images return to the draft for retry; any text typed while waiting is retained. Partial replies remain saved if streaming fails after text arrives. The image browser test holds the local response open to check pending image/text sends and loading, then verifies both capability and HTTP error recovery without duplicate messages.
+
+Prompt templates remain text-only. `buildBrainstormMessages` resolves the task and universal system prompts, expands the existing `{{chat_history}}` location into structured historical messages when images are present, and adds images to the current template's last user message. Templates without a history variable receive structured image history before that user message. Earlier images remain associated with their original user messages, including on follow-up and regeneration. Text-only chats retain the existing parser behavior. Preview shows the actual image parts and counts text tokens only; image token usage is additional.
+
+Provider requests use OpenAI-compatible `image_url` content parts with local image data URLs; the Gemini adapter converts these to `inlineData`. LM Studio's native `/api/v1/models` capability metadata is checked for image requests using the concrete selected local model. Known text-only models are rejected before generation; routes without capability metadata can attempt the request and surface the server's error. There is no automatic model switch for image support. Request formats follow [OpenAI image inputs](https://developers.openai.com/api/docs/guides/images-vision?api-mode=chat) and [Gemini image inputs](https://ai.google.dev/gemini-api/docs/generate-content/image-understanding).
+
+Site Backup version 1.1 includes image bytes referenced by Brainstorm messages and drafts, deduplicates assets, and remaps asset IDs on import. Other gallery images remain excluded and are counted in `skippedImages`. Older text-only backups remain importable. Legacy story-only exports still contain image metadata rather than bytes; use Site Backup to transfer conversations with images.
+
+`tests/unit/brainstormImages.test.ts` covers message assembly and history, missing/cross-story assets, limits, provider encoding, native capability rejection, image backup round trips, and gallery reference protection. `tests/brainstorm-images.spec.ts` uses the real browser clipboard, a generated PNG fixture, and a mocked local endpoint. It checks paste, resizing, invalid files, thumbnails, preview, image-only sends, unsupported-model recovery, historical image requests, regeneration, draft/history persistence, removal, and mobile layout. No paid API or real local inference is used by this test.
+
+```powershell
+npm.cmd run test:e2e:editor -- tests/universal-system-prompts.spec.ts tests/brainstorm-images.spec.ts
+```
+
+### Universal system prompts
+
+Create a prompt with type **Universal System** in the Prompts panel. This type contains exactly one non-empty system message, with no user/assistant messages, model selection, or generation settings. It remains editable, clonable, and exportable like other custom prompts.
+
+Normal SceneBeat generation has a **Universal system prompt** dropdown, initially **None**. None preserves the selected task prompt's messages. Selecting a universal prompt replaces only the first system message; if none exists, it inserts a system message at the start. Later system messages and all user/assistant messages remain intact. Replacement happens before variable resolution in `PromptParser`, so Preview Prompt and both standard and parallel generation use the same assembled messages. Model and sampling settings still come from the task prompt. Regeneration continues the original resolved conversation, including its system override. Agent pipelines use their own agent prompts.
+
+Normal Brainstorm chats use the same dropdown, initially **None**. Preview, generation, and regeneration pass the selected override through `PromptParser`. Web-search follow-up requests retain the resolved task messages and override alongside tool results. The selection is saved as `AIChat.universalSystemPromptId` and included in pinned chapter sessions, so switching chats, reopening the sheet, and reloading preserve each chat's choice. New chats start with None. Site backups remap chat selections to imported prompt IDs.
+
+SceneBeat and Brainstorm prompt toolbar controls share a 40px height, including the two-line prompt/model selector, universal selector, and action buttons. Brainstorm's Insert and Send/Stop controls match this height, and controls wrap on narrow screens.
+
+The selection is stored as `metadata.universalSystemPromptId` on the SceneBeat and in its serialized chapter snapshot. Clearing it restores the task prompt's own system instructions. SceneBeat mounting initializes saved AI settings when needed, so configured task/model defaults are available after reload without first opening an AI panel. Missing or invalid selections block preview/generation with an error instead of silently falling back. Site backup import validates universal prompts and remaps their references in both SceneBeat rows and chapter snapshots. Legacy story-only exports do not include the global prompt library; transfer prompts separately or use a Site Backup.
+
+SceneBeat hydration permits one database load/create at a time and preserves command edits made while that operation is pending. The editor regression suite holds a SceneBeat write transaction open, types into the block, then releases it and verifies the command survives saving and reload.
+
+`tests/unit/universalSystemPrompt.test.ts` covers replacement, insertion, variable resolution, unchanged source prompts, invalid/missing overrides, partial updates, cloning, and prompt import. Brainstorm store tests cover selection persistence and new-chat defaults. Site backup tests cover validation and selection remapping. `tests/universal-system-prompts.spec.ts` creates universal prompts through the real form and checks SceneBeat and Brainstorm preview, None restoration, reload persistence, outgoing request contents/settings, regeneration, chat switching, pinned sessions, SceneBeat acceptance/deletion, toolbar heights, and Brainstorm's mobile layout. Its local API responses are mocked, with paid-provider requests blocked; it requires no loaded model. Run it together with the editor lane:
+
+```powershell
+npm.cmd run test:e2e:editor -- tests/universal-system-prompts.spec.ts
+```
+
+### Chapter clipboard export
+
+The chapter **Download** menu includes **Copy to clipboard**. It copies the entire current manuscript, including edits waiting for autosave, as both rich HTML and plain text. Rich pastes retain headings, paragraph breaks, inline formatting, lists, quotes, and embedded local images. SceneBeat/image generation controls, generation metadata, and disabled prose are excluded, consistent with manuscript exports. Story menus retain their existing download options.
+
+Unit coverage checks formatting, pending edits, disabled prose, local image embedding, empty chapters, and clipboard failures. The editor lane grants clipboard permissions and verifies copying from the menu and pasting into a separate rich text field with headings intact.
+
 ### Accepted prose attribution
 
 SceneBeat acceptance creates a `generated-prose` Lexical ElementNode containing editable paragraphs. Each acceptance stores its own generation ID, source SceneBeat instruction, model/provider, prompt name, generation time, and the resolved messages sent to the model. Standard generation and regeneration capture attribution after provider routing; local attribution uses the concrete model selected by the local request resolver. Parallel responses use their producing model, and pipeline output uses the matching producing step. The snapshot stays independent of later prompt edits or selector changes.

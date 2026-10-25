@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { PromptSelectMenu } from '@/components/ui/prompt-select-menu';
 import { Progress } from '@/components/ui/progress';
+import { UniversalSystemPromptSelect } from '@/components/ui/universal-system-prompt-select';
 import { useSBStore } from '@/features/scenebeats/stores/useSceneBeatInstanceStore';
 import { SaveDraftDialog } from '@/features/drafts/components/SaveDraftDialog';
 import type { Prompt, AllowedModel } from '@/types/story';
@@ -56,6 +57,7 @@ export function SceneBeatActionBar({
     const streamComplete = useSBStore((s) => s.streamComplete);
     const selectedPrompt = useSBStore((s) => s.selectedPrompt);
     const selectedModel = useSBStore((s) => s.selectedModel);
+    const universalSystemPromptId = useSBStore((s) => s.universalSystemPromptId);
     const agenticMode = useSBStore((s) => s.agenticMode);
     const selectedPipeline = useSBStore((s) => s.selectedPipeline);
     const availablePipelines = useSBStore((s) => s.availablePipelines);
@@ -111,7 +113,7 @@ export function SceneBeatActionBar({
                     <>
                         {/* Pipeline selector */}
                         <select
-                            className="border rounded px-2 py-1 text-xs md:text-sm bg-background"
+                            className="h-10 border rounded px-2 py-1 text-xs md:text-sm bg-background"
                             value={selectedPipeline?.name || ''}
                             onChange={(e) => {
                                 const pipeline = availablePipelines.find((p) => p.name === e.target.value);
@@ -129,7 +131,7 @@ export function SceneBeatActionBar({
                             onClick={onAgenticGenerate}
                             disabled={isAgenticGenerating || !selectedPipeline}
                             size="sm"
-                            className="text-xs md:text-sm"
+                            className="h-10 text-xs md:text-sm"
                         >
                             {isAgenticGenerating ? (
                                 <>
@@ -149,7 +151,7 @@ export function SceneBeatActionBar({
                         </Button>
 
                         {isAgenticGenerating && (
-                            <Button variant="destructive" size="sm" onClick={onAbortAgentic} className="text-xs md:text-sm">
+                            <Button variant="destructive" size="sm" onClick={onAbortAgentic} className="h-10 text-xs md:text-sm">
                                 <Square className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                                 <span className="hidden sm:inline">Abort</span>
                             </Button>
@@ -160,7 +162,7 @@ export function SceneBeatActionBar({
                             variant="outline"
                             size="sm"
                             onClick={() => set({ showDiagnostics: true })}
-                            className="text-xs md:text-sm"
+                            className="h-10 text-xs md:text-sm"
                         >
                             <Stethoscope className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                             <span className="hidden sm:inline">Diagnostics</span>
@@ -169,6 +171,7 @@ export function SceneBeatActionBar({
                 ) : (
                     <>
                         <PromptSelectMenu
+                            className="h-10 p-0 [&>button]:h-full [&>button]:py-0"
                             isLoading={promptsLoading}
                             error={promptsError}
                             prompts={prompts}
@@ -177,13 +180,25 @@ export function SceneBeatActionBar({
                             selectedModel={selectedModel}
                             onSelect={handlePromptSelect}
                         />
+                        <div className="min-w-0 w-full sm:w-48">
+                            <UniversalSystemPromptSelect
+                                prompts={prompts}
+                                value={universalSystemPromptId}
+                                onValueChange={(id) => set({
+                                    universalSystemPromptId: id,
+                                    previewMessages: undefined,
+                                    previewError: null,
+                                })}
+                                disabled={promptsLoading || streaming || isParallelGenerating}
+                            />
+                        </div>
                         {selectedPrompt && (
                             <>
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={onPreview}
-                                    className="text-xs md:text-sm"
+                                    className="h-10 text-xs md:text-sm"
                                 >
                                     <span className="hidden sm:inline">Preview Prompt</span>
                                     <span className="sm:hidden">Preview</span>
@@ -192,7 +207,7 @@ export function SceneBeatActionBar({
                                     variant="outline"
                                     size="sm"
                                     onClick={() => set({ showEditPromptDialog: true })}
-                                    className="text-xs md:text-sm"
+                                    className="h-10 text-xs md:text-sm"
                                     title="Edit this prompt"
                                 >
                                     <Pencil className="h-3 w-3 md:h-4 md:w-4 mr-1" />
@@ -214,7 +229,7 @@ export function SceneBeatActionBar({
                                 (!useMultiModel && !selectedModel)
                             }
                             size="sm"
-                            className="text-xs md:text-sm"
+                            className="h-10 text-xs md:text-sm"
                             data-testid="scene-beat-generate"
                         >
                             {streaming ? (
@@ -260,16 +275,16 @@ export function SceneBeatActionBar({
             {/* Accept / Reject / Save Draft buttons */}
             {streamComplete && (
                 <div className="flex items-center gap-2 mt-2">
-                    <Button size="sm" onClick={onAccept} className="text-xs md:text-sm" data-testid="scene-beat-accept">
+                    <Button size="sm" onClick={onAccept} className="h-10 text-xs md:text-sm" data-testid="scene-beat-accept">
                         Accept
                     </Button>
-                    <Button variant="outline" size="sm" onClick={onReject} className="text-xs md:text-sm" data-testid="scene-beat-reject">
+                    <Button variant="outline" size="sm" onClick={onReject} className="h-10 text-xs md:text-sm" data-testid="scene-beat-reject">
                         Reject
                     </Button>
                     <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs md:text-sm"
+                        className="h-10 text-xs md:text-sm"
                         onClick={() => set({ showRegenerateDialog: true })}
                     >
                         <RefreshCw className="h-3 w-3 mr-1" />
@@ -278,7 +293,7 @@ export function SceneBeatActionBar({
                     <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs md:text-sm ml-auto"
+                        className="h-10 text-xs md:text-sm ml-auto"
                         onClick={() => setSaveDraftOpen(true)}
                     >
                         <Save className="h-3 w-3 mr-1" />

@@ -5,6 +5,7 @@ import {
     AISettings,
     PromptParserConfig,
     PromptMessage,
+    GenerationMessage,
     AllowedModel,
     PromptReasoningSettings,
     Prompt,
@@ -61,7 +62,7 @@ interface AIState {
 
     // New method for generating with pre-parsed messages
     generateWithParsedMessages: (
-        messages: PromptMessage[],
+        messages: GenerationMessage[],
         selectedModel: AllowedModel,
         promptId: string,
         onRequest?: (model: AllowedModel, prompt: Prompt) => void
@@ -319,7 +320,7 @@ export const useAIStore = create<AIState>((set, get) => ({
     },
 
     // New method for generating with pre-parsed messages
-    generateWithParsedMessages: async (messages: PromptMessage[], selectedModel: AllowedModel, promptId: string, onRequest) => {
+    generateWithParsedMessages: async (messages: GenerationMessage[], selectedModel: AllowedModel, promptId: string, onRequest) => {
         if (!get().isInitialized) {
             await get().initialize();
         }

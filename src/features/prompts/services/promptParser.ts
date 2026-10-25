@@ -11,6 +11,7 @@ import {
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
 import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { povUsesCharacter } from '@/features/chapters/utils/pov';
+import { validatePromptMessages } from '../utils/promptValidation';
 
 export class PromptParser {
     private readonly variableResolvers: Record<string, VariableResolver>;
@@ -61,8 +62,23 @@ export class PromptParser {
             const prompt = await this.database.prompts.get(config.promptId);
             if (!prompt) throw new Error('Prompt not found');
 
+            let messages = prompt.messages;
+            if (config.universalSystemPromptId) {
+                const universalPrompt = await this.database.prompts.get(config.universalSystemPromptId);
+                if (!universalPrompt) throw new Error('Selected universal system prompt no longer exists. Select another prompt or None.');
+                if (universalPrompt.promptType !== 'universal_system' ||
+                    !validatePromptMessages(universalPrompt.messages, 'universal_system')) {
+                    throw new Error('Selected universal system prompt must contain exactly one non-empty system message.');
+                }
+                const systemMessage = { role: 'system' as const, content: universalPrompt.messages[0].content };
+                const systemIndex = messages.findIndex(message => message.role === 'system');
+                messages = systemIndex === -1
+                    ? [systemMessage, ...messages]
+                    : messages.map((message, index) => index === systemIndex ? systemMessage : message);
+            }
+
             const context = await this.buildContext(config);
-            const parsedMessages = await this.parseMessages(prompt.messages, context);
+            const parsedMessages = await this.parseMessages(messages, context);
 
             return { messages: parsedMessages };
         } catch (error) {
@@ -650,6 +666,7 @@ ${metadata?.relationships?.length ? '\nRelationships:\n' +
     }
 
     private async resolveChatHistory(context: PromptContext): Promise<string> {
+        if (typeof context.additionalContext?.chatHistoryMarker === 'string') return context.additionalContext.chatHistoryMarker;
         if (!context.additionalContext?.chatHistory?.length) {
             return 'No previous conversation history.';
         }

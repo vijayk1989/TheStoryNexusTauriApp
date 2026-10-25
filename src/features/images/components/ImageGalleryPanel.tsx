@@ -23,11 +23,18 @@ export function ImageGalleryPanel() {
 
     useEffect(() => {
         if (!currentStoryId) return;
-        db.chapters.where("storyId").equals(currentStoryId).toArray().then((chapters) => {
+        Promise.all([
+            db.chapters.where("storyId").equals(currentStoryId).toArray(),
+            db.aiChats.where("storyId").equals(currentStoryId).toArray(),
+        ]).then(([chapters, chats]) => {
             const refs = new Set<string>();
             chapters.forEach((chapter) => {
                 const matches = chapter.content.matchAll(/story-nexus-asset:([a-zA-Z0-9-]+)/g);
                 for (const match of matches) refs.add(match[1]);
+            });
+            chats.forEach(chat => {
+                chat.draftImageAssetIds?.forEach(id => refs.add(id));
+                chat.messages.forEach(message => message.imageAssetIds?.forEach(id => refs.add(id)));
             });
             setReferencedAssetIds(refs);
         });
@@ -67,7 +74,7 @@ export function ImageGalleryPanel() {
     return (
         <div className="space-y-3 p-3">
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm leading-6 text-foreground">
-                Images are not included in Site Backup. Download them separately if you want to move them to another device.
+                Site Backup includes images attached to Brainstorm chats. Download other gallery images separately to move them to another device.
             </div>
             {visibleAssets.length > 0 && (
                 <Button variant="outline" size="sm" onClick={handleDownloadAll}>

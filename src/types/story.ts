@@ -80,6 +80,7 @@ export interface SceneBeat extends BaseEntity {
   accepted?: boolean; // Whether the generated content was accepted
   generationMetadata?: ProseGenerationMetadata;
   metadata?: {
+    universalSystemPromptId?: string;
     useMatchedChapter?: boolean;
     useMatchedSceneBeat?: boolean;
     useCustomContext?: boolean;
@@ -108,13 +109,16 @@ export interface AIChat extends BaseEntity {
   chapterId?: string;
   title: string;
   messages: ChatMessage[];
+  universalSystemPromptId?: string;
   updatedAt?: Date;
+  draftImageAssetIds?: string[];
 }
 
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  imageAssetIds?: string[];
   timestamp: Date;
   brainstormOutputMode?: BrainstormOutputMode;
   // Optional edit metadata
@@ -141,6 +145,14 @@ export interface PromptMessage {
   name?: string;
 }
 
+export type MessageContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+export type GenerationMessage = Omit<PromptMessage, "content"> & {
+  content: string | null | MessageContentPart[];
+};
+
 export interface AllowedModel {
   id: string;
   provider: AIProvider;
@@ -156,6 +168,7 @@ export interface Prompt extends BaseEntity {
   name: string;
   description?: string;
   promptType:
+    | "universal_system"
     | "scene_beat"
     | "image_gen"
     | "gen_summary"
@@ -205,6 +218,7 @@ export type LocalAIRuntime =
   | "custom_openai";
 
 export interface AIModel {
+  supportsImages?: boolean;
   id: string;
   name: string;
   provider: AIProvider;
@@ -408,6 +422,7 @@ export interface PromptParserConfig {
   storyId: string;
   chapterId?: string;
   promptId: string;
+  universalSystemPromptId?: string;
   scenebeat?: string;
   cursorPosition?: number;
   previousWords?: string;

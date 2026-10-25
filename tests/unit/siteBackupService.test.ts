@@ -84,6 +84,44 @@ describe("siteBackupService", () => {
     expect(importedPrompt?.id).not.toBe("unit-prompt");
     expect(await db.mediaAssets.count()).toBe(0);
   });
+
+  test('remaps universal prompt selections in SceneBeats, chapter snapshots, and Brainstorm chats', async () => {
+    await seedBackupGraph();
+    await db.prompts.add({
+      id: 'universal', name: 'Universal', createdAt: new Date(), promptType: 'universal_system',
+      messages: [{ role: 'system', content: 'Write vividly.' }], allowedModels: [],
+    });
+    const metadata = { universalSystemPromptId: 'universal', useMatchedChapter: true };
+    await db.sceneBeats.update('unit-scene-beat', { metadata });
+    await db.aiChats.update('unit-chat', { universalSystemPromptId: 'universal' });
+    await db.chapters.update('unit-chapter', {
+      content: JSON.stringify({ root: { type: 'root', children: [
+        { type: 'scene-beat', sceneBeatId: 'unit-scene-beat', metadata },
+      ] } }),
+    });
+    const { backup } = await createSiteBackupPayload();
+    const result = await siteBackupService.importSiteBackup(JSON.stringify(backup));
+    const importedPrompt = await db.prompts.where('name').equals('Universal (Imported)').first();
+    const beat = await db.sceneBeats.where('storyId').equals(result.importedStoryIds[0]).first();
+    const chapter = await db.chapters.where('storyId').equals(result.importedStoryIds[0]).first();
+    const chat = await db.aiChats.where('storyId').equals(result.importedStoryIds[0]).first();
+    expect(importedPrompt?.id).not.toBe('universal');
+    expect(beat?.metadata?.universalSystemPromptId).toBe(importedPrompt?.id);
+    expect(chat?.universalSystemPromptId).toBe(importedPrompt?.id);
+    expect(JSON.parse(chapter!.content).root.children[0].metadata.universalSystemPromptId).toBe(importedPrompt?.id);
+    expect(beat?.metadata?.useMatchedChapter).toBe(true);
+  });
+
+  test('rejects malformed universal prompts before importing a site backup', async () => {
+    await seedBackupGraph();
+    const { backup } = await createSiteBackupPayload();
+    backup.data.prompts.push({
+      id: 'invalid', name: 'Invalid', createdAt: new Date(), promptType: 'universal_system',
+      messages: [{ role: 'user', content: 'Wrong role' }], allowedModels: [],
+    });
+    await expect(siteBackupService.importSiteBackup(JSON.stringify(backup))).rejects.toThrow('exactly one non-empty system message');
+    expect(await db.stories.count()).toBe(1);
+  });
 });
 
 async function seedBackupGraph(): Promise<void> {

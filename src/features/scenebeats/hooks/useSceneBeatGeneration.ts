@@ -117,6 +117,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
 
         return {
             promptId: prompt.id,
+            universalSystemPromptId: s.universalSystemPromptId,
             storyId,
             chapterId,
             scenebeat: s.command.trim(),
@@ -238,7 +239,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             }
         } catch (error) {
             console.error('Error generating text:', error);
-            toast.error('Failed to generate text');
+            toast.error(error instanceof Error ? error.message : 'Failed to generate text');
         } finally {
             store.setState({ streaming: false });
         }

@@ -26,6 +26,7 @@ import {
 type PromptType = Prompt['promptType'];
 
 const PROMPT_TYPES: Array<{ value: PromptType; label: string }> = [
+    { value: 'universal_system', label: 'Universal System' },
     { value: 'scene_beat', label: 'Scene Beat' },
     { value: 'image_gen', label: 'Image Generation' },
     { value: 'gen_summary', label: 'Generate Summary' },
@@ -53,6 +54,8 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     );
     const [promptType, setPromptType] = useState<PromptType>(prompt?.promptType || 'scene_beat');
     const isImagePrompt = promptType === 'image_gen';
+    const isUniversalPrompt = promptType === 'universal_system';
+    const isSingleMessagePrompt = isImagePrompt || isUniversalPrompt;
     const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
     const [selectedModels, setSelectedModels] = useState<AllowedModel[]>(
         (prompt?.allowedModels || []).map(normalizeAllowedModel)
@@ -96,10 +99,19 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     } = useAIStore();
 
     useEffect(() => {
-        loadAvailableModels();
-    }, []);
+        if (!isUniversalPrompt) loadAvailableModels();
+    }, [isUniversalPrompt]);
 
     useEffect(() => {
+        if (promptType === 'universal_system') {
+            setMessages((current) => [{
+                role: 'system',
+                content: current.find(message => message.role === 'system')?.content || '',
+            }]);
+            setSelectedModels([]);
+            setMultiModelEnabled(false);
+            setParallelModels([]);
+        }
         if (promptType === 'image_gen') {
             setMessages((current) => [{
                 role: 'user',
@@ -349,7 +361,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     };
 
     const handleAddMessage = (role: 'system' | 'user' | 'assistant') => {
-        if (isImagePrompt) return;
+        if (isSingleMessagePrompt) return;
         setMessages([...messages, { role, content: '' }]);
     };
 
@@ -362,7 +374,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
     };
 
     const handleMoveMessage = (index: number, direction: 'up' | 'down') => {
-        if (isImagePrompt) return;
+        if (isSingleMessagePrompt) return;
         if (
             (direction === 'up' && index === 0) ||
             (direction === 'down' && index === messages.length - 1)
@@ -387,7 +399,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             return;
         }
 
-        if (!isImagePrompt && selectedModels.length === 0) {
+        if (!isSingleMessagePrompt && selectedModels.length === 0) {
             toast.error('Please select at least one AI model');
             return;
         }
@@ -396,25 +408,29 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             toast.error('Image generation prompts must have exactly one user message');
             return;
         }
+        if (isUniversalPrompt && (messages.length !== 1 || messages[0].role !== 'system')) {
+            toast.error('Universal system prompts must have exactly one system message');
+            return;
+        }
 
         try {
             const promptData = {
                 name,
                 messages,
                 promptType,
-                allowedModels: isImagePrompt ? [] : selectedModels,
-                temperature: temperatureEnabled ? temperature : undefined,
-                maxTokens,
-                top_p: topP,
-                top_k: topK,
-                repetition_penalty: repetitionPenalty,
-                min_p: minP,
-                reasoning: isImagePrompt ? { enabled: false, useReasoning: false } : {
+                allowedModels: isSingleMessagePrompt ? [] : selectedModels,
+                temperature: !isUniversalPrompt && temperatureEnabled ? temperature : undefined,
+                maxTokens: isUniversalPrompt ? undefined : maxTokens,
+                top_p: isUniversalPrompt ? undefined : topP,
+                top_k: isUniversalPrompt ? undefined : topK,
+                repetition_penalty: isUniversalPrompt ? undefined : repetitionPenalty,
+                min_p: isUniversalPrompt ? undefined : minP,
+                reasoning: isSingleMessagePrompt ? { enabled: false, useReasoning: false } : {
                     enabled: reasoningParameterEnabled,
                     useReasoning,
                 },
-                multiModelEnabled: isImagePrompt ? false : multiModelEnabled,
-                parallelModels: !isImagePrompt && multiModelEnabled ? parallelModels : [],
+                multiModelEnabled: isSingleMessagePrompt ? false : multiModelEnabled,
+                parallelModels: !isSingleMessagePrompt && multiModelEnabled ? parallelModels : [],
             };
 
             if (prompt?.id) {
@@ -438,6 +454,22 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 onChange={(e) => setName(e.target.value)}
             />
 
+            <div className="space-y-2">
+                <Label htmlFor="prompt-type">Prompt Type</Label>
+                <Select value={promptType} onValueChange={(value: PromptType) => setPromptType(value)}>
+                    <SelectTrigger id="prompt-type">
+                        <SelectValue placeholder="Select prompt type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {PROMPT_TYPES.map(type => (
+                            <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
             <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
                     <h3 className="font-medium">Messages</h3>
@@ -447,8 +479,8 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 {messages.map((message, index) => (
                     <div key={index} className="space-y-2 p-4 border rounded-lg">
                         <div className="flex items-center justify-between gap-2">
-                            {isImagePrompt ? (
-                                <Badge variant="secondary">User prompt</Badge>
+                            {isSingleMessagePrompt ? (
+                                <Badge variant="secondary">{isUniversalPrompt ? 'System prompt' : 'User prompt'}</Badge>
                             ) : (
                                 <Select
                                     value={message.role}
@@ -470,7 +502,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                                 </Select>
                             )}
 
-                            {!isImagePrompt && <div className="flex items-center gap-1">
+                            {!isSingleMessagePrompt && <div className="flex items-center gap-1">
                                 <Button
                                     type="button"
                                     variant="ghost"
@@ -515,7 +547,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 ))}
             </div>
 
-            {!isImagePrompt && <div className="flex gap-2">
+            {!isSingleMessagePrompt && <div className="flex gap-2">
                 <Button
                     type="button"
                     variant="outline"
@@ -545,7 +577,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 </Button>
             </div>}
 
-            {!isImagePrompt && <div className="border-t border-input pt-6">
+            {!isSingleMessagePrompt && <div className="border-t border-input pt-6">
                 <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="font-medium">Available Models</h3>
                     <div className="flex flex-wrap items-center gap-3">
@@ -674,7 +706,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
             </div>}
 
             {/* Multi-Model Comparison Section */}
-            <div className="border-t border-input pt-6">
+            {!isUniversalPrompt && <div className="border-t border-input pt-6">
                 <Collapsible open={multiModelEnabled}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -796,26 +828,9 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                         )}
                     </CollapsibleContent>
                 </Collapsible>
-            </div>
+            </div>}
 
-
-            <div className="border-t border-input pt-6">
-                <h3 className="font-medium mb-4">Prompt Type</h3>
-                <Select value={promptType} onValueChange={(value: PromptType) => setPromptType(value)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select prompt type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {PROMPT_TYPES.map(type => (
-                            <SelectItem key={type.value} value={type.value}>
-                                {type.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            {!isImagePrompt && (
+            {!isSingleMessagePrompt && (
                 <div className="border-t border-input pt-6">
                     <Collapsible open={isExperimentalOpen} onOpenChange={setIsExperimentalOpen}>
                         <CollapsibleTrigger asChild>
@@ -876,7 +891,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                 </div>
             )}
 
-            <div className="border-t border-input pt-6">
+            {!isUniversalPrompt && <div className="border-t border-input pt-6">
                 <h3 className="font-medium mb-4">Prompt Settings</h3>
                 <div className="space-y-4 mb-4">
                     <div className="flex items-center gap-4">
@@ -1114,7 +1129,7 @@ export function PromptForm({ prompt, onSave, onCancel }: PromptFormProps) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </div>}
 
             <div className="flex gap-2">
                 {onCancel && (

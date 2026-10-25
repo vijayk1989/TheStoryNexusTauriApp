@@ -1,6 +1,8 @@
 import { db } from "@/services/database";
+import { exportChatImages, importChatImages, remapChatImages, type ChatImageBackup } from '@/features/brainstorm/services/chatImageBackup';
 import { clearLastEditorTarget } from "@/features/editor/utils/lastEditorTarget";
 import { normalizeLorebookEntry } from "@/features/lorebook/utils/lorebookEntryNormalization";
+import { validatePromptMessages } from "@/features/prompts/utils/promptValidation";
 import type {
     AgentPreset,
     AIChat,
@@ -18,9 +20,10 @@ import type {
 } from "@/types/story";
 
 const SITE_BACKUP_TYPE = "story-nexus-site-backup";
-const SITE_BACKUP_VERSION = "1.0";
+const SITE_BACKUP_VERSION = "1.1";
 
 interface SiteBackupData {
+    chatImages?: ChatImageBackup[];
     stories: Story[];
     chapters: Chapter[];
     lorebookEntries: LorebookEntry[];
@@ -80,7 +83,8 @@ export async function createSiteBackupPayload(): Promise<{ backup: SiteBackupFil
         pipelinePresets: (await db.pipelinePresets.toArray()).filter((pipeline) => !pipeline.isSystem),
         pipelineExecutions: await db.pipelineExecutions.toArray(),
     };
-    const skippedImages = await db.mediaAssets.count();
+    data.chatImages = await exportChatImages(data.aiChats);
+    const skippedImages = Math.max(0, await db.mediaAssets.count() - data.chatImages.length);
 
     return {
         backup: {
@@ -176,6 +180,7 @@ export const siteBackupService = {
                 if (!storyId) return null;
                 return reviveChapter({
                     ...chapter,
+                    content: remapUniversalSystemPrompts(chapter.content, promptIdMap),
                     id: chapterIdMap.get(chapter.id)!,
                     storyId,
                 });
@@ -217,6 +222,12 @@ export const siteBackupService = {
                 if (!storyId || !chapterId) return null;
                 return {
                     ...sceneBeat,
+                    metadata: sceneBeat.metadata ? {
+                        ...sceneBeat.metadata,
+                        universalSystemPromptId: sceneBeat.metadata.universalSystemPromptId
+                            ? promptIdMap.get(sceneBeat.metadata.universalSystemPromptId) || sceneBeat.metadata.universalSystemPromptId
+                            : undefined,
+                    } : undefined,
                     id: crypto.randomUUID(),
                     storyId,
                     chapterId,
@@ -241,12 +252,16 @@ export const siteBackupService = {
             })
             .filter((draft): draft is Draft => draft !== null);
 
+        const chatImages = importChatImages(sourceData.chatImages || [], storyIdMap);
         const aiChats = (sourceData.aiChats || [])
             .map((chat): AIChat | null => {
                 const storyId = storyIdMap.get(chat.storyId);
                 if (!storyId) return null;
                 return {
-                    ...chat,
+                    ...remapChatImages(chat, chatImages.idMap),
+                    universalSystemPromptId: chat.universalSystemPromptId
+                        ? promptIdMap.get(chat.universalSystemPromptId) || chat.universalSystemPromptId
+                        : undefined,
                     id: crypto.randomUUID(),
                     storyId,
                     chapterId: chat.chapterId ? chapterIdMap.get(chat.chapterId) : undefined,
@@ -269,6 +284,10 @@ export const siteBackupService = {
                 };
             })
             .filter((note): note is Note => note !== null);
+
+        if (chatImages.idMap.size > chatImages.assets.length) {
+            warnings.push('Some chat images were missing from this backup. Their messages were retained, but the missing images must be restored before generation.');
+        }
 
         const prompts = (sourceData.prompts || [])
             .filter((prompt) => !prompt.isSystem)
@@ -343,6 +362,8 @@ export const siteBackupService = {
         await db.transaction(
             "rw",
             [
+                db.mediaAssets,
+                db.mediaBlobs,
                 db.stories,
                 db.chapters,
                 db.lorebookEntries,
@@ -358,6 +379,8 @@ export const siteBackupService = {
                 db.pipelineExecutions,
             ],
             async () => {
+                await db.mediaAssets.bulkAdd(chatImages.assets);
+                await db.mediaBlobs.bulkAdd(chatImages.blobs);
                 await db.stories.bulkAdd(stories);
                 await db.chapters.bulkAdd(chapters);
                 await db.lorebookEntries.bulkAdd(lorebookEntries);
@@ -444,11 +467,17 @@ function parseBackup(jsonData: string): SiteBackupFile {
     if (parsed.type !== SITE_BACKUP_TYPE || !parsed.data) {
         throw new Error("Invalid Site Backup file");
     }
+    for (const prompt of parsed.data.prompts || []) {
+        if (prompt.promptType === 'universal_system' && !validatePromptMessages(prompt.messages, prompt.promptType)) {
+            throw new Error('Universal system prompts must contain exactly one non-empty system message.');
+        }
+    }
     return {
         version: parsed.version || SITE_BACKUP_VERSION,
         type: SITE_BACKUP_TYPE,
         exportDate: parsed.exportDate || new Date().toISOString(),
         data: {
+            chatImages: parsed.data.chatImages || [],
             stories: parsed.data.stories || [],
             chapters: parsed.data.chapters || [],
             lorebookEntries: parsed.data.lorebookEntries || [],
@@ -529,6 +558,28 @@ function reviveChapter(chapter: Chapter): Chapter {
             ? { ...chapter.notes, lastUpdated: reviveDate(chapter.notes.lastUpdated) }
             : chapter.notes,
     };
+}
+
+function remapUniversalSystemPrompts(content: string, promptIdMap: Map<string, string>): string {
+    let state: { root?: unknown };
+    try {
+        state = JSON.parse(content);
+    } catch {
+        return content;
+    }
+    let changed = false;
+    const visit = (value: unknown) => {
+        if (!value || typeof value !== 'object') return;
+        const node = value as { type?: string; metadata?: SceneBeat['metadata']; children?: unknown[] };
+        const promptId = node.metadata?.universalSystemPromptId;
+        if (node.type === 'scene-beat' && promptId && promptIdMap.has(promptId)) {
+            node.metadata!.universalSystemPromptId = promptIdMap.get(promptId);
+            changed = true;
+        }
+        if (Array.isArray(node.children)) node.children.forEach(visit);
+    };
+    visit(state?.root);
+    return changed ? JSON.stringify(state) : content;
 }
 
 function reviveLorebookEntry(entry: LorebookEntry, lorebookIdMap: Map<string, string>): LorebookEntry {

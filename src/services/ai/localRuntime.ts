@@ -116,6 +116,7 @@ function normalizeLocalModel(raw: unknown, runtime: LocalAIRuntime): AIModel | u
             numberValue(record.max_context) ||
             32768,
         enabled: true,
+        supportsImages: typeof (record.capabilities as any)?.vision === 'boolean' ? (record.capabilities as any).vision : undefined,
     };
 }
 

@@ -3,6 +3,11 @@ import { v4 as uuidv4 } from "uuid";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ImagePlus } from 'lucide-react';
+import { assetRepository } from '@/features/images/services/assetStorage';
+import { ChatImageAttachments } from './ChatImageAttachments';
+import { prepareChatImage, MAX_CHAT_IMAGES } from '../services/chatImages';
+import { buildBrainstormMessages } from '../services/brainstormMessages';
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Send, ChevronDown, ChevronUp, X, Plus, Square, Edit, Bot, Activity, Download, RefreshCw, Globe, Save, Pencil } from "lucide-react";
@@ -24,6 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PromptSelectMenu } from "@/components/ui/prompt-select-menu";
+import { UniversalSystemPromptSelect } from "@/components/ui/universal-system-prompt-select";
 import { PromptPreviewDialog } from "@/components/ui/prompt-preview-dialog";
 import { PromptForm } from "@/features/prompts/components/PromptForm";
 import { useLorebookStore } from "@/features/lorebook/stores/useLorebookStore";
@@ -52,13 +58,12 @@ import {
   Prompt,
   AllowedModel,
   PromptParserConfig,
-  PromptMessage,
+  GenerationMessage,
   Chapter,
   PipelinePreset,
   AgentResult,
   BrainstormOutputMode,
 } from "@/types/story";
-import { createPromptParser } from "@/features/prompts/services/promptParser";
 import {
   Select,
   SelectContent,
@@ -88,6 +93,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     useBrainstormStore.getState().draftMessage
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Keep an initial height (matches the Tailwind min-h-[80px]) so we can
@@ -120,7 +126,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
   const [showPreview, setShowPreview] = useState(false);
   const [showEditPromptDialog, setShowEditPromptDialog] = useState(false);
   const [previewMessages, setPreviewMessages] = useState<
-    PromptMessage[] | undefined
+    GenerationMessage[] | undefined
   >(undefined);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -155,13 +161,18 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     initialize: initializeAI,
     settings,
     getAvailableModels,
-    generateWithPrompt,
+    generateWithParsedMessages,
     processStreamedResponse,
     abortGeneration,
   } = useAIStore();
   const addChat = useBrainstormStore((state) => state.addChat);
   const updateChat = useBrainstormStore((state) => state.updateChat);
   const selectedChat = useBrainstormStore((state) => state.selectedChat);
+  const draftImageIds = selectedChat?.draftImageAssetIds || [];
+  const [isAttachingImages, setIsAttachingImages] = useState(false);
+  const attachingImagesRef = useRef(false);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const [resizeImages, setResizeImages] = useState(true);
   const setDraftMessage = useBrainstormStore((state) => state.setDraftMessage);
   const clearDraftMessage = useBrainstormStore((state) => state.clearDraftMessage);
   const setMessageEdited = useBrainstormStore((state) => state.setMessageEdited);
@@ -187,6 +198,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
 
   // State for AI
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [universalSystemPromptId, setUniversalSystemPromptId] = useState<string | undefined>(selectedChat?.universalSystemPromptId);
   // Editing state for inline assistant message edits
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState<string>('');
@@ -228,6 +240,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     return {
       input,
       selectedPromptId: selectedPrompt?.id,
+      universalSystemPromptId,
       selectedModel,
       includeFullContext,
       includeAllLorebook,
@@ -314,6 +327,12 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     }
   }, [selectedChat]);
 
+  useEffect(() => {
+    setUniversalSystemPromptId(selectedChat?.universalSystemPromptId);
+    setPreviewMessages(undefined);
+    setPreviewError(null);
+  }, [selectedChat?.id, selectedChat?.universalSystemPromptId]);
+
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -346,7 +365,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
   useEffect(() => {
     if (!currentChapterId || pinnedChapterId !== currentChapterId || !pinnedSession) return;
 
-    const hasPendingPrompt = !!pinnedSession.selectedPromptId && prompts.length === 0;
+    const hasPendingPrompt = !!(pinnedSession.selectedPromptId || pinnedSession.universalSystemPromptId) && prompts.length === 0;
     const summaryIds = pinnedSession.selectedSummaryIds.filter((id) => id !== "all");
     const hasPendingChapters =
       (summaryIds.length > 0 || pinnedSession.selectedChapterContentIds.length > 0) &&
@@ -374,6 +393,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     setInput(pinnedSession.input);
     setDraftMessage(pinnedSession.input);
     setSelectedPrompt(prompt);
+    setUniversalSystemPromptId(pinnedSession.universalSystemPromptId);
     setSelectedModel(prompt ? pinnedSession.selectedModel || null : null);
     setIncludeFullContext(pinnedSession.includeFullContext);
     setIncludeAllLorebook(pinnedSession.includeFullContext ? false : pinnedSession.includeAllLorebook);
@@ -424,6 +444,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     selectedModel,
     selectedPipeline,
     selectedPrompt,
+    universalSystemPromptId,
     selectedSummaries,
     structuredOutputMode,
     updatePinnedSession,
@@ -501,14 +522,55 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     );
   };
 
+  const handleAttachImages = async (files: File[]) => {
+    if (!files.length || attachingImagesRef.current) return;
+    if (agenticMode) { toast.error('Turn off Agentic Mode to attach images.'); return; }
+    if (isGenerating || isAgenticGenerating || !selectedChat) return;
+    if (draftImageIds.length + files.length > MAX_CHAT_IMAGES) {
+      toast.error(`Attach up to ${MAX_CHAT_IMAGES} images per message.`);
+      return;
+    }
+    const chatId = selectedChat.id;
+    const savedIds: string[] = [];
+    attachingImagesRef.current = true;
+    setIsAttachingImages(true);
+    try {
+      for (const file of files) {
+        const blob = await prepareChatImage(file, resizeImages);
+        const asset = await assetRepository.saveAsset({
+          storyId, kind: 'uploaded', source: 'upload', blob, mimeType: blob.type,
+          filename: file.name, metadata: { usage: 'brainstorm-attachment' },
+        });
+        savedIds.push(asset.id);
+      }
+      const chat = await db.aiChats.get(chatId);
+      if (!chat) throw new Error('The chat was deleted before the images could be attached.');
+      await updateChat(chatId, { draftImageAssetIds: [...(chat.draftImageAssetIds || []), ...savedIds] });
+    } catch (error) {
+      await Promise.all(savedIds.map(id => assetRepository.deleteAsset(id)));
+      toast.error(error instanceof Error ? error.message : 'Failed to attach images');
+    } finally {
+      attachingImagesRef.current = false;
+      setIsAttachingImages(false);
+    }
+  };
+
+  const removeDraftImage = async (id: string) => {
+    if (!selectedChat || isGenerating) return;
+    try {
+      await updateChat(selectedChat.id, { draftImageAssetIds: draftImageIds.filter(imageId => imageId !== id) });
+    } catch { toast.error('Failed to remove the attached image'); }
+  };
+
   // Create prompt config for brainstorming
   const createPromptConfig = (
     prompt: Prompt,
-    userInput = input.trim(),
+    userInput = input.trim() || (draftImageIds.length ? 'Describe the attached image(s).' : ''),
     outputMode = structuredOutputMode
   ): PromptParserConfig => {
     return {
       promptId: prompt.id,
+      universalSystemPromptId,
       storyId,
       scenebeat: buildBrainstormUserInput(userInput, outputMode),
       additionalContext: {
@@ -536,6 +598,19 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     setSelectedModel(model);
   };
 
+  const handleUniversalSystemPromptChange = async (id: string | undefined) => {
+    setUniversalSystemPromptId(id);
+    setPreviewMessages(undefined);
+    setPreviewError(null);
+    if (selectedChat) {
+      try {
+        await updateChat(selectedChat.id, { universalSystemPromptId: id });
+      } catch {
+        toast.error('Failed to save the universal system prompt selection');
+      }
+    }
+  };
+
   // Handle prompt preview
   const handlePreviewPrompt = async () => {
     if (!selectedPrompt) return;
@@ -558,15 +633,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
         },
       });
 
-      const promptParser = createPromptParser();
-      const parsedPrompt = await promptParser.parse(config);
-      if (parsedPrompt.error) {
-        setPreviewError(parsedPrompt.error);
-        toast.error(`Error parsing prompt: ${parsedPrompt.error}`);
-        return;
-      }
-
-      setPreviewMessages(parsedPrompt.messages);
+      setPreviewMessages(await buildBrainstormMessages(config, messages, draftImageIds));
       setShowPreview(true);
     } catch (error) {
       const errorMessage =
@@ -590,50 +657,70 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
     selectedChapterContent,
     input,
     structuredOutputMode,
+    universalSystemPromptId,
+    selectedChat?.draftImageAssetIds,
   ]);
 
   // Handle submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !selectedPrompt || !selectedModel || isGenerating)
+    if ((!input.trim() && !draftImageIds.length) || !selectedPrompt || !selectedModel || isGenerating || isAttachingImages)
       return;
 
+    const submittedInput = input;
+    const submittedImageIds = [...draftImageIds];
+    const previousMessages = messages;
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: input.trim(),
+      imageAssetIds: submittedImageIds.length ? submittedImageIds : undefined,
+      timestamp: new Date(),
+      brainstormOutputMode: structuredOutputMode,
+    };
+    const newMessages = [...previousMessages, userMessage];
+    let chatId = currentChatId;
+    let assistantMessage: ChatMessage | undefined;
+    let fullResponse = "";
+
+    const restoreSubmission = async () => {
+      if (!chatId || useBrainstormStore.getState().selectedChat?.id === chatId) {
+        const nextDraft = useBrainstormStore.getState().draftMessage;
+        const restoredDraft = [submittedInput, nextDraft].filter(Boolean).join('\n\n');
+        setDraftMessage(restoredDraft);
+        setInput(restoredDraft);
+        setMessages(previousMessages);
+      }
+      if (chatId) {
+        await updateChat(chatId, { messages: previousMessages, draftImageAssetIds: submittedImageIds });
+      }
+    };
+
     try {
+      const config = createPromptConfig(selectedPrompt);
       setIsGenerating(true);
+      setIsSendingMessage(true);
       setPreviewError(null);
       clearDraftMessage();
-
-      const userMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: input.trim(),
-        timestamp: new Date(),
-        brainstormOutputMode: structuredOutputMode,
-      };
-
-      const newMessages = [...messages, userMessage];
+      setInput('');
       setMessages(newMessages);
-
-      // Create or update chat
-      let chatId = currentChatId;
       if (!chatId) {
-        const newTitle = userMessage.content.substring(0, 40) + (userMessage.content.length > 40 ? '...' : '');
-        chatId = await addChat(storyId, newTitle, newMessages);
+        chatId = await addChat(storyId, userMessage.content.substring(0, 40) || 'Image conversation', newMessages, universalSystemPromptId);
         setCurrentChatId(chatId);
       } else {
-        await updateChat(chatId, { messages: newMessages });
+        await updateChat(chatId, { messages: newMessages, draftImageAssetIds: [] });
       }
+      const outgoingMessages = await buildBrainstormMessages(config, previousMessages, submittedImageIds);
 
-      const config = createPromptConfig(selectedPrompt);
-      let response = await generateWithPrompt(config, selectedModel);
+      let response = await generateWithParsedMessages(outgoingMessages, selectedModel, selectedPrompt.id);
 
       if (!response.ok && response.status !== 204) {
-        throw new Error("Failed to generate response");
+        const detail = await response.text();
+        throw new Error(`Generation failed (${response.status}). ${detail.slice(0, 400)} Choose a vision-capable model if image input is unsupported.`);
       }
 
       if (response.status === 204) { // Handle aborted response
-        console.log('Generation was aborted.');
-        setIsGenerating(false);
+        await restoreSubmission();
         return;
       }
 
@@ -675,8 +762,8 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
             setToolStatus(null);
 
             // Build tool result message and re-submit
-            const toolMessages: PromptMessage[] = [
-              ...config.additionalContext?.chatHistory as PromptMessage[] || [],
+            const toolMessages: GenerationMessage[] = [
+              ...outgoingMessages,
               { role: 'assistant', content: null, tool_calls: [{ id: 'call_1', type: 'function', function: { name: fnName, arguments: fnArgs } }] },
               { role: 'tool', tool_call_id: 'call_1', name: fnName, content: searchResult },
             ];
@@ -689,61 +776,72 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
       }
       // ─────────────────────────────────────────────────────────────
 
-      const assistantMessage: ChatMessage = {
+      const reply: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: "",
         timestamp: new Date(),
       };
+      assistantMessage = reply;
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, reply]);
       // mark this message as currently streaming
-      setStreamingMessageId(assistantMessage.id);
+      setStreamingMessageId(reply.id);
 
-      let fullResponse = "";
+      let streamingError: Error | undefined;
       await processStreamedResponse(
         response,
         (token) => {
           fullResponse += token;
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessage.id
+              msg.id === reply.id
                 ? { ...msg, content: fullResponse }
                 : msg
             )
           );
         },
-        () => {
-          setIsGenerating(false);
-          setStreamingMessageId(null);
-          setToolStatus(null);
-          updateChat(chatId, {
-            messages: [...newMessages, { ...assistantMessage, content: fullResponse }],
-          });
-        },
+        () => {},
         (error) => {
-          console.error("Streaming error:", error);
-          setPreviewError("Failed to stream response");
-          setIsGenerating(false);
-          setStreamingMessageId(null);
-          setToolStatus(null);
+          streamingError = error;
         },
         (status) => {
           setToolStatus(status);
         }
       );
+      if (streamingError) throw streamingError;
+      await updateChat(chatId, {
+        messages: fullResponse ? [...newMessages, { ...reply, content: fullResponse }] : newMessages,
+      });
     } catch (error) {
       console.error("Error during generation:", error);
+      try {
+        if (fullResponse && assistantMessage) {
+          await updateChat(chatId, { messages: [...newMessages, { ...assistantMessage, content: fullResponse }] });
+        } else {
+          await restoreSubmission();
+        }
+      } catch (recoveryError) {
+        console.error("Failed to save recovered message:", recoveryError);
+      }
       setPreviewError(
         error instanceof Error ? error.message : "An unknown error occurred"
       );
+    } finally {
       setIsGenerating(false);
+      setIsSendingMessage(false);
+      setStreamingMessageId(null);
+      setToolStatus(null);
     }
   };
 
   // Handle agentic submit using multi-agent pipeline
   const handleAgenticSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (draftImageIds.length || messages.some(message => message.imageAssetIds?.length)) {
+      toast.error('Use normal Brainstorm mode for conversations with images.');
+      return;
+    }
     if (!input.trim() || !selectedPipeline || isGenerating || isAgenticGenerating) return;
 
     setAgenticStepResults([]);
@@ -1142,8 +1240,9 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
       // Build a fresh prompt config using the original user input
       const config: PromptParserConfig = {
         promptId: selectedPrompt.id,
+        universalSystemPromptId,
         storyId,
-        scenebeat: buildBrainstormUserInput(lastUserMsg.content, regenerateOutputMode),
+        scenebeat: buildBrainstormUserInput(lastUserMsg.content || 'Describe the attached image(s).', regenerateOutputMode),
         additionalContext: {
           chatHistory: messagesBeforeRegen.map((msg) => ({
             role: msg.role,
@@ -1161,7 +1260,11 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
         },
       };
 
-      const response = await generateWithPrompt(config, selectedModel);
+      const imageHistory = messagesBeforeRegen.slice(0, messagesBeforeRegen.indexOf(lastUserMsg));
+      const hasImages = !!lastUserMsg.imageAssetIds?.length || imageHistory.some(message => message.imageAssetIds?.length);
+      if (hasImages) config.additionalContext!.chatHistory = imageHistory;
+      const outgoingMessages = await buildBrainstormMessages(config, imageHistory, lastUserMsg.imageAssetIds || []);
+      const response = await generateWithParsedMessages(outgoingMessages, selectedModel, selectedPrompt.id);
 
       if (!response.ok && response.status !== 204) {
         throw new Error("Failed to generate response");
@@ -1230,7 +1333,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
 
   const renderedMessages = useMemo(() => (
     <div className="space-y-4">
-      {messages.map((message) => {
+      {messages.filter(message => message.id !== streamingMessageId || message.content).map((message) => {
         const parsed = parseLorebookJson(message.content || "");
         const hasParsableJson = !parsed.error && parsed.entries && parsed.entries.length > 0;
         const structuredParsed = parseBrainstormStructuredOutput(message.content || "");
@@ -1241,6 +1344,8 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
         return (
           <div
             key={message.id}
+            role="article"
+            aria-label={message.role === "user" ? "Your message" : "Assistant message"}
             className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
@@ -1250,6 +1355,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                   : "bg-muted"
               }`}
             >
+              <ChatImageAttachments ids={message.imageAssetIds || []} />
               {editingMessageId === message.id ? (
                 <div>
                   <Textarea
@@ -1292,6 +1398,10 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                 </div>
               ) : (
                 <div className="relative">
+                  {!message.content && !!message.imageAssetIds?.length && <div className="flex gap-2">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingMessageId(message.id); setEditingContent(''); }}>Edit caption</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteMessage(message.id)}>Delete image message</Button>
+                  </div>}
                   <MarkdownRenderer
                     content={message.content}
                     showDelete={true}
@@ -1385,9 +1495,17 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
           </div>
         );
       })}
+      {!agenticMode && isGenerating && (!streamingMessageId || !messages.find(message => message.id === streamingMessageId)?.content) && (
+        <div className="flex justify-start">
+          <div role="status" className="flex items-center gap-2 rounded-lg bg-muted p-3 text-sm text-muted-foreground">
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+            <span>Waiting for response...</span>
+          </div>
+        </div>
+      )}
       <div ref={messagesEndRef} />
     </div>
-  ), [messages, editingMessageId, editingContent, streamingMessageId, isGenerating, selectedChat?.id, storyId, lorebookEntries]);
+  ), [messages, editingMessageId, editingContent, streamingMessageId, isGenerating, agenticMode, selectedChat?.id, storyId, lorebookEntries]);
 
   return (
     <div className="flex flex-col h-full">
@@ -1874,8 +1992,24 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
           )}
 
           <div className="flex-1">
+            {previewError && <p role="alert" className="mb-2 text-sm text-destructive">{previewError}</p>}
+            <ChatImageAttachments ids={isSendingMessage ? [] : draftImageIds} onRemove={isGenerating ? undefined : removeDraftImage} />
             <Textarea
               placeholder="Type your message..."
+              onPaste={(event) => {
+                const files = Array.from(event.clipboardData.items).filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+                  .map(item => item.getAsFile()).filter((file): file is File => !!file);
+                if (!files.length) return;
+                event.preventDefault();
+                const text = event.clipboardData.getData('text/plain');
+                if (text) {
+                  const target = event.currentTarget;
+                  const next = input.slice(0, target.selectionStart) + text + input.slice(target.selectionEnd);
+                  setInput(next);
+                  setDraftMessage(next);
+                }
+                void handleAttachImages(files);
+              }}
               value={input}
               onChange={handleInputChange}
               ref={(el: HTMLTextAreaElement) => (textareaRef.current = el)}
@@ -1892,7 +2026,17 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
               }}
             />
           </div>
-          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-start">
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <input ref={imageFileInputRef} type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" aria-label="Attach images"
+              onChange={event => { void handleAttachImages(Array.from(event.target.files || [])); event.target.value = ''; }} />
+            <Button type="button" variant="outline" className="h-10" aria-label="Attach image" title="Attach or paste PNG, JPEG, or WebP images"
+              disabled={agenticMode || isGenerating || isAttachingImages || draftImageIds.length >= MAX_CHAT_IMAGES}
+              onClick={() => imageFileInputRef.current?.click()}>
+              {isAttachingImages ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+            </Button>
+            {!agenticMode && <label className="flex h-10 items-center gap-2 text-xs text-muted-foreground" title="Resize newly attached images to at most 1600 pixels on the longest side">
+              <Checkbox checked={resizeImages} disabled={isGenerating || isAttachingImages} onCheckedChange={checked => setResizeImages(checked === true)} />Resize large images
+            </label>}
             {!agenticMode && (
               <div className="min-w-0 sm:w-44">
                 <PromptSelectMenu
@@ -1904,7 +2048,17 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                   selectedModel={selectedModel}
                   onSelect={handlePromptSelect}
                   onConfigurePrompts={onConfigurePrompts}
-                  className="w-full"
+                  className="h-10 w-full p-0 [&>button]:h-full [&>button]:py-0"
+                />
+              </div>
+            )}
+            {!agenticMode && (
+              <div className="min-w-0 sm:w-48">
+                <UniversalSystemPromptSelect
+                  prompts={prompts}
+                  value={universalSystemPromptId}
+                  onValueChange={handleUniversalSystemPromptChange}
+                  disabled={promptsLoading || isGenerating}
                 />
               </div>
             )}
@@ -1944,7 +2098,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                 }}
                 value=""
               >
-                <SelectTrigger className="w-full" data-template-select="true">
+                <SelectTrigger className="h-10 w-full" data-template-select="true">
                   <SelectValue placeholder="Insert..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -2002,7 +2156,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                   variant="outline"
                   size="sm"
                   onClick={handlePreviewPrompt}
-                  className="w-full sm:w-auto"
+                  className="h-10 w-full sm:w-auto"
                 >
                   <span className="hidden sm:inline">Preview Prompt</span>
                   <span className="sm:hidden">Preview</span>
@@ -2012,7 +2166,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                   size="sm"
                   onClick={() => setShowEditPromptDialog(true)}
                   title="Edit this prompt"
-                  className="w-full sm:w-auto"
+                  className="h-10 w-full sm:w-auto"
                 >
                   <Pencil className="h-4 w-4 mr-2" />
                   <span className="hidden sm:inline">Edit Prompt</span>
@@ -2032,7 +2186,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                       abortGeneration();
                     }
                   }}
-                  className="w-full mb-[3px] sm:w-auto"
+                  className="h-10 w-full sm:w-auto"
                 >
                   <Square className="h-4 w-4 mr-2" />
                   Stop
@@ -2041,7 +2195,7 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                 <Button
                   type="submit"
                   disabled={
-                    !input.trim() ||
+                    (!input.trim() && !draftImageIds.length) || isAttachingImages ||
                     (agenticMode ? !selectedPipeline : (!selectedPrompt || !selectedModel))
                   }
                   onClick={(e) => {
@@ -2051,7 +2205,8 @@ export default function ChatInterface({ storyId, currentChapterId, onConfigurePr
                       handleSubmit(e);
                     }
                   }}
-                  className="w-full mb-[3px] sm:w-auto"
+                  className="h-10 w-full sm:w-auto"
+                  aria-label="Send message"
                 >
                   <Send className="h-4 w-4" />
                 </Button>

@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { Copy, Download } from "lucide-react";
 import { Button } from "./button";
 import {
     DropdownMenu,
@@ -8,6 +8,7 @@ import {
 } from "./dropdown-menu";
 import { toast } from "react-toastify";
 import { downloadChapter, downloadStory } from "@/utils/exportUtils";
+import { copyChapterToClipboard } from "@/utils/chapterClipboard";
 
 interface DownloadMenuProps {
     type: 'story' | 'chapter';
@@ -28,6 +29,23 @@ export function DownloadMenu({
     label = "Download",
     className = "",
 }: DownloadMenuProps) {
+    const handleCopy = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        try {
+            await copyChapterToClipboard(id);
+            toast.success('Chapter copied to clipboard', {
+                position: "bottom-center",
+                autoClose: 2000,
+            });
+        } catch (error) {
+            console.error('Failed to copy chapter:', error);
+            toast.error('Could not copy chapter. Please try again.', {
+                position: "bottom-center",
+                autoClose: 2000,
+            });
+        }
+    };
+
     const handleDownload = async (format: 'html' | 'text', e: React.MouseEvent) => {
         e.stopPropagation();
         try {
@@ -64,7 +82,13 @@ export function DownloadMenu({
                 <DropdownMenuItem onClick={(e) => handleDownload('text', e)}>
                     Download as Text
                 </DropdownMenuItem>
+                {type === 'chapter' && (
+                    <DropdownMenuItem onClick={handleCopy}>
+                        <Copy className="h-4 w-4" />
+                        Copy to clipboard
+                    </DropdownMenuItem>
+                )}
             </DropdownMenuContent>
         </DropdownMenu>
     );
-} 
+}

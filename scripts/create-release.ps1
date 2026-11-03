@@ -156,6 +156,7 @@ Assert-CleanTree
 Invoke-Step "Check GitHub CLI auth" $gh @("auth", "status")
 
 if (-not $SkipVerification) {
+    Invoke-Step "Audit dependencies" $Npm @("audit", "--audit-level=high")
     Invoke-Step "Build frontend" $Npm @("run", "build")
     Invoke-Step "Run unit tests" $Npm @("run", "test:unit")
     Invoke-Step "Build signed MSI and updater signature" "make" @("-f", "Makefile", "updater-build")

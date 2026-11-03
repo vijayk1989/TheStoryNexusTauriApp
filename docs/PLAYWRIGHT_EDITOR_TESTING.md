@@ -236,3 +236,5 @@ npm.cmd run test:unit
 ```
 
 Browser fixtures verify SceneBeat and Brainstorm Save/Load, Append/Replace, recovery after reload, independent library management after source deletion, mobile action reachability, and the persisted image-resizing preference. They assert that no generation request is made. Unit coverage includes ordered input persistence, database migration from version 19, source/story deletion, snapshot management, Site Backup reference remapping, and legacy story exports/imports. Layout screenshots are retained in ignored Playwright output directories.
+
+The unit-test environment uses Happy DOM 21 as a development dependency. Vite 6.4.5 and Vitest 4.1.12 include security fixes; install dependencies from the committed lockfile. Release automation runs `npm.cmd audit --audit-level=high` before building and blocks publication on high or critical dependency advisories.

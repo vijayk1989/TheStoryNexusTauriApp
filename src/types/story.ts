@@ -104,6 +104,18 @@ export interface Draft extends BaseEntity {
 }
 
 // AI Chat types
+export interface PromptDraft extends BaseEntity {
+  storyId: string;
+  chapterId?: string;
+  chapterTitle?: string;
+  source: 'scene_beat' | 'brainstorm';
+  name: string;
+  content: string;
+  promptId?: string;
+  model?: AllowedModel;
+  updatedAt: Date;
+}
+
 export interface AIChat extends BaseEntity {
   storyId: string;
   chapterId?: string;
@@ -112,6 +124,7 @@ export interface AIChat extends BaseEntity {
   universalSystemPromptId?: string;
   updatedAt?: Date;
   draftImageAssetIds?: string[];
+  draftInput?: string;
 }
 
 export interface ChatMessage {
@@ -254,6 +267,7 @@ export interface AISettings extends BaseEntity {
   simpleWriteIncludeAfterCursor?: boolean;
   defaultBrainstormPromptId?: string;
   defaultBrainstormModelId?: string;
+  brainstormResizeImages?: boolean;
   defaultAgentModelId?: string;
 
   // Image generation defaults and provider settings

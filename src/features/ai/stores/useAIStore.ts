@@ -11,6 +11,7 @@ import {
     Prompt,
 } from '@/types/story';
 import { aiService } from '@/services/ai/AIService';
+import { generateParsedMessages } from '@/services/ai/generateParsedMessages';
 import { db } from '@/services/database';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { getPreferredDefaultModel } from '@/features/ai/utils/defaultModels';
@@ -324,107 +325,7 @@ export const useAIStore = create<AIState>((set, get) => ({
         if (!get().isInitialized) {
             await get().initialize();
         }
-        selectedModel = resolveModelForAvailableProvider(selectedModel, get().settings);
-
-        if (!messages.length) {
-            throw new Error('No messages provided for generation');
-        }
-
-        // Get the prompt to access temperature and maxTokens
-        const prompt = await db.prompts.get(promptId);
-        if (!prompt) {
-            throw new Error(`Prompt with ID ${promptId} not found`);
-        }
-
-        onRequest?.(aiService.getGenerationModel(selectedModel), prompt);
-
-        const temperature = prompt.temperature;
-        const maxTokens = prompt.maxTokens ?? 2048;
-        const top_p = prompt.top_p;
-        const top_k = prompt.top_k;
-        const repetition_penalty = prompt.repetition_penalty;
-        const min_p = prompt.min_p;
-        const reasoning = prompt.reasoning;
-
-        switch (selectedModel.provider) {
-            case 'local':
-                return aiService.generateWithLocalModel(
-                    messages,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p,
-                    selectedModel.id,
-                    reasoning
-                );
-            case 'openai':
-                return aiService.generateWithOpenAI(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p,
-                    undefined,
-                    reasoning
-                );
-            case 'openai_compatible':
-                return aiService.generateWithOpenAICompatible(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p,
-                    undefined,
-                    reasoning
-                );
-            case 'openrouter':
-                return aiService.generateWithOpenRouter(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p,
-                    undefined,
-                    reasoning
-                );
-            case 'nanogpt':
-                return aiService.generateWithNanoGPT(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p,
-                    undefined,
-                    reasoning
-                );
-            case 'google':
-                return aiService.generateWithGoogle(
-                    messages,
-                    selectedModel.id,
-                    temperature,
-                    maxTokens,
-                    top_p,
-                    top_k,
-                    repetition_penalty,
-                    min_p
-                );
-            default:
-                throw new Error(`Unsupported provider: ${selectedModel.provider}`);
-        }
+        return generateParsedMessages(aiService, messages, selectedModel, promptId, onRequest);
     },
 
     abortGeneration: () => {

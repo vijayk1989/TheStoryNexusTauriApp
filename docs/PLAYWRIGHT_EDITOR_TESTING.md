@@ -185,3 +185,54 @@ The local-LLM lane also covers multi-SceneBeat writing:
 - assert no paid-provider request was attempted
 
 This is intentionally in `test:e2e:llm`, not `test:e2e:editor`, because it can be slow and depends on a loaded local model.
+
+## Interrupted stream recovery
+
+SceneBeat and Brainstorm generation (including regeneration and pipeline output) checkpoint received text to IndexedDB about once a second. They flush the latest text when generation finishes, is stopped, or fails. SceneBeat partial output remains unaccepted and can be accepted, rejected, or saved as a draft; Brainstorm partial output remains in the chat. Reloading during generation restores the most recent checkpoint. An abrupt app exit can still lose tokens received since that checkpoint.
+
+Run the deterministic browser regression tests with:
+
+```powershell
+npx.cmd playwright test tests/stream-recovery.spec.ts --project=chromium
+```
+
+These tests use browser stream fixtures with local model configuration and a paid-provider network guard. They do not need LM Studio or spend API credits. They cover disconnects, Stop, interrupted regeneration, checkpoint recovery after reload, and accepting/rejecting recovered SceneBeat output. Unit tests cover checkpoint timing, ordered writes, and storage failures. The real local-model lane remains a separate check using `npm.cmd run test:e2e:llm`.
+
+## Brainstorm background tasks
+
+Normal Brainstorm responses, regeneration, and agent pipelines are owned by `brainstormGeneration.ts` and `useBrainstormTaskStore`, independently of the mounted chat panel. Closing the sheet, opening another tool, or switching chats/stories does not cancel a task. Returning to the chat shows its current text or saved result. The chat selector shows running, completed, stopped, and failed states; the Brainstorm tool icon shows when any task is running.
+
+Only one task runs per chat. Different chats can have independent active tasks. Each task uses an isolated `AIService` session and, for pipelines, an isolated `AgentOrchestrator`, so Stop affects only that task. Provider routing and prompt parameters share the `generateParsedMessages` helper with the existing AI store. Results and recovery drafts stay with the originating chat. Deleting a chat cancels its task; late writes cannot recreate the deleted chat. Message editing/deletion is unavailable while that chat's task owns its conversation history.
+
+Live task state is in memory while the app is running; received text still checkpoints to IndexedDB. Reloading recovers saved partial text but does not resume the network request.
+
+```powershell
+npx.cmd playwright test tests/brainstorm-background.spec.ts tests/stream-recovery.spec.ts tests/brainstorm-images.spec.ts --project=chromium
+```
+
+The background-task browser fixtures hold response headers and streams open to test panel closure before the first response, editor autosave during generation, chat switching, independent cancellation, and background regeneration. Unit coverage also checks duplicate-task prevention, deletion during a stream, failed-request draft restoration, story switching, and pipeline execution. No real model or paid provider is used by these fixtures.
+
+## Brainstorm panel sizing
+
+The divider above Context uses the existing vertical resizable-panel primitive. Both the response and input panels retain at least 20% of the available height. Context and input controls share a scrollable lower panel, keeping controls reachable in compact layouts without expanding the sheet. The split is saved locally under the `brainstorm-input-layout` panel-group preference and reused across chats and sheet remounts. The separator supports pointer/touch dragging and keyboard resizing.
+
+```powershell
+npx.cmd playwright test tests/brainstorm-layout.spec.ts --project=chromium
+```
+
+The layout fixtures cover dragging in both directions, draft/response preservation, saved sizing after reopening, keyboard resizing and size limits, expanded Brainstorm, and a 390-by-640 window. Screenshots are written to the ignored Playwright output directory for visual review. No real model is used.
+
+## Prompt drafts and unfinished input
+
+SceneBeat and Brainstorm expose one Prompt drafts menu with Save and Load actions. Save makes an independent story-scoped snapshot of the typed input and selected prompt/model, with an automatic title. It does not generate or clear the input. Load fills an empty input, or offers Append/Replace for occupied input. Context configuration, attachments, and generated responses are not part of a named prompt snapshot. The Drafts sheet separates story-wide Prompt Drafts from chapter-specific Response Drafts; prompt snapshots can be renamed, copied, and deleted. Deleting their original chat or SceneBeat does not remove them.
+
+Database version 20 adds `promptDrafts`. SceneBeat command recovery continues through its existing autosave and chapter snapshot. Unsent Brainstorm input is saved to `AIChat.draftInput` using ordered writes per chat, independently of message history and background task checkpoints. New input typed during generation is retained. Sending clears the submitted input, and failed submissions restore it to the originating chat. Save/Load and export operations wait for pending input writes. Site Backups and legacy story JSON exports include snapshots and unfinished input; old backups without prompt snapshots remain supported. Chapter/prompt references are remapped during Site Backup import. Deleting a story or all user content removes its prompt snapshots.
+
+Prompt/model selection and input actions occupy distinct toolbar rows. Image resizing is now a persistent option under Prompt Defaults, outside Enable Defaults so it remains configurable independently. `brainstormResizeImages` defaults to true and controls new attachments; existing images are unchanged. Prompt Defaults initializes AI settings before allowing a save, including immediately after app startup.
+
+```powershell
+npx.cmd playwright test tests/prompt-drafts.spec.ts --project=chromium
+npm.cmd run test:unit
+```
+
+Browser fixtures verify SceneBeat and Brainstorm Save/Load, Append/Replace, recovery after reload, independent library management after source deletion, mobile action reachability, and the persisted image-resizing preference. They assert that no generation request is made. Unit coverage includes ordered input persistence, database migration from version 19, source/story deletion, snapshot management, Site Backup reference remapping, and legacy story exports/imports. Layout screenshots are retained in ignored Playwright output directories.

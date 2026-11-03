@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { db } from '@/services/database';
 import type { AIChat, AllowedModel, BrainstormOutputMode } from '@/types/story';
 import { v4 as uuidv4 } from 'uuid';
+import { useBrainstormTaskStore } from './useBrainstormTaskStore';
+import { saveBrainstormInput } from '../services/brainstormInputPersistence';
 
 export interface BrainstormPinnedSession {
     input: string;
@@ -24,6 +26,9 @@ interface BrainstormState {
     isLoading: boolean;
     error: string | null;
     draftMessage: string;
+    draftMessages: Record<string, string>;
+    draftErrors: Record<string, string | undefined>;
+    loadedStoryId: string | null;
     pinnedChapterId: string | null;
     pinnedSession: BrainstormPinnedSession | null;
 
@@ -36,6 +41,7 @@ interface BrainstormState {
     updateChat: (chatId: string, data: Partial<AIChat>) => Promise<void>;
     setDraftMessage: (message: string) => void;
     clearDraftMessage: () => void;
+    restoreDraft: (chatId: string, input: string) => void;
     pinToChapter: (chapterId: string, session: BrainstormPinnedSession) => void;
     updatePinnedSession: (chapterId: string, session: BrainstormPinnedSession) => void;
     clearPinnedSession: () => void;
@@ -50,11 +56,14 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
     isLoading: false,
     error: null,
     draftMessage: '',
+    draftMessages: {},
+    draftErrors: {},
+    loadedStoryId: null,
     pinnedChapterId: null,
     pinnedSession: null,
 
     fetchChats: async (storyId) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, loadedStoryId: storyId });
         try {
             const chats = await db.aiChats
                 .where('storyId')
@@ -64,7 +73,13 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
             // Sort chats by createdAt in descending order (newest first)
             chats.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-            set({ chats, isLoading: false });
+            if (get().loadedStoryId !== storyId) return;
+            set(state => ({
+                chats,
+                isLoading: false,
+                selectedChat: state.selectedChat?.storyId === storyId
+                    ? chats.find(chat => chat.id === state.selectedChat?.id) || null : null,
+            }));
         } catch (error) {
             set({ error: (error as Error).message, isLoading: false });
         }
@@ -86,7 +101,8 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
             await db.aiChats.add(newChat);
             set(state => ({
                 chats: [newChat, ...state.chats],
-                selectedChat: newChat
+                selectedChat: newChat,
+                draftMessage: '',
             }));
 
             return id;
@@ -97,7 +113,10 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
     },
 
     selectChat: (chat) => {
-        set({ selectedChat: chat });
+        set(state => {
+            const selectedChat = state.chats.find(item => item.id === chat.id) || chat;
+            return { selectedChat, draftMessage: state.draftMessages[chat.id] ?? selectedChat.draftInput ?? '' };
+        });
     },
 
     createNewChat: async (storyId: string) => {
@@ -115,7 +134,8 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
             await db.aiChats.add(newChat);
             set(state => ({
                 chats: [newChat, ...state.chats],
-                selectedChat: newChat
+                selectedChat: newChat,
+                draftMessage: '',
             }));
 
             return id;
@@ -127,6 +147,7 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
 
     deleteChat: async (chatId: string) => {
         try {
+            useBrainstormTaskStore.getState().remove(chatId);
             await db.aiChats.delete(chatId);
             set(state => ({
                 chats: state.chats.filter(chat => chat.id !== chatId),
@@ -158,7 +179,8 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
 
                     // Add the updated chat to the beginning of the list
                     return {
-                        chats: [updatedChat, ...filteredChats],
+                        chats: state.loadedStoryId && state.loadedStoryId !== updatedChat.storyId
+                            ? filteredChats : [updatedChat, ...filteredChats],
                         selectedChat: state.selectedChat?.id === chatId
                             ? updatedChat
                             : state.selectedChat
@@ -235,11 +257,30 @@ export const useBrainstormStore = create<BrainstormState>((set, get) => ({
     },
 
     setDraftMessage: (message: string) => {
-        set({ draftMessage: message });
+        const chatId = get().selectedChat?.id;
+        set(state => ({
+            draftMessage: message,
+            draftMessages: state.selectedChat ? { ...state.draftMessages, [state.selectedChat.id]: message } : state.draftMessages,
+            draftErrors: chatId ? { ...state.draftErrors, [chatId]: undefined } : state.draftErrors,
+        }));
+        if (chatId) void saveBrainstormInput(chatId, message).catch(error => set(state => ({ draftErrors: { ...state.draftErrors, [chatId]: `Could not save unfinished input: ${error.message}` } })));
     },
 
     clearDraftMessage: () => {
-        set({ draftMessage: '' });
+        get().setDraftMessage('');
+    },
+
+    restoreDraft: (chatId, input) => {
+        let restored = '';
+        set(state => {
+            const chat = state.chats.find(chat => chat.id === chatId);
+            restored = [input, state.draftMessages[chatId] ?? chat?.draftInput].filter(Boolean).join('\n\n');
+            return {
+                draftMessages: { ...state.draftMessages, [chatId]: restored },
+                draftMessage: state.selectedChat?.id === chatId ? restored : state.draftMessage,
+            };
+        });
+        void saveBrainstormInput(chatId, restored).catch(error => set(state => ({ draftErrors: { ...state.draftErrors, [chatId]: `Could not save unfinished input: ${error.message}` } })));
     },
 
     pinToChapter: (chapterId, session) => {

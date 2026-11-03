@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useBrainstormStore } from '../stores/useBrainstormStore';
+import { BrainstormTaskStatus } from './BrainstormTaskStatus';
 import { cn } from '@/lib/utils';
 import { Plus, Trash2, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -106,6 +107,7 @@ export default function ChatList({ storyId, onChatSelect }: ChatListProps) {
                                     <div className="flex flex-col gap-2">
                                         <div className="flex-1 min-w-0">
                                             <span className="text-sm block truncate text-foreground">{chat.title}</span>
+                                            <BrainstormTaskStatus chatId={chat.id} />
                                             <span className="text-xs text-muted-foreground block mt-1">
                                                 {new Date(chat.updatedAt || chat.createdAt).toLocaleDateString()}
                                             </span>
@@ -247,6 +249,7 @@ export default function ChatList({ storyId, onChatSelect }: ChatListProps) {
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </TooltipProvider>
+                                            <BrainstormTaskStatus chatId={chat.id} />
                                             <span className="text-xs text-muted-foreground block mt-1">
                                                 {new Date(chat.updatedAt || chat.createdAt).toLocaleDateString()} {new Date(chat.updatedAt || chat.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
@@ -322,4 +325,4 @@ export default function ChatList({ storyId, onChatSelect }: ChatListProps) {
             </Dialog>
         </>
     );
-} 
+}

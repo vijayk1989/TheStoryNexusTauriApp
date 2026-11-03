@@ -3,6 +3,10 @@
  * preview/edit buttons, generate button, accept/reject buttons.
  */
 import { useState, useMemo } from 'react';
+import { PromptDraftMenu } from '@/features/drafts/components/PromptDraftMenu';
+import { useStoryContext } from '@/features/stories/context/StoryContext';
+import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
+import { db } from '@/services/database';
 import { Bot, Sparkles, Stethoscope, Loader2, Pencil, Square, Save, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -53,6 +57,8 @@ export function SceneBeatActionBar({
     onReject,
     onRegenerate,
 }: SceneBeatActionBarProps) {
+    const { currentStoryId, currentChapterId } = useStoryContext();
+    const chapterTitle = useChapterStore(state => state.currentChapter?.title);
     const streaming = useSBStore((s) => s.streaming);
     const streamComplete = useSBStore((s) => s.streamComplete);
     const selectedPrompt = useSBStore((s) => s.selectedPrompt);
@@ -107,10 +113,8 @@ export function SceneBeatActionBar({
                 </div>
             </div>
 
-            {/* Main actions row */}
-            <div className="flex flex-wrap items-center gap-2">
-                {agenticMode ? (
-                    <>
+            <div role="group" aria-label="SceneBeat prompt settings" className="flex flex-wrap items-center gap-2">
+                {agenticMode ? <>
                         {/* Pipeline selector */}
                         <select
                             className="h-10 border rounded px-2 py-1 text-xs md:text-sm bg-background"
@@ -126,6 +130,45 @@ export function SceneBeatActionBar({
                             ))}
                         </select>
 
+                </> : <>
+                        <PromptSelectMenu
+                            className="h-10 p-0 [&>button]:h-full [&>button]:py-0"
+                            isLoading={promptsLoading}
+                            error={promptsError}
+                            prompts={prompts}
+                            promptType="scene_beat"
+                            selectedPrompt={selectedPrompt}
+                            selectedModel={selectedModel}
+                            onSelect={handlePromptSelect}
+                        />
+                        <div className="min-w-0 w-full sm:w-48">
+                            <UniversalSystemPromptSelect
+                                prompts={prompts}
+                                value={universalSystemPromptId}
+                                onValueChange={(id) => set({
+                                    universalSystemPromptId: id,
+                                    previewMessages: undefined,
+                                    previewError: null,
+                                })}
+                                disabled={promptsLoading || streaming || isParallelGenerating}
+                            />
+                        </div>
+                </>}
+            </div>
+            <div role="group" aria-label="SceneBeat input actions" className="flex flex-wrap items-center gap-2">
+                {currentStoryId && <PromptDraftMenu
+                    snapshot={{ storyId: currentStoryId, chapterId: currentChapterId || undefined, chapterTitle, source: 'scene_beat', content: command, promptId: selectedPrompt?.id, model: selectedModel || undefined }}
+                    disabled={streaming || isAgenticGenerating || isParallelGenerating}
+                    onLoad={async (draft, mode) => {
+                        set({ command: mode === 'append' ? [command, draft.content].filter(Boolean).join('\n\n') : draft.content });
+                        if (mode === 'replace') {
+                            const prompt = draft.promptId ? await db.prompts.get(draft.promptId) : undefined;
+                            if (prompt?.promptType === 'scene_beat') set({ selectedPrompt: prompt });
+                            if (draft.model) set({ selectedModel: draft.model });
+                        }
+                    }}
+                />}
+                {agenticMode ? <>
                         {/* Generate with Pipeline */}
                         <Button
                             onClick={onAgenticGenerate}
@@ -167,31 +210,7 @@ export function SceneBeatActionBar({
                             <Stethoscope className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                             <span className="hidden sm:inline">Diagnostics</span>
                         </Button>
-                    </>
-                ) : (
-                    <>
-                        <PromptSelectMenu
-                            className="h-10 p-0 [&>button]:h-full [&>button]:py-0"
-                            isLoading={promptsLoading}
-                            error={promptsError}
-                            prompts={prompts}
-                            promptType="scene_beat"
-                            selectedPrompt={selectedPrompt}
-                            selectedModel={selectedModel}
-                            onSelect={handlePromptSelect}
-                        />
-                        <div className="min-w-0 w-full sm:w-48">
-                            <UniversalSystemPromptSelect
-                                prompts={prompts}
-                                value={universalSystemPromptId}
-                                onValueChange={(id) => set({
-                                    universalSystemPromptId: id,
-                                    previewMessages: undefined,
-                                    previewError: null,
-                                })}
-                                disabled={promptsLoading || streaming || isParallelGenerating}
-                            />
-                        </div>
+                </> : <>
                         {selectedPrompt && (
                             <>
                                 <Button
@@ -209,10 +228,9 @@ export function SceneBeatActionBar({
                                     onClick={() => set({ showEditPromptDialog: true })}
                                     className="h-10 text-xs md:text-sm"
                                     title="Edit this prompt"
+                                    aria-label="Edit Prompt"
                                 >
                                     <Pencil className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                                    <span className="hidden sm:inline">Edit Prompt</span>
-                                    <span className="sm:hidden">Edit</span>
                                 </Button>
                             </>
                         )}
@@ -257,8 +275,7 @@ export function SceneBeatActionBar({
                                 </>
                             )}
                         </Button>
-                    </>
-                )}
+                </>}
             </div>
 
             {/* Agentic progress */}

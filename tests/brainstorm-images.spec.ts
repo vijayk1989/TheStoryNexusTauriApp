@@ -98,7 +98,7 @@ test('pastes, resizes, previews, saves, sends, and regenerates images through a 
     await expect(attachedImage).toHaveCount(1);
     await expect(brainstorm.getByRole('button', { name: 'Remove attached image 1', exact: true })).toHaveCount(0);
     await expect(input).toHaveValue('');
-    await expect(brainstorm.getByRole('status')).toContainText('Waiting for response...');
+    await expect(brainstorm.getByRole('status').filter({ hasText: 'Waiting for response...' })).toContainText('Waiting for response...');
   } finally {
     releaseResponse();
     responseGate = undefined;
@@ -120,7 +120,7 @@ test('pastes, resizes, previews, saves, sends, and regenerates images through a 
     await expect.poll(() => requests.length).toBe(2);
     await expect(input).toHaveValue('');
     await expect(brainstorm.getByRole('article', { name: 'Your message', exact: true }).last()).toContainText('What color was the picture?');
-    await expect(brainstorm.getByRole('status')).toContainText('Waiting for response...');
+    await expect(brainstorm.getByRole('status').filter({ hasText: 'Waiting for response...' })).toContainText('Waiting for response...');
     await input.fill('A draft for later.');
   } finally {
     releaseResponse();

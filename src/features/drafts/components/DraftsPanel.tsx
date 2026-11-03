@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { Trash2, ChevronDown, ChevronRight, FileText, Bot, BookOpen, Tag, Copy, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PromptDraftList } from './PromptDraftList';
 import { useDraftStore } from '@/features/drafts/stores/useDraftStore';
 import { useStoryContext } from '@/features/stories/context/StoryContext';
 import type { Draft } from '@/types/story';
@@ -22,6 +24,18 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export function DraftsPanel() {
+    const { currentStoryId } = useStoryContext();
+    return <Tabs defaultValue="responses" className="min-w-0">
+        <TabsList className="mb-3 w-full">
+            <TabsTrigger value="prompts" className="flex-1">Prompt Drafts</TabsTrigger>
+            <TabsTrigger value="responses" className="flex-1">Response Drafts</TabsTrigger>
+        </TabsList>
+        <TabsContent value="prompts">{currentStoryId && <PromptDraftList storyId={currentStoryId} />}</TabsContent>
+        <TabsContent value="responses"><ResponseDraftsPanel /></TabsContent>
+    </Tabs>;
+}
+
+function ResponseDraftsPanel() {
     const { currentChapterId } = useStoryContext();
     const { drafts, isLoading, fetchDrafts, deleteDraft } = useDraftStore();
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());

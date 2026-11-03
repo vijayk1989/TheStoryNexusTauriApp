@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Check, ChevronDown, Edit2, Plus, Trash2 } from "lucide-react";
 import { useBrainstormStore } from "../stores/useBrainstormStore";
 import ChatInterface from "./ChatInterface";
+import { BrainstormTaskStatus } from './BrainstormTaskStatus';
 import type { AIChat } from "@/types/story";
 import { toast } from "react-toastify";
 import {
@@ -44,12 +45,14 @@ export function BrainstormPanel({
     const [editingChat, setEditingChat] = useState<AIChat | null>(null);
     const [chatTitle, setChatTitle] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<AIChat | null>(null);
+    const [chatMenuOpen, setChatMenuOpen] = useState(false);
 
     useEffect(() => {
         fetchChats(storyId);
     }, [storyId, fetchChats]);
 
     const openRenameDialog = (chat: AIChat) => {
+        setChatMenuOpen(false);
         setEditingChat(chat);
         setChatTitle(chat.title);
     };
@@ -80,9 +83,9 @@ export function BrainstormPanel({
     };
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
             <div className="flex items-center gap-2 p-2 border-b">
-                <DropdownMenu>
+                <DropdownMenu open={chatMenuOpen} onOpenChange={setChatMenuOpen}>
                     <DropdownMenuTrigger asChild>
                         <Button
                             variant="outline"
@@ -91,6 +94,7 @@ export function BrainstormPanel({
                             <span className="truncate">
                                 {selectedChat?.title || "Select a chat"}
                             </span>
+                            {selectedChat && <BrainstormTaskStatus chatId={selectedChat.id} />}
                             <ChevronDown className="h-4 w-4 shrink-0" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -111,7 +115,10 @@ export function BrainstormPanel({
                                     )}
                                 />
                                 <div className="min-w-0 flex-1">
-                                    <div className="truncate text-sm">{chat.title}</div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="truncate text-sm">{chat.title}</span>
+                                        <BrainstormTaskStatus chatId={chat.id} />
+                                    </div>
                                     <div className="text-[11px] text-muted-foreground">
                                         {new Date(chat.updatedAt || chat.createdAt).toLocaleDateString()}
                                     </div>
@@ -135,6 +142,7 @@ export function BrainstormPanel({
                                     onClick={(event) => {
                                         event.preventDefault();
                                         event.stopPropagation();
+                                        setChatMenuOpen(false);
                                         setDeleteTarget(chat);
                                     }}
                                 >
@@ -148,7 +156,7 @@ export function BrainstormPanel({
                     <Plus className="h-4 w-4" />
                 </Button>
             </div>
-            <div className="flex-1 overflow-hidden">
+            <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
                 {selectedChat ? (
                     <ChatInterface
                         storyId={storyId}

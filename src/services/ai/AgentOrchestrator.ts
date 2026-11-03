@@ -1,4 +1,4 @@
-import { aiService } from './AIService';
+import { aiService, type AIService } from './AIService';
 import { isJudgeAgentRole, isProseAgentRole } from '@/features/agents/utils/agentRoles';
 import { splitThinkingContent } from '@/lib/thinking';
 import {
@@ -71,7 +71,13 @@ export class AgentOrchestrator {
     private static instance: AgentOrchestrator;
     private abortController: AbortController | null = null;
 
-    private constructor() { }
+    private sessionStopped = false;
+
+    private constructor(private readonly ai: AIService = aiService, private readonly isolatedSession = false) { }
+
+    static createSession(service: AIService): AgentOrchestrator {
+        return new AgentOrchestrator(service, true);
+    }
 
     static getInstance(): AgentOrchestrator {
         if (!AgentOrchestrator.instance) {
@@ -96,6 +102,7 @@ export class AgentOrchestrator {
         const results: AgentResult[] = [];
         const startTime = Date.now();
         this.abortController = new AbortController();
+        if (this.isolatedSession && this.sessionStopped) this.abortController.abort();
 
         // Track completed executions per retry step to enforce maxIterations.
         const iterationCounts = new Map<number, number>();
@@ -133,7 +140,7 @@ export class AgentOrchestrator {
                 try {
                     const messages = this.buildMessages(step.agent, input, results, step.isRevision, step);
                     const shouldStream = step.streamOutput ?? false; // Default to NOT streaming
-                    const generationModel = aiService.getGenerationModel(step.agent.model);
+                    const generationModel = this.ai.getGenerationModel(step.agent.model);
 
                     let rawOutput: string;
                     if (shouldStream && callbacks?.onToken) {
@@ -278,9 +285,10 @@ export class AgentOrchestrator {
      * Abort the current pipeline execution
      */
     abort(): void {
+        if (this.isolatedSession) this.sessionStopped = true;
         if (this.abortController) {
             this.abortController.abort();
-            aiService.abortStream();
+            this.ai.abortStream();
         }
     }
 
@@ -1007,15 +1015,17 @@ Provide the improved version:`;
         const response = await this.callModel(agent, messages);
         let fullText = '';
 
-        await aiService.processStreamedResponse(
+        let streamingError: Error | undefined;
+        await this.ai.processStreamedResponse(
             response,
             (token) => {
                 fullText += token;
                 onToken(token);
             },
             () => { },
-            (error) => console.error('[AgentOrchestrator] Streaming error:', error)
+            (error) => { streamingError = error; }
         );
+        if (streamingError) throw streamingError;
 
         return fullText;
     }
@@ -1028,17 +1038,17 @@ Provide the improved version:`;
 
         switch (model.provider) {
             case 'local':
-                return aiService.generateWithLocalModel(messages, temperature, maxTokens);
+                return this.ai.generateWithLocalModel(messages, temperature, maxTokens);
             case 'openai':
-                return aiService.generateWithOpenAI(messages, model.id, temperature, maxTokens);
+                return this.ai.generateWithOpenAI(messages, model.id, temperature, maxTokens);
             case 'openrouter':
-                return aiService.generateWithOpenRouter(messages, model.id, temperature, maxTokens);
+                return this.ai.generateWithOpenRouter(messages, model.id, temperature, maxTokens);
             case 'openai_compatible':
-                return aiService.generateWithOpenAICompatible(messages, model.id, temperature, maxTokens);
+                return this.ai.generateWithOpenAICompatible(messages, model.id, temperature, maxTokens);
             case 'nanogpt':
-                return aiService.generateWithNanoGPT(messages, model.id, temperature, maxTokens);
+                return this.ai.generateWithNanoGPT(messages, model.id, temperature, maxTokens);
             case 'google':
-                return aiService.generateWithGoogle(messages, model.id, temperature, maxTokens);
+                return this.ai.generateWithGoogle(messages, model.id, temperature, maxTokens);
             default:
                 throw new Error(`Unknown provider: ${model.provider}`);
         }
@@ -1049,7 +1059,7 @@ Provide the improved version:`;
      */
     private async collectResponse(response: Response): Promise<string> {
         let fullText = '';
-        await aiService.processStreamedResponse(
+        await this.ai.processStreamedResponse(
             response,
             (token) => { fullText += token; },
             () => { },

@@ -11,10 +11,11 @@ import type { Prompt, AllowedModel } from '@/types/story';
 import { getPreferredDefaultModel, resolveSavedDefaultModel } from '@/features/ai/utils/defaultModels';
 
 export function PromptDefaultsPanel() {
-    const { settings, updatePromptDefaults } = useAIStore();
+    const { settings, updatePromptDefaults, initialize, isInitialized, isLoading } = useAIStore();
     const { prompts, fetchPrompts, isLoading: promptsLoading, error: promptsError } = usePromptStore();
 
     const [enableDefaults, setEnableDefaults] = useState(false);
+    const [resizeBrainstormImages, setResizeBrainstormImages] = useState(true);
     const [sceneBeatPrompt, setSceneBeatPrompt] = useState<Prompt | undefined>(undefined);
     const [sceneBeatModel, setSceneBeatModel] = useState<AllowedModel | undefined>(undefined);
     const [brainstormPrompt, setBrainstormPrompt] = useState<Prompt | undefined>(undefined);
@@ -27,8 +28,13 @@ export function PromptDefaultsPanel() {
     }, [fetchPrompts]);
 
     useEffect(() => {
+        if (!isInitialized && !isLoading) void initialize();
+    }, [initialize, isInitialized, isLoading]);
+
+    useEffect(() => {
         if (settings) {
             setEnableDefaults(!!settings.enablePromptDefaults);
+            setResizeBrainstormImages(settings.brainstormResizeImages ?? true);
             const preferredDefaultModel = getPreferredDefaultModel(settings);
             
             if (prompts.length > 0) {
@@ -57,6 +63,7 @@ export function PromptDefaultsPanel() {
                 defaultSceneBeatModelId: sceneBeatModel?.id,
                 defaultBrainstormPromptId: brainstormPrompt?.id,
                 defaultBrainstormModelId: brainstormModel?.id,
+                brainstormResizeImages: resizeBrainstormImages,
                 defaultAgentModelId: agentModel?.id,
             });
             toast.success("Prompt defaults saved!");
@@ -141,10 +148,18 @@ export function PromptDefaultsPanel() {
 
             </div>
 
+            <div className="flex items-center justify-between gap-4 border-t pt-4">
+                <div className="space-y-1">
+                    <Label htmlFor="brainstorm-resize-images">Resize large Brainstorm images</Label>
+                    <p className="text-xs text-muted-foreground">Resize newly attached images to at most 1600 pixels on the longest side.</p>
+                </div>
+                <Switch id="brainstorm-resize-images" checked={resizeBrainstormImages} onCheckedChange={setResizeBrainstormImages} disabled={!isInitialized || isLoading || isSaving} />
+            </div>
+
             <div className="pt-4 border-t">
                 <Button 
                     onClick={handleSave} 
-                    disabled={isSaving}
+                    disabled={isSaving || !isInitialized || isLoading}
                     className="w-full"
                 >
                     <Save className="w-4 h-4 mr-2" />

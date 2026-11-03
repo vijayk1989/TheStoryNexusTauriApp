@@ -1,5 +1,6 @@
 import { db } from './database';
-import type { Story, Chapter, LorebookEntry, SceneBeat, AIChat, MediaAsset, ImageGenerationRecord, TimelineEvent } from '@/types/story';
+import type { Story, Chapter, LorebookEntry, SceneBeat, AIChat, MediaAsset, ImageGenerationRecord, TimelineEvent, PromptDraft } from '@/types/story';
+import { flushBrainstormInputs } from '@/features/brainstorm/services/brainstormInputPersistence';
 import { toast } from 'react-toastify';
 import { normalizeLorebookEntry } from '@/features/lorebook/utils/lorebookEntryNormalization';
 
@@ -12,6 +13,7 @@ interface StoryExport {
     lorebookEntries: LorebookEntry[];
     sceneBeats: SceneBeat[];
     aiChats: AIChat[];
+    promptDrafts?: PromptDraft[];
     timelineEvents?: TimelineEvent[];
     mediaAssets?: MediaAsset[];
     imageGenerations?: ImageGenerationRecord[];
@@ -23,6 +25,7 @@ export const storyExportService = {
      */
     exportStory: async (storyId: string): Promise<void> => {
         try {
+            await flushBrainstormInputs();
             // Fetch the story and all related data
             const story = await db.stories.get(storyId);
             if (!story) {
@@ -34,6 +37,7 @@ export const storyExportService = {
                 .map(normalizeLorebookEntry);
             const sceneBeats = await db.sceneBeats.where('storyId').equals(storyId).toArray();
             const aiChats = await db.aiChats.where('storyId').equals(storyId).toArray();
+            const promptDrafts = await db.promptDrafts.where('storyId').equals(storyId).toArray();
             const timelineEvents = await db.timelineEvents.where('storyId').equals(storyId).toArray();
             const mediaAssets = await db.mediaAssets.where('storyId').equals(storyId).toArray();
             const imageGenerations = await db.imageGenerations.where('storyId').equals(storyId).toArray();
@@ -48,6 +52,7 @@ export const storyExportService = {
                 lorebookEntries,
                 sceneBeats,
                 aiChats,
+                promptDrafts,
                 timelineEvents,
                 mediaAssets,
                 imageGenerations
@@ -106,7 +111,7 @@ export const storyExportService = {
 
             // Start a transaction to ensure all-or-nothing import
             await db.transaction('rw',
-                [db.stories, db.chapters, db.lorebookEntries, db.sceneBeats, db.aiChats, db.timelineEvents, db.mediaAssets, db.imageGenerations],
+                [db.stories, db.chapters, db.lorebookEntries, db.sceneBeats, db.aiChats, db.promptDrafts, db.timelineEvents, db.mediaAssets, db.imageGenerations],
                 async () => {
                     // Add the story
                     await db.stories.add(newStory);
@@ -162,6 +167,14 @@ export const storyExportService = {
                             storyId: newStoryId,
                             chapterId: idMap.get(sceneBeat.chapterId) || sceneBeat.chapterId,
                             createdAt: new Date()
+                        });
+                    }
+
+                    for (const draft of data.promptDrafts || []) {
+                        await db.promptDrafts.add({
+                            ...draft, id: crypto.randomUUID(), storyId: newStoryId,
+                            chapterId: draft.chapterId ? idMap.get(draft.chapterId) : undefined,
+                            createdAt: new Date(draft.createdAt), updatedAt: new Date(draft.updatedAt),
                         });
                     }
 

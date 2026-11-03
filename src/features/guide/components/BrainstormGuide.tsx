@@ -13,11 +13,21 @@ export default function BrainstormGuide() {
             <div className="space-y-6">
                 <section className="space-y-3">
                     <h3 className="flex items-center gap-2 text-xl font-semibold">
+                        <Bot className="h-5 w-5 text-primary" />
+                        Background Generation
+                    </h3>
+                    <p className="text-muted-foreground">
+                        Close Brainstorm or switch chats while a response is generating and keep writing. The task continues while the app stays open. Return to the chat to see its progress or completed response. Each chat shows its task status, and Stop cancels only that chat's generation. Deleting a chat also cancels its task.
+                    </p>
+                </section>
+
+                <section className="space-y-3">
+                    <h3 className="flex items-center gap-2 text-xl font-semibold">
                         <PanelRightOpen className="h-5 w-5 text-primary" />
                         Where Brainstorm Lives
                     </h3>
                     <p className="text-muted-foreground">
-                        Open <strong>Brainstorm</strong> from the editor's right tool rail. It appears as a slide-out sheet, so you can keep the current chapter open while you talk through ideas.
+                        Open <strong>Brainstorm</strong> from the editor's right tool rail. It appears as a slide-out sheet, so you can keep the current chapter open while you talk through ideas. Drag the horizontal divider above Context down to give responses more room, or up to enlarge the input panel. The input panel scrolls when needed, and your preferred split is remembered. You can also focus the divider and use the arrow keys to resize it.
                     </p>
                 </section>
 
@@ -31,7 +41,21 @@ export default function BrainstormGuide() {
                         <li>Create a new chat with the plus button.</li>
                         <li>Rename or delete chats from the selector menu.</li>
                         <li>Chats are saved with the current story.</li>
+                        <li>Unsent message text is saved locally per chat and restored when you reopen the app.</li>
                     </ul>
+                </section>
+
+                <section className="space-y-3">
+                    <h3 className="flex items-center gap-2 text-xl font-semibold">
+                        <FileJson className="h-5 w-5 text-primary" />
+                        Prompt Drafts
+                    </h3>
+                    <p className="text-muted-foreground">
+                        Use Prompt drafts beside the input to save an idea without sending it, or load a saved idea. Loading into an occupied input offers Append or Replace. SceneBeat has the same menu. Open Drafts in the editor tool rail and choose Prompt Drafts to rename, copy, or delete saved ideas for this story; Response Drafts keeps generated prose separately. Saved prompt drafts remain available after their original chat or SceneBeat is deleted.
+                    </p>
+                    <p className="text-muted-foreground">
+                        Prompt and model selectors have their own row, with input actions below. The pencil button edits the selected prompt template. Image resizing is configured under Prompt Defaults using Resize large Brainstorm images, and applies to newly attached images.
+                    </p>
                 </section>
 
                 <section className="space-y-3">

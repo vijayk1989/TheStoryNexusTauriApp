@@ -18,6 +18,8 @@ import { useLorebookStore } from '@/features/lorebook/stores/useLorebookStore';
 import { useChapterStore } from '@/features/chapters/stores/useChapterStore';
 import { createPromptParser } from '@/features/prompts/services/promptParser';
 import { sceneBeatService } from '@/features/scenebeats/services/sceneBeatService';
+import { useSceneBeatStore } from '../stores/useSceneBeatStore';
+import { createStreamCheckpoint } from '@/services/ai/streamCheckpoint';
 import {
     persistAcceptedSceneBeat,
     persistRejectedSceneBeat,
@@ -66,6 +68,47 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             }
         });
     }, [editor, store]);
+
+    const createRecovery = useCallback(() => {
+        const checkpoint = createStreamCheckpoint(async (snapshot: {
+            generatedContent: string;
+            generationMetadata: ReturnType<typeof captureProseGeneration> | undefined;
+            accepted: false;
+        }) => {
+            updateNodeSnapshot(snapshot);
+            const { sceneBeatId } = store.getState();
+            if (sceneBeatId) {
+                await sceneBeatService.updateSceneBeat(sceneBeatId, snapshot);
+                const cached = useSceneBeatStore.getState().getCachedSceneBeat(sceneBeatId);
+                if (cached) useSceneBeatStore.getState().upsertSceneBeat({ ...cached, ...snapshot });
+            }
+        }, (error) => console.error('Error checkpointing SceneBeat:', error));
+
+        const save = () => {
+            const { streamedText, generationMetadata } = store.getState();
+            if (streamedText) checkpoint.schedule({ generatedContent: streamedText, generationMetadata, accepted: false });
+        };
+
+        return {
+            save,
+            append(token: string) {
+                store.getState().appendStreamedText(token);
+                save();
+            },
+            async finish() {
+                save();
+                try {
+                    await checkpoint.flush();
+                } catch (error) {
+                    console.error('Error saving SceneBeat:', error);
+                    toast.error('Could not save generated text. Copy it before leaving this chapter.');
+                } finally {
+                    const { streamedText } = store.getState();
+                    store.setState({ streaming: false, streamComplete: Boolean(streamedText), lastGenerationResponse: streamedText });
+                }
+            },
+        };
+    }, [store, updateNodeSnapshot]);
 
     // ── Prompt config builder ──────────────────────────────────
 
@@ -174,11 +217,12 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
 
     const handleGenerateWithPrompt = useCallback(async () => {
         const source = store.getState();
-        const { selectedPrompt, selectedModel, sceneBeatId } = source;
+        const { selectedPrompt, selectedModel } = source;
         if (!selectedPrompt) {
             toast.error('Please select a prompt first');
             return;
         }
+        const recovery = createRecovery();
         try {
             store.setState({ streaming: true, streamedText: '', streamComplete: false });
             const config = createPromptConfig(selectedPrompt);
@@ -208,48 +252,27 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
 
             await processStreamedResponse(
                 response,
-                (token) => store.getState().appendStreamedText(token),
-                () => {
-                    // Save the response text for regeneration
-                    const responseText = store.getState().streamedText;
-                    store.setState({
-                        streamComplete: true,
-                        lastGenerationResponse: responseText,
-                    });
-                    updateNodeSnapshot({ generatedContent: responseText, accepted: false, generationMetadata: store.getState().generationMetadata });
-                },
+                recovery.append,
+                () => {},
                 (error) => {
                     console.error('Error streaming response:', error);
                     toast.error('Failed to generate text');
                 }
             );
 
-            // Save generated content to database
-            const finalSceneBeatId = store.getState().sceneBeatId || sceneBeatId;
-            if (finalSceneBeatId) {
-                try {
-                    await sceneBeatService.updateSceneBeat(finalSceneBeatId, {
-                        generatedContent: store.getState().streamedText,
-                        generationMetadata: store.getState().generationMetadata,
-                        accepted: false,
-                    });
-                } catch (error) {
-                    console.error('Error saving generated content:', error);
-                }
-            }
         } catch (error) {
             console.error('Error generating text:', error);
             toast.error(error instanceof Error ? error.message : 'Failed to generate text');
         } finally {
-            store.setState({ streaming: false });
+            await recovery.finish();
         }
-    }, [store, createPromptConfig, generateWithParsedMessages, processStreamedResponse, updateNodeSnapshot]);
+    }, [store, createPromptConfig, generateWithParsedMessages, processStreamedResponse, createRecovery]);
 
     // ── Regeneration ───────────────────────────────────────────
 
     const handleRegenerate = useCallback(async (customMessage: string) => {
         const source = store.getState();
-        const { lastGenerationMessages, lastGenerationResponse, selectedModel, selectedPrompt, sceneBeatId } = source;
+        const { lastGenerationMessages, lastGenerationResponse, selectedModel, selectedPrompt } = source;
         if (!lastGenerationMessages || !lastGenerationResponse) {
             toast.error('No previous generation to regenerate from');
             return;
@@ -258,6 +281,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             toast.error('No model/prompt selected');
             return;
         }
+        const recovery = createRecovery();
         try {
             store.setState({
                 streaming: true,
@@ -288,40 +312,21 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
 
             await processStreamedResponse(
                 response,
-                (token) => store.getState().appendStreamedText(token),
-                () => {
-                    const responseText = store.getState().streamedText;
-                    store.setState({
-                        streamComplete: true,
-                        lastGenerationResponse: responseText,
-                    });
-                    updateNodeSnapshot({ generatedContent: responseText, accepted: false, generationMetadata: store.getState().generationMetadata });
-                },
+                recovery.append,
+                () => {},
                 (error) => {
                     console.error('Error streaming regenerated response:', error);
                     toast.error('Failed to regenerate text');
                 }
             );
 
-            // Save regenerated content to database
-            if (sceneBeatId) {
-                try {
-                    await sceneBeatService.updateSceneBeat(sceneBeatId, {
-                        generatedContent: store.getState().streamedText,
-                        generationMetadata: store.getState().generationMetadata,
-                        accepted: false,
-                    });
-                } catch (error) {
-                    console.error('Error saving regenerated content:', error);
-                }
-            }
         } catch (error) {
             console.error('Error regenerating text:', error);
             toast.error('Failed to regenerate text');
         } finally {
-            store.setState({ streaming: false });
+            await recovery.finish();
         }
-    }, [store, generateWithParsedMessages, processStreamedResponse, updateNodeSnapshot]);
+    }, [store, generateWithParsedMessages, processStreamedResponse, createRecovery]);
 
     // ── Agentic generation ─────────────────────────────────────
 
@@ -336,6 +341,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
             return;
         }
 
+        const recovery = createRecovery();
         try {
             store.setState({
                 streaming: true,
@@ -399,7 +405,7 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                         agenticStepResults: [...prev.agenticStepResults, stepResult],
                     }));
                 },
-                onToken: (token) => store.getState().appendStreamedText(token),
+                onToken: recovery.append,
                 onComplete: (pipelineResult) => {
                     console.log('[Agentic] Pipeline complete:', pipelineResult);
                     const output = pipelineResult.displayOutput ||
@@ -414,22 +420,9 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
                     store.setState({
                         streamedText: output,
                         generationMetadata,
-                        streamComplete: true,
                         showAgenticProgress: false,
                     });
-                    updateNodeSnapshot({
-                        generatedContent: output,
-                        generationMetadata,
-                        accepted: false,
-                    });
-
-                    if (s.sceneBeatId) {
-                        sceneBeatService.updateSceneBeat(s.sceneBeatId, {
-                            generatedContent: output,
-                            generationMetadata,
-                            accepted: false,
-                        }).catch((err: unknown) => console.error('Error saving agentic content:', err));
-                    }
+                    recovery.save();
                 },
                 onError: (error) => {
                     console.error('[Agentic] Error:', error);
@@ -445,8 +438,11 @@ export function useSceneBeatGeneration(store: SceneBeatInstanceStoreApi) {
         } catch (error) {
             console.error('[Agentic] Error:', error);
             toast.error('Failed to run agentic generation');
+        } finally {
+            await recovery.finish();
+            store.setState({ showAgenticProgress: false });
         }
-    }, [store, editor, chapterMatchedEntries, agenticHook, updateNodeSnapshot]);
+    }, [store, editor, chapterMatchedEntries, agenticHook, createRecovery]);
 
     const handleAbortAgentic = useCallback(() => {
         agenticHook.abortGeneration();

@@ -24,8 +24,17 @@ export class AIService {
     private googleAI: GoogleGenAI | null = null;
     private abortController: AbortController | null = null;
     private initializePromise: Promise<void> | null = null;
+    private sessionStopped = false;
+    private isolatedSession = false;
 
     private constructor() { }
+
+    static async createSession(): Promise<AIService> {
+        const session = new AIService();
+        session.isolatedSession = true;
+        await session.initialize();
+        return session;
+    }
 
     static getInstance(): AIService {
         if (!AIService.instance) {
@@ -499,7 +508,7 @@ export class AIService {
         }
         this.applyReasoningConfig(requestBody, reasoning, { includeReasoningEffort: true });
 
-        this.abortController = new AbortController();
+        this.abortController = this.createAbortController();
 
         const localApiUrl = getLocalApiUrl(this.settings);
         return fetch(`${localApiUrl}/chat/completions`, {
@@ -779,7 +788,7 @@ export class AIService {
             includeReasoningEffort: true,
         });
 
-        this.abortController = new AbortController();
+        this.abortController = this.createAbortController();
 
         try {
             const stream = await this.openAI.chat.completions.create(body as any, { signal: this.abortController.signal }) as any;
@@ -871,7 +880,7 @@ export class AIService {
         if (tools?.length) { (body as any).tools = tools; }
         this.applyReasoningConfig(body as Record<string, any>, reasoning);
 
-        this.abortController = new AbortController();
+        this.abortController = this.createAbortController();
 
         try {
             const stream = await this.openRouter.chat.completions.create(body as any, { signal: this.abortController.signal }) as any;
@@ -961,7 +970,7 @@ export class AIService {
         if (tools?.length) { (body as any).tools = tools; }
         this.applyReasoningConfig(body as Record<string, any>, reasoning);
 
-        this.abortController = new AbortController();
+        this.abortController = this.createAbortController();
 
         try {
             const stream = await this.nanoGPT.chat.completions.create(body as any, { signal: this.abortController.signal }) as any;
@@ -1037,7 +1046,7 @@ export class AIService {
         if (tools?.length) { body.tools = tools; }
         this.applyReasoningConfig(body, reasoning, { includeReasoningEffort: true });
 
-        this.abortController = new AbortController();
+        this.abortController = this.createAbortController();
 
         try {
             const response = await fetch(endpoint, {
@@ -1109,7 +1118,7 @@ export class AIService {
         // Note: repetition_penalty and min_p are not supported by Google's API
         // They will be silently ignored
 
-        this.abortController = new AbortController();
+        this.abortController = this.createAbortController();
         const signal = this.abortController.signal;
 
         try {
@@ -1342,11 +1351,18 @@ export class AIService {
     }
 
     abortStream(): void {
+        if (this.isolatedSession) this.sessionStopped = true;
         if (this.abortController) {
             console.log('[AIService] Aborting stream');
             this.abortController.abort();
             this.abortController = null;
         }
+    }
+
+    private createAbortController(): AbortController {
+        const controller = new AbortController();
+        if (this.isolatedSession && this.sessionStopped) controller.abort();
+        return controller;
     }
 }
 

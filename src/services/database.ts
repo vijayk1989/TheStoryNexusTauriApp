@@ -11,6 +11,7 @@ import {
     Template,
     SceneBeat,
     Draft,
+    PromptDraft,
     Note,
     AgentPreset,
     PipelinePreset,
@@ -35,6 +36,7 @@ export class StoryDatabase extends Dexie {
     pipelinePresets!: Table<PipelinePreset>;
     pipelineExecutions!: Table<PipelineExecution>;
     drafts!: Table<Draft>;
+    promptDrafts!: Table<PromptDraft>;
     mediaAssets!: Table<MediaAsset>;
     mediaBlobs!: Table<MediaBlob>;
     imageGenerations!: Table<ImageGenerationRecord>;
@@ -155,6 +157,10 @@ export class StoryDatabase extends Dexie {
             mediaBlobs: 'assetId, createdAt',
             imageGenerations: 'id, storyId, chapterId, provider, mode, status, createdAt',
             timelineEvents: 'id, storyId, chapterId, chapterOrder, eventOrder, createdAt',
+        });
+
+        this.version(20).stores({
+            promptDrafts: 'id, storyId, source, createdAt, updatedAt',
         });
 
         this.on('populate', async () => {
@@ -299,7 +305,7 @@ export class StoryDatabase extends Dexie {
      */
     async deleteStoryWithRelated(storyId: string): Promise<void> {
         return await this.transaction('rw',
-            [this.stories, this.chapters, this.lorebookEntries, this.aiChats, this.sceneBeats, this.drafts, this.mediaAssets, this.mediaBlobs, this.imageGenerations, this.timelineEvents],
+            [this.stories, this.chapters, this.lorebookEntries, this.aiChats, this.sceneBeats, this.drafts, this.promptDrafts, this.mediaAssets, this.mediaBlobs, this.imageGenerations, this.timelineEvents],
             async () => {
                 // Delete all related chapters
                 await this.chapters
@@ -326,6 +332,7 @@ export class StoryDatabase extends Dexie {
                     .delete();
 
                 // Delete all related Drafts
+                await this.promptDrafts.where('storyId').equals(storyId).delete();
                 await this.drafts
                     .where('storyId')
                     .equals(storyId)

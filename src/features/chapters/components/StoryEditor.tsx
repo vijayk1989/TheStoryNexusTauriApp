@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { BookOpen, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot, ImageIcon, Wrench, Palette, Pencil } from "lucide-react";
+import { BookOpen, Maximize, Minimize, User, StickyNote, MoreVertical, FileText, Settings, HelpCircle, ScrollText, Book, Settings2, Clock, MessageSquarePlus, Bot, ImageIcon, Wrench, Palette, Pencil, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MainLexicalEditor } from "@/components/editor/mainLexicalEditor";
 import { ChapterOutline } from "./ChapterOutline";
@@ -14,6 +14,7 @@ import { PromptsManager } from "@/features/prompts/components/PromptsManager";
 import { PromptDefaultsPanel } from "@/features/prompts/components/PromptDefaultsPanel";
 import { SimpleWriteSettingsPanel } from "@/features/prompts/components/SimpleWriteSettingsPanel";
 import { BrainstormPanel } from "@/features/brainstorm/components/BrainstormPanel";
+import { useBrainstormTaskStore } from '@/features/brainstorm/stores/useBrainstormTaskStore';
 import { LorebookPanel } from "@/features/lorebook/components/LorebookPanel";
 import { TimelinePanel } from "@/features/timeline/components/TimelinePanel";
 import { AgentsManager } from "@/features/agents/components/AgentsManager";
@@ -64,6 +65,7 @@ function ToolSectionLabel({ children }: { children: string }) {
 }
 
 export function StoryEditor({ onSiteDataChanged, onOpenStartupWizard }: StoryEditorProps) {
+    const hasBackgroundBrainstorm = useBrainstormTaskStore(state => Object.values(state.tasks).some(task => task.status === 'running'));
     const [openPanel, setOpenPanel] = useState<ToolPanelType>(null);
     const [isMaximized, setIsMaximized] = useState(false);
     const [isBrainstormExpanded, setIsBrainstormExpanded] = useState(false);
@@ -262,6 +264,7 @@ export function StoryEditor({ onSiteDataChanged, onOpenStartupWizard }: StoryEdi
             >
                 <MessageSquarePlus className="h-4 w-4 mr-2 shrink-0" />
                 <span className="truncate">Brainstorm</span>
+                {hasBackgroundBrainstorm && <Loader2 aria-hidden="true" className="ml-auto h-3 w-3 animate-spin" />}
             </Button>
 
             <Button
@@ -421,6 +424,7 @@ export function StoryEditor({ onSiteDataChanged, onOpenStartupWizard }: StoryEdi
                         <DropdownMenuItem onClick={() => handleOpenPanel("brainstorm")}>
                             <MessageSquarePlus className="h-4 w-4 mr-2" />
                             Brainstorm
+                            {hasBackgroundBrainstorm && <Loader2 aria-hidden="true" className="ml-auto h-3 w-3 animate-spin" />}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleOpenPanel("simpleWriteSettings")}>
                             <Pencil className="h-4 w-4 mr-2" />

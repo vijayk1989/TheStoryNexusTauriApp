@@ -1,4 +1,5 @@
 import { db } from "@/services/database";
+import { flushBrainstormInputs } from '@/features/brainstorm/services/brainstormInputPersistence';
 import { exportChatImages, importChatImages, remapChatImages, type ChatImageBackup } from '@/features/brainstorm/services/chatImageBackup';
 import { clearLastEditorTarget } from "@/features/editor/utils/lastEditorTarget";
 import { normalizeLorebookEntry } from "@/features/lorebook/utils/lorebookEntryNormalization";
@@ -8,6 +9,7 @@ import type {
     AIChat,
     Chapter,
     Draft,
+    PromptDraft,
     LorebookEntry,
     Note,
     PipelineExecution,
@@ -30,6 +32,7 @@ interface SiteBackupData {
     timelineEvents: TimelineEvent[];
     sceneBeats: SceneBeat[];
     drafts: Draft[];
+    promptDrafts?: PromptDraft[];
     aiChats: AIChat[];
     notes: Note[];
     prompts: Prompt[];
@@ -53,6 +56,7 @@ export interface SiteBackupSummary {
     timelineEvents: number;
     sceneBeats: number;
     drafts: number;
+    promptDrafts: number;
     aiChats: number;
     notes: number;
     prompts: number;
@@ -68,6 +72,7 @@ export interface SiteBackupImportResult extends SiteBackupSummary {
 }
 
 export async function createSiteBackupPayload(): Promise<{ backup: SiteBackupFile; summary: SiteBackupSummary }> {
+    await flushBrainstormInputs();
     const data: SiteBackupData = {
         stories: await db.stories.toArray(),
         chapters: await db.chapters.toArray(),
@@ -75,6 +80,7 @@ export async function createSiteBackupPayload(): Promise<{ backup: SiteBackupFil
         timelineEvents: await db.timelineEvents.toArray(),
         sceneBeats: await db.sceneBeats.toArray(),
         drafts: await db.drafts.toArray(),
+        promptDrafts: await db.promptDrafts.toArray(),
         aiChats: await db.aiChats.toArray(),
         notes: await db.notes.toArray(),
         prompts: (await db.prompts.toArray()).filter((prompt) => !prompt.isSystem),
@@ -252,6 +258,17 @@ export const siteBackupService = {
             })
             .filter((draft): draft is Draft => draft !== null);
 
+        const promptDrafts = (sourceData.promptDrafts || []).flatMap((draft): PromptDraft[] => {
+            const storyId = storyIdMap.get(draft.storyId);
+            if (!storyId || !['scene_beat', 'brainstorm'].includes(draft.source) || typeof draft.content !== 'string') return [];
+            return [{
+                ...draft, id: crypto.randomUUID(), storyId,
+                chapterId: draft.chapterId ? chapterIdMap.get(draft.chapterId) : undefined,
+                promptId: draft.promptId ? promptIdMap.get(draft.promptId) || draft.promptId : undefined,
+                createdAt: reviveDate(draft.createdAt), updatedAt: reviveDate(draft.updatedAt),
+            }];
+        });
+
         const chatImages = importChatImages(sourceData.chatImages || [], storyIdMap);
         const aiChats = (sourceData.aiChats || [])
             .map((chat): AIChat | null => {
@@ -370,6 +387,7 @@ export const siteBackupService = {
                 db.timelineEvents,
                 db.sceneBeats,
                 db.drafts,
+                db.promptDrafts,
                 db.aiChats,
                 db.notes,
                 db.prompts,
@@ -387,6 +405,7 @@ export const siteBackupService = {
                 await db.timelineEvents.bulkAdd(timelineEvents);
                 await db.sceneBeats.bulkAdd(sceneBeats);
                 await db.drafts.bulkAdd(drafts);
+                await db.promptDrafts.bulkAdd(promptDrafts);
                 await db.aiChats.bulkAdd(aiChats);
                 await db.notes.bulkAdd(notes);
                 await db.prompts.bulkAdd(prompts);
@@ -404,6 +423,7 @@ export const siteBackupService = {
             timelineEvents: timelineEvents.length,
             sceneBeats: sceneBeats.length,
             drafts: drafts.length,
+            promptDrafts: promptDrafts.length,
             aiChats: aiChats.length,
             notes: notes.length,
             prompts: prompts.length,
@@ -426,6 +446,7 @@ export const siteBackupService = {
                 db.timelineEvents,
                 db.sceneBeats,
                 db.drafts,
+                db.promptDrafts,
                 db.aiChats,
                 db.notes,
                 db.prompts,
@@ -444,6 +465,7 @@ export const siteBackupService = {
                 await db.timelineEvents.clear();
                 await db.sceneBeats.clear();
                 await db.drafts.clear();
+                await db.promptDrafts.clear();
                 await db.aiChats.clear();
                 await db.notes.clear();
                 await db.pipelineExecutions.clear();
@@ -484,6 +506,7 @@ function parseBackup(jsonData: string): SiteBackupFile {
             timelineEvents: parsed.data.timelineEvents || [],
             sceneBeats: parsed.data.sceneBeats || [],
             drafts: parsed.data.drafts || [],
+            promptDrafts: parsed.data.promptDrafts || [],
             aiChats: parsed.data.aiChats || [],
             notes: parsed.data.notes || [],
             prompts: parsed.data.prompts || [],
@@ -503,6 +526,7 @@ function summarize(data: SiteBackupData, skippedImages: number): SiteBackupSumma
         timelineEvents: data.timelineEvents.length,
         sceneBeats: data.sceneBeats.length,
         drafts: data.drafts.length,
+        promptDrafts: data.promptDrafts?.length || 0,
         aiChats: data.aiChats.length,
         notes: data.notes.length,
         prompts: data.prompts.filter((prompt) => !prompt.isSystem).length,
